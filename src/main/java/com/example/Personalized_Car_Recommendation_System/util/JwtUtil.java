@@ -3,9 +3,11 @@ package com.example.Personalized_Car_Recommendation_System.util;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import java.util.Date;
+import io.jsonwebtoken.security.Keys;
 
+import java.security.Key;
 public class JwtUtil {
-    private static final String SECRET_KEY = "YourSecretKey";
+    private static final Key SECRET_KEY = Keys.secretKeyFor(SignatureAlgorithm.HS512);
     private static final long EXPIRATION_TIME = 86400000; // 1天
 
     public static String generateToken(String username) {

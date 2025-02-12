@@ -14,11 +14,18 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private UserRepository userRepository;
 
-    private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Override
     public User register(User user) {
+        // 检查用户名是否已存在
+        if (userRepository.findByUsername(user.getUsername()) != null) {
+            throw new RuntimeException("用户名已存在");
+        }
+
+        // 加密密码后存储
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+
         return userRepository.save(user);
     }
 

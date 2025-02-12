@@ -10,8 +10,8 @@ public class Car {
     private Integer id;
     private String brand;
     private Double price;
-    @Column(name = "fuel_type")
-    private String fuelType;
+
+    private String score;
     @Column(name = "image_url")
     private String imageUrl;
     // getter 和 setter
@@ -21,8 +21,8 @@ public class Car {
     public void setBrand(String brand){ this.brand = brand; }
     public Double getPrice(){ return price; }
     public void setPrice(Double price){ this.price = price; }
-    public String getFuelType(){ return fuelType; }
-    public void setFuelType(String fuelType){ this.fuelType = fuelType; }
+    public String getScore(){ return score; }
+    public void setScore(String score){ this.score = score; }
     public String getImageUrl(){ return imageUrl; }
     public void setImageUrl(String imageUrl){ this.imageUrl = imageUrl; }
 }

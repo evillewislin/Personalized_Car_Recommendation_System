@@ -53,7 +53,8 @@
 <script>
 import { defineComponent, reactive } from 'vue';
 import axios from 'axios';
-import { useUserStore } from '../store';
+import { useUserStore } from '@/store';
+import router from "@/router";
 
 export default defineComponent({
   name: 'Login',
@@ -72,6 +73,7 @@ export default defineComponent({
           userStore.setToken(response.data);
           userStore.setUsername(loginForm.username);
           alert('登录成功');
+          await router.push('/')
         } else {
           alert('用户名或密码错误');
         }
@@ -110,7 +112,11 @@ export default defineComponent({
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
-
+.custom-input :deep(.el-input__wrapper) {
+  /* 添加你的自定义样式 */
+  padding: 0; /* 例如，设置输入框的内边距 */
+  border-radius: 4px; /* 例如，设置输入框的边框圆角 */
+}
 .login-form {
   margin: 0 auto;
 }
@@ -120,10 +126,10 @@ export default defineComponent({
 }
 
 .custom-input :deep(.el-input__inner) {
-  height: 43px;
+  height: 45px;
   border-radius: 0;
   border: 2px solid #e0e0e0;
-  padding: 1px 1px;
+  padding: 10px;
   transition: border-color 0.3s;
 }
 
