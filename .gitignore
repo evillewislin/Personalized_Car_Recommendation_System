@@ -31,3 +31,4 @@ build/
 
 ### VS Code ###
 .vscode/
+/car-recommendation-frontend/node_modules
