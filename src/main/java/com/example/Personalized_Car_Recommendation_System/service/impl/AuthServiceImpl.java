@@ -1,6 +1,8 @@
 package com.example.Personalized_Car_Recommendation_System.service.impl;
 
 import com.example.Personalized_Car_Recommendation_System.entity.User;
+import com.example.Personalized_Car_Recommendation_System.entity.Admin;
+import com.example.Personalized_Car_Recommendation_System.repository.AdminRepository;
 import com.example.Personalized_Car_Recommendation_System.repository.UserRepository;
 import com.example.Personalized_Car_Recommendation_System.service.AuthService;
 import com.example.Personalized_Car_Recommendation_System.util.JwtUtil;
@@ -13,6 +15,8 @@ public class AuthServiceImpl implements AuthService {
 
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private AdminRepository adminRepository;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -34,6 +38,15 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByUsername(username);
         if (user != null && passwordEncoder.matches(password, user.getPassword())) {
             return JwtUtil.generateToken(username);
+        }
+        return null;
+    }
+
+    @Override
+    public String adminlogin(String adminname, String password) {
+        Admin admin = adminRepository.findByAdminname(adminname);
+        if (admin != null && passwordEncoder.matches(password, admin.getPassword())) {
+            return JwtUtil.generateToken(adminname);
         }
         return null;
     }

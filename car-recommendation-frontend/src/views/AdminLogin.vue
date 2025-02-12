@@ -1,38 +1,28 @@
 <template>
   <div class="login-container">
-    <!-- 注册标题 -->
-    <h1 class="login-title">欢迎注册汽车推荐系统</h1>
+    <!-- 登录标题 -->
+    <h1 class="login-title">欢迎登录汽车管理后台</h1>
 
-    <!-- 注册表单 -->
+    <!-- 登录表单 -->
     <div class="form-wrapper">
       <el-form
-          :model="registerForm"
+          :model="loginForm"
           label-position="top"
           class="login-form"
       >
-        <el-form-item label="用户名">
+        <el-form-item label="管理员名">
           <el-input
-              v-model="registerForm.username"
-              placeholder="请输入用户名"
+              v-model="loginForm.adminname"
+              placeholder="请输入管理员名"
               class="custom-input"
           ></el-input>
         </el-form-item>
 
         <el-form-item label="密码">
           <el-input
-              v-model="registerForm.password"
+              v-model="loginForm.password"
               type="password"
               placeholder="请输入密码"
-              class="custom-input"
-              show-password
-          ></el-input>
-        </el-form-item>
-
-        <el-form-item label="确认密码">
-          <el-input
-              v-model="registerForm.confirmPassword"
-              type="password"
-              placeholder="请再次输入密码"
               class="custom-input"
               show-password
           ></el-input>
@@ -41,20 +31,13 @@
         <el-form-item>
           <el-button
               type="primary"
-              @click="handleRegister"
+              @click="handleLogin"
               class="login-btn"
           >
-            立即注册
+            立即登录
           </el-button>
         </el-form-item>
 
-        <!-- 登录提示 -->
-        <div class="register-tip">
-          已有账号？请点击
-          <router-link to="/login" class="register-link">
-            登录
-          </router-link>
-        </div>
       </el-form>
     </div>
   </div>
@@ -63,44 +46,41 @@
 <script>
 import { defineComponent, reactive } from 'vue';
 import axios from 'axios';
+import {useAdminStore} from '@/store';
 import router from "@/router";
 
 export default defineComponent({
-  name: 'Register',
+  name: 'AdminLogin',
   setup() {
-    const registerForm = reactive({
-      username: '',
-      password: '',
-      confirmPassword: ''
+    // 保持原有逻辑不变
+    const loginForm = reactive({
+      adminname: '',
+      password: ''
     });
+    const adminStore = useAdminStore();
 
-    const handleRegister = async () => {
-      if (registerForm.password !== registerForm.confirmPassword) {
-        alert('密码和确认密码不匹配');
-        return;
-      }
+    const handleLogin = async () => {
       try {
-        const response = await axios.post('/api/auth/register', {
-          username: registerForm.username,
-          password: registerForm.password,
-          confirmPassword:registerForm.confirmPassword
-        });
+        const response = await axios.post('/api/auth/adminlogin', loginForm);
         if (response.data) {
-          alert('注册成功，请登录');
-          await router.push('/login');
+          adminStore.setToken(response.data);
+          adminStore.setAdminname(loginForm.adminname);
+          alert('登录成功');
+          await router.push('/admin')
+        } else {
+          alert('管理员名或密码错误');
         }
       } catch (error) {
         console.error(error);
       }
     };
 
-    return { registerForm, handleRegister };
+    return { loginForm, handleLogin };
   }
 });
 </script>
 
 <style scoped>
-/* 复用登录页面的样式 */
 .login-container {
   min-height: 100vh;
   display: flex;
@@ -125,12 +105,11 @@ export default defineComponent({
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
-
 .custom-input :deep(.el-input__wrapper) {
-  padding: 0;
-  border-radius: 4px;
+  /* 添加你的自定义样式 */
+  padding: 0; /* 例如，设置输入框的内边距 */
+  border-radius: 4px; /* 例如，设置输入框的边框圆角 */
 }
-
 .login-form {
   margin: 0 auto;
 }

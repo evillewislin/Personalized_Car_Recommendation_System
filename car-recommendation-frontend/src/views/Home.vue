@@ -12,12 +12,17 @@
             <button>登录</button>
           </router-link>
         </template>
+        <template v-if="!isAuthenticated">
+          <router-link to="/adminlogin">
+            <button>管理员登录</button>
+          </router-link>
+        </template>
         <template v-else>
           <span class="welcome-text">欢迎，{{ username }}</span>
           <router-link v-if="userRole === 'admin'" to="/admin">
             <button>管理员后台</button>
           </router-link>
-          <router-link v-else to="/user">
+          <router-link v-if="userRole === 'user'" to="/user">
             <button>用户中心</button>
           </router-link>
           <button @click="handleLogout">退出</button>
@@ -57,7 +62,7 @@ export default defineComponent({
     // 计算属性，从 userStore 获取用户信息
     const isAuthenticated = computed(() => !!userStore.token);
     const username = computed(() => userStore.username);
-    const userRole = computed(() => userStore.role || 'user');
+    const userRole = computed(() => userStore.role);
 
     const searchQuery = ref('');
 
@@ -67,7 +72,8 @@ export default defineComponent({
 
     const handleLogout = () => {
       userStore.logout();  // 清除登录状态
-      router.push('/login');  // 跳转回登录页
+      alert('用户已退出');
+      router.push('/');  // 跳转回登录页
     };
 
     return {

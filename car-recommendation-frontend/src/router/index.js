@@ -5,10 +5,12 @@ import Register from '../views/Register.vue';
 import UserCenter from '../views/UserCenter.vue';
 import AdminDashboard from '../views/AdminDashboard.vue';
 import Recommendations from "@/views/Recommendations.vue";
+import AdminLogin from "@/views/AdminLogin.vue";
 
 const routes = [
     { path: '/', name: 'Home', component: Home },
     { path: '/login', name: 'Login', component: Login },
+    { path: '/adminlogin', name: 'AdminLogin', component: AdminLogin },
     { path: '/register', name: 'Register', component: Register },
     { path: '/user', name: 'UserCenter', component: UserCenter },
     { path: '/admin', name: 'AdminDashboard', component: AdminDashboard },

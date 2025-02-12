@@ -54,4 +54,16 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("用户名或密码错误");
         }
     }
+
+    @PostMapping("/adminlogin")
+    public ResponseEntity<?> adminlogin(@RequestBody Map<String, String> adminloginData) {
+        String adminname = adminloginData.get("adminname");
+        String password = adminloginData.get("password");
+        String token = authService.adminlogin(adminname, password);
+        if (token != null) {
+            return ResponseEntity.ok(Map.of("token", token));
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("管理员名或密码错误");
+        }
+    }
 }
