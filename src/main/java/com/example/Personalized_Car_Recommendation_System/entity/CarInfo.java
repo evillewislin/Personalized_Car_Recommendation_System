@@ -7,7 +7,7 @@ import jakarta.persistence.*;
 public class CarInfo {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "car_id")
+    @Column(name = "id")
     private Integer id;
 
     @Column(name = "brand_id")

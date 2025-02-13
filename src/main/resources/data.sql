@@ -1,3 +1,3 @@
 CREATE TABLE user ( user_id INT PRIMARY KEY AUTO_INCREMENT, username VARCHAR(50) UNIQUE, password VARCHAR(100),role varchar(25));
 CREATE TABLE admin( admin_id INT PRIMARY KEY AUTO_INCREMENT, adminname VARCHAR(50) UNIQUE, password VARCHAR(100),role varchar(25));
-CREATE TABLE recommendation_history ( id INT PRIMARY KEY AUTO_INCREMENT, user_id INT, car_id INT, score FLOAT, timestamp DATETIME, FOREIGN KEY (user_id) REFERENCES user(user_id), FOREIGN KEY (car_id) REFERENCES car_info(car_id) );
+CREATE TABLE recommendation_history ( id INT PRIMARY KEY AUTO_INCREMENT, user_id INT, car_id INT, score FLOAT, timestamp DATETIME);
