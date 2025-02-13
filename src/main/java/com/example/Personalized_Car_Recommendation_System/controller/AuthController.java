@@ -56,7 +56,8 @@ public class AuthController {
     }
 
     @PostMapping("/adminlogin")
-    public ResponseEntity<?> adminlogin(@RequestBody Map<String, String> adminloginData) {
+    public ResponseEntity<?> adminlogin(
+            @RequestBody Map<String, String> adminloginData) {
         String adminname = adminloginData.get("adminname");
         String password = adminloginData.get("password");
         String token = authService.adminlogin(adminname, password);

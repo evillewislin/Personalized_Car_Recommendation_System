@@ -1,6 +1,6 @@
 package com.example.Personalized_Car_Recommendation_System.controller;
 
-import com.example.Personalized_Car_Recommendation_System.entity.Car;
+import com.example.Personalized_Car_Recommendation_System.entity.CarBrand;
 import com.example.Personalized_Car_Recommendation_System.service.CarService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -17,15 +17,15 @@ public class CarController {
 
     // 获取所有车型
     @GetMapping
-    public ResponseEntity<List<Car>> getAllCars() {
-        List<Car> cars = carService.getAllCars();
+    public ResponseEntity<List<CarBrand>> getAllCars() {
+        List<CarBrand> cars = carService.getAllCars();
         return ResponseEntity.ok(cars);
     }
 
     // 根据ID获取单个车型信息
     @GetMapping("/{id}")
-    public ResponseEntity<Car> getCarById(@PathVariable Integer id) {
-        Car car = carService.getCarById(id);
+    public ResponseEntity<CarBrand> getCarById(@PathVariable Integer id) {
+        CarBrand car = carService.getCarById(id);
         if (car != null) {
             return ResponseEntity.ok(car);
         }
@@ -34,8 +34,8 @@ public class CarController {
 
     // 新增或更新车型
     @PostMapping
-    public ResponseEntity<Car> saveCar(@RequestBody Car car) {
-        Car savedCar = carService.saveCar(car);
+    public ResponseEntity<CarBrand> saveCar(@RequestBody CarBrand car) {
+        CarBrand savedCar = carService.saveCar(car);
         return ResponseEntity.ok(savedCar);
     }
 

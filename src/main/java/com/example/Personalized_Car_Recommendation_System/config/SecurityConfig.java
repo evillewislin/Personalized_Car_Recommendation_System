@@ -12,7 +12,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())  // 关闭 CSRF 保护
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/user/**","/api/auth/**","api/auth/adminlogin").permitAll()
+                        .requestMatchers("/api/user/**","/api/auth/**","/ai/recommend").permitAll()
                         .anyRequest().authenticated() // 其他所有请求都需要认证
                 );
 

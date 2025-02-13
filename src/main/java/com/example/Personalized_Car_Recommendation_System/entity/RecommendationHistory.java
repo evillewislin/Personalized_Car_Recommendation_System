@@ -20,11 +20,12 @@ public class RecommendationHistory {
     public Integer getId(){ return id; }
     public void setId(Integer id){ this.id = id; }
     public Integer getUserId(){ return userId; }
-    public void setUserId(Integer userId){ this.userId = userId; }
+    public void setUserId(Integer user_Id){ this.userId = user_Id; }
     public Integer getCarId(){ return carId; }
     public void setCarId(Integer carId){ this.carId = carId; }
     public Float getScore(){ return score; }
     public void setScore(Float score){ this.score = score; }
     public Date getTimestamp(){ return timestamp; }
     public void setTimestamp(Date timestamp){ this.timestamp = timestamp; }
+
 }
