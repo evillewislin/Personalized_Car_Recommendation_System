@@ -1,5 +1,6 @@
 package com.example.Personalized_Car_Recommendation_System.controller;
 
+import com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.entity.CarBrand;
 import com.example.Personalized_Car_Recommendation_System.service.CarService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,31 +17,26 @@ public class CarController {
     private CarService carService;
 
     // 获取所有车型
-    @GetMapping
-    public ResponseEntity<List<CarBrand>> getAllCars() {
-        List<CarBrand> cars = carService.getAllCars();
+    @GetMapping("/search")
+    public ResponseEntity<List<CarDetailsDto>> getAllCars(@RequestHeader(value = "Authorization", required = false) String token) {
+        System.out.println("GET /api/cars/search request received");
+        if (token != null) {
+            System.out.println("Received token: " + token);  // 打印接收到的 token，进行调试
+        }
+        List<CarDetailsDto> cars = carService.getAllCarDetails();
         return ResponseEntity.ok(cars);
     }
 
-    // 根据ID获取单个车型信息
-    @GetMapping("/{id}")
-    public ResponseEntity<CarBrand> getCarById(@PathVariable Integer id) {
-        CarBrand car = carService.getCarById(id);
-        if (car != null) {
-            return ResponseEntity.ok(car);
-        }
-        return ResponseEntity.notFound().build();
-    }
 
     // 新增或更新车型
-    @PostMapping
+    @PostMapping("/add")
     public ResponseEntity<CarBrand> saveCar(@RequestBody CarBrand car) {
         CarBrand savedCar = carService.saveCar(car);
         return ResponseEntity.ok(savedCar);
     }
 
     // 根据ID删除车型
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/delete/{id}")
     public ResponseEntity<Void> deleteCar(@PathVariable Integer id) {
         carService.deleteCar(id);
         return ResponseEntity.ok().build();

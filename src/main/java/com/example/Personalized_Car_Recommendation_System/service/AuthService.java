@@ -4,6 +4,10 @@ import com.example.Personalized_Car_Recommendation_System.entity.User;
 
 public interface AuthService {
     User register(User user);
-    String login(String username, String password);
+
+
+    String login(String password, String username);
+
+
     String adminlogin(String adminname, String password);
 }

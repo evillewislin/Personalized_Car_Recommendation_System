@@ -1,5 +1,6 @@
 package com.example.Personalized_Car_Recommendation_System.controller;
 
+import ch.qos.logback.core.net.SyslogOutputStream;
 import com.example.Personalized_Car_Recommendation_System.entity.User;
 import com.example.Personalized_Car_Recommendation_System.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,9 +46,11 @@ public class AuthController {
     // 用户登录接口：传入 username 与 password，返回 JWT token
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> loginData) {
+        System.out.println("aaaaa");
         String username = loginData.get("username");
         String password = loginData.get("password");
         String token = authService.login(username, password);
+        System.out.println("aaaaa"+token);
         if (token != null) {
             return ResponseEntity.ok(Map.of("token", token));
         } else {

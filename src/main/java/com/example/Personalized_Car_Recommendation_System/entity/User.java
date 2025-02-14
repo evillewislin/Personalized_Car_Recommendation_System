@@ -8,7 +8,7 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
-    private Integer id;
+    private Integer userid;
 
     @Column(unique = true, nullable = false,name = "username")
     private String username;
@@ -20,8 +20,8 @@ public class User {
     private String role;
 
     // getter 和 setter
-    public Integer getId() { return id; }
-    public void setId(Integer id) { this.id = id; }
+    public Integer getId() { return userid; }
+    public void setId(Integer userid) { this.userid = userid; }
 
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }

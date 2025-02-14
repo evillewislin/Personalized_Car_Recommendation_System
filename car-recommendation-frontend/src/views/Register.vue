@@ -64,6 +64,7 @@
 import { defineComponent, reactive } from 'vue';
 import axios from 'axios';
 import router from "@/router";
+import {ElMessage} from "element-plus";
 
 export default defineComponent({
   name: 'Register',
@@ -76,7 +77,7 @@ export default defineComponent({
 
     const handleRegister = async () => {
       if (registerForm.password !== registerForm.confirmPassword) {
-        alert('密码和确认密码不匹配');
+        ElMessage.error('密码和确认密码不匹配');
         return;
       }
       try {
@@ -86,11 +87,11 @@ export default defineComponent({
           confirmPassword:registerForm.confirmPassword
         });
         if (response.data) {
-          alert('注册成功，请登录');
+          ElMessage.success('注册成功，请登录');
           await router.push('/login');
         }
       } catch (error) {
-        console.error(error);
+        ElMessage.error('用户已存在');
       }
     };
 

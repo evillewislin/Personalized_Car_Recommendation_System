@@ -4,6 +4,9 @@
     <h1 class="login-title">欢迎登录汽车管理后台</h1>
 
     <!-- 登录表单 -->
+    <router-link to="/" class="register-link">
+      返回
+    </router-link>
     <div class="form-wrapper">
       <el-form
           :model="loginForm"
@@ -48,6 +51,7 @@ import { defineComponent, reactive } from 'vue';
 import axios from 'axios';
 import {useAdminStore} from '@/store';
 import router from "@/router";
+import {ElMessage} from "element-plus";
 
 export default defineComponent({
   name: 'AdminLogin',
@@ -58,20 +62,25 @@ export default defineComponent({
       password: ''
     });
     const adminStore = useAdminStore();
-
+    const loading = ref(false);
     const handleLogin = async () => {
+      loading.value = true;
       try {
         const response = await axios.post('/api/auth/adminlogin', loginForm);
         if (response.data) {
-          adminStore.setToken(response.data);
+          const token = response.data.token;
+          adminStore.setToken(token);
+          axios.defaults.headers['Authorization'] = `Bearer ${token}`;
           adminStore.setAdminname(loginForm.adminname);
-          alert('登录成功');
+          ElMessage.success('登录成功');
           await router.push('/admin')
         } else {
-          alert('管理员名或密码错误');
+          ElMessage.error('管理员名或密码错误');
         }
       } catch (error) {
         console.error(error);
+      }finally {
+        loading.value = false;
       }
     };
 

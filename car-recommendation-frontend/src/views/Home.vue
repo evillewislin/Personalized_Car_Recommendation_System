@@ -51,6 +51,7 @@ import { defineComponent, ref, computed } from 'vue';
 import { useUserStore } from '@/store';
 import { useRouter } from 'vue-router';
 import CarList from '../components/CarList.vue';
+import {ElMessage} from "element-plus";
 
 export default defineComponent({
   name: 'Home',
@@ -72,7 +73,7 @@ export default defineComponent({
 
     const handleLogout = () => {
       userStore.logout();  // 清除登录状态
-      alert('用户已退出');
+      ElMessage.info('用户已退出');
       router.push('/');  // 跳转回登录页
     };
 

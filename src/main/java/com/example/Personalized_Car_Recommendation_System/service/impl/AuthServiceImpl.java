@@ -34,19 +34,22 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public String login(String username, String password) {
+    public String login(String username, String password) { // 移除 userid 参数
         User user = userRepository.findByUsername(username);
         if (user != null && passwordEncoder.matches(password, user.getPassword())) {
-            return JwtUtil.generateToken(username);
+            // 使用数据库中的用户 ID 生成 Token
+            return JwtUtil.generateToken(Long.valueOf(user.getId()));
         }
         return null;
     }
+
 
     @Override
     public String adminlogin(String adminname, String password) {
         Admin admin = adminRepository.findByAdminname(adminname);
         if (admin != null && passwordEncoder.matches(password, admin.getPassword())) {
-            return JwtUtil.generateToken(adminname);
+            // 传递 admin_id 生成 JWT Token
+            return JwtUtil.generateToken(Long.valueOf(admin.getId()));
         }
         return null;
     }

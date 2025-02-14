@@ -51,10 +51,11 @@
 </template>
 
 <script>
-import { defineComponent, reactive } from 'vue';
+import {defineComponent, reactive, ref} from 'vue';
 import axios from 'axios';
 import { useUserStore } from '@/store';
 import router from "@/router";
+import {ElMessage} from "element-plus";
 
 export default defineComponent({
   name: 'Login',
@@ -65,20 +66,26 @@ export default defineComponent({
       password: ''
     });
     const userStore = useUserStore();
+    const loading = ref(false);
 
     const handleLogin = async () => {
+      loading.value = true;
       try {
         const response = await axios.post('/api/auth/login', loginForm);
         if (response.data) {
-          userStore.setToken(response.data);
+          const token = response.data.token;
+          userStore.setToken(token); // 保存 token 到 Pinia store
+          axios.defaults.headers['Authorization'] = `Bearer ${token}`; // 设置全局 Authorization 头部
           userStore.setUsername(loginForm.username);
-          alert('登录成功');
+          ElMessage.success('登录成功');
           await router.push('/')
         } else {
-          alert('用户名或密码错误');
+          ElMessage.error('用户名或密码错误');
         }
       } catch (error) {
-        console.error(error);
+        ElMessage.error('用户名或密码错误');
+      } finally {
+        loading.value = false;
       }
     };
 
@@ -159,7 +166,6 @@ export default defineComponent({
 
 .register-link {
   color: #4CAF50;
-  text-decoration: none;
   margin-left: 0.5rem;
   font-weight: 500;
   transition: color 0.3s;

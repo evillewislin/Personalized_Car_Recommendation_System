@@ -55,7 +55,6 @@ export const useAdminStore = defineStore('admin', {
             this.role = 'user';
             localStorage.removeItem('token');
             localStorage.removeItem('adminname');
-            localStorage.removeItem('role');
         }
     }
 });
