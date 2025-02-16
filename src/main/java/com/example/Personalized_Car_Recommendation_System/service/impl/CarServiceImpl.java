@@ -11,7 +11,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 @Service // 标记为Spring的Service组件
 public class CarServiceImpl implements CarService {
 
@@ -23,31 +27,22 @@ public class CarServiceImpl implements CarService {
 
 
     @Override
-    public List<CarDetailsDto> getAllCarDetails() {
-        // 查询所有品牌信息
-        List<CarBrand> carBrands = carBrandRepository.findAll();
+    public Page<CarDetailsDto> getAllCarDetails(Pageable pageable) {
+        // 使用联表查询并分页
+        Page<Object[]> results = carInfoRepository.findCarDetailsWithBrand(pageable);
 
-        // 将品牌信息与车型信息组合成DTO列表
-        List<CarDetailsDto> carDetailsDtos = new ArrayList<>();
+        // 将结果转换为CarDetailsDto列表
+        List<CarDetailsDto> content = results.getContent().stream()
+                .map(arr -> new CarDetailsDto(
+                        (String) arr[0],   // brandName
+                        (String) arr[1],   // fullName
+                        (Integer) arr[2],  // minPrice
+                        (Integer) arr[3],  // maxPrice
+                        (String) arr[4]    // img
+                ))
+                .collect(Collectors.toList());
 
-        for (CarBrand carBrand : carBrands) {
-            // 根据品牌ID查询所有车型信息
-            List<CarInfo> carInfos = carInfoRepository.findByBrandId(carBrand.getId());
-
-            for (CarInfo carInfo : carInfos) {
-                // 构建DTO对象
-                CarDetailsDto carDetailsDto = new CarDetailsDto(
-                        carBrand.getName(),
-                        carInfo.getFullName(),
-                        carInfo.getMinPrice(),
-                        carInfo.getMaxPrice(),
-                        carBrand.getImg()
-                );
-                carDetailsDtos.add(carDetailsDto);
-            }
-        }
-
-        return carDetailsDtos;
+        return new PageImpl<>(content, pageable, results.getTotalElements());
     }
 
 

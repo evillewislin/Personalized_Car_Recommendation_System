@@ -4,9 +4,10 @@ import com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.entity.CarBrand;
 
 import java.util.List;
+import org.springframework.data.domain.*;
 
 public interface CarService {
-    List<CarDetailsDto> getAllCarDetails();
+    Page<CarDetailsDto> getAllCarDetails(Pageable pageable);
 
     CarBrand saveCar(CarBrand car);
 

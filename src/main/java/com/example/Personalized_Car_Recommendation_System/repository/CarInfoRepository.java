@@ -6,8 +6,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Query;
 public interface CarInfoRepository extends JpaRepository<CarInfo, Integer> {
-    @Query("SELECT c FROM CarInfo c WHERE c.brandId = :brandId")
-    List<CarInfo> findByBrandId(@Param("brandId") Integer brandId);
+    @Query("SELECT b.name, i.fullName, i.minPrice, i.maxPrice, b.img " +
+            "FROM CarBrand b JOIN CarInfo i ON b.id = i.brandId")
+    Page<Object[]> findCarDetailsWithBrand(Pageable pageable);
 }

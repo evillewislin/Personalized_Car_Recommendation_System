@@ -4,6 +4,9 @@ import com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.entity.CarBrand;
 import com.example.Personalized_Car_Recommendation_System.service.CarService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,11 +24,10 @@ public class CarController {
     // 获取所有车型
     @GetMapping("/search")
     public ResponseEntity<Map<String, Object>> getAllCars(
-            @RequestHeader(value = "Authorization", required = false) String token,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int pageSize) {
 
-        Pageable pageable = PageRequest.of(page - 1, pageSize);  // Spring页码从0开始
+        Pageable pageable = PageRequest.of(page - 1, pageSize); // 转换为0-based页码
         Page<CarDetailsDto> carPage = carService.getAllCarDetails(pageable);
 
         Map<String, Object> response = new HashMap<>();
