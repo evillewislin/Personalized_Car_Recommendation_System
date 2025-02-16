@@ -7,7 +7,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/cars")
@@ -18,13 +20,19 @@ public class CarController {
 
     // 获取所有车型
     @GetMapping("/search")
-    public ResponseEntity<List<CarDetailsDto>> getAllCars(@RequestHeader(value = "Authorization", required = false) String token) {
-        System.out.println("GET /api/cars/search request received");
-        if (token != null) {
-            System.out.println("Received token: " + token);  // 打印接收到的 token，进行调试
-        }
-        List<CarDetailsDto> cars = carService.getAllCarDetails();
-        return ResponseEntity.ok(cars);
+    public ResponseEntity<Map<String, Object>> getAllCars(
+            @RequestHeader(value = "Authorization", required = false) String token,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int pageSize) {
+
+        Pageable pageable = PageRequest.of(page - 1, pageSize);  // Spring页码从0开始
+        Page<CarDetailsDto> carPage = carService.getAllCarDetails(pageable);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("data", carPage.getContent());
+        response.put("total", carPage.getTotalElements());
+
+        return ResponseEntity.ok(response);
     }
 
 
