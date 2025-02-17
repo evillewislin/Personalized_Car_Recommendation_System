@@ -8,7 +8,7 @@ import io.jsonwebtoken.security.Keys;
 import java.security.Key;
 
 public class JwtUtil {
-    private static final Key SECRET_KEY = Keys.secretKeyFor(SignatureAlgorithm.HS512);
+    private static final Key SECRET_KEY = Keys.secretKeyFor(SignatureAlgorithm.HS256);
     private static final long EXPIRATION_TIME = 86400000; // 1天
 
     /**
@@ -24,20 +24,13 @@ public class JwtUtil {
                 .compact();
     }
 
-    public static Long parseToken(String token) {
-        Claims claims = Jwts.parser()
-                .setSigningKey(SECRET_KEY)
-                .parseClaimsJws(token)
-                .getBody();
-        return Long.parseLong(claims.getSubject());
-    }
     public static Integer getUserIdFromToken(String token) {
         try {
             Claims claims = Jwts.parser()
                     .setSigningKey(SECRET_KEY)
                     .parseClaimsJws(token.replace("Bearer ", ""))
                     .getBody();
-            return claims.get("userId", Integer.class);
+            return Integer.valueOf(claims.getSubject()); // 修改为获取 subject
         } catch (Exception e) {
             return null;
         }

@@ -1,11 +1,11 @@
 package com.example.Personalized_Car_Recommendation_System.dto;
 
 public class CarDetailsDto {
+    private String car_id;
     private String name;
     private String fullName;
     private Integer minPrice;
     private Integer maxPrice;
-    private String img;
 
     // 构造函数
     public CarDetailsDto(String name, String fullName, Integer minPrice, Integer maxPrice) {

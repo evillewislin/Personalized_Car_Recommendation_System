@@ -123,15 +123,14 @@ export default defineComponent({
     });
 
     const handleCollect = async (carId, score) => {
-      const token = localStorage.getItem('token');// 假设 userStore 中有 userId
-
+      const token = localStorage.getItem('token');
       if (!token) {
         ElMessage.warning('请先登录');
         return;
       }
 
       if (!score || isNaN(score) || score < 1 || score > 5) {
-        ElMessage.warning('请输入 1-5 分的评分');
+        ElMessage.warning('请输入 1 - 5 分的评分');
         return;
       }
 
