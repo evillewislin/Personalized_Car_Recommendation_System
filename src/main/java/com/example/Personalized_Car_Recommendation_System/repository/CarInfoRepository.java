@@ -9,14 +9,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 
 public interface CarInfoRepository extends JpaRepository<CarInfo, Integer> {
-    @Query("SELECT b.name AS brandName, i.fullName AS fullName, i.minPrice AS minPrice, " +
+    @Query("SELECT i.id ,b.name AS brandName, i.fullName AS fullName, i.minPrice AS minPrice, " +
             "i.maxPrice AS maxPrice " +
             "FROM CarBrand b " +
             "JOIN CarInfo i ON b.id = i.brandId")
     Page<Object[]> findCarDetailsWithBrand(Pageable pageable);
 
 
-    @Query("SELECT new com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto(b.name, i.fullName, i.minPrice, i.maxPrice) " +
+    @Query("SELECT new com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto(i.id,b.name, i.fullName, i.minPrice, i.maxPrice) " +
             "FROM CarBrand b " +
             "JOIN CarInfo i ON b.id = i.brandId " +
             "WHERE b.name LIKE %:keyword% OR i.fullName LIKE %:keyword%")

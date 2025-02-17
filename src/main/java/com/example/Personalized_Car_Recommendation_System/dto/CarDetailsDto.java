@@ -1,14 +1,15 @@
 package com.example.Personalized_Car_Recommendation_System.dto;
 
 public class CarDetailsDto {
-    private String car_id;
+    private Integer carId;
     private String name;
     private String fullName;
     private Integer minPrice;
     private Integer maxPrice;
 
     // 构造函数
-    public CarDetailsDto(String name, String fullName, Integer minPrice, Integer maxPrice) {
+    public CarDetailsDto(Integer carId,String name, String fullName, Integer minPrice, Integer maxPrice) {
+        this.carId = carId;
         this.name = name;
         this.fullName = fullName;
         this.minPrice = minPrice;
@@ -16,6 +17,8 @@ public class CarDetailsDto {
     }
 
     // Getters and Setters
+    public Integer getCarId() { return carId; }
+    public void setCarId(Integer carId) { this.carId = carId; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     public String getFullName() { return fullName; }

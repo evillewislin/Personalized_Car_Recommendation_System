@@ -11,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -47,7 +46,7 @@ public class CarController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            e.printStackTrace(); // 输出堆栈信息
+            System.out.println(e);
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
     }

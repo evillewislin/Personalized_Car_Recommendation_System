@@ -2,6 +2,7 @@
   <div>
     <h2>车型列表</h2>
     <el-table :data="cars" style="width: 100%">
+      <el-table-column prop="carId" label="编号"></el-table-column>
       <el-table-column prop="name" label="品牌"></el-table-column>
       <el-table-column prop="fullName" label="全名"></el-table-column>
       <el-table-column label="价格区间">
@@ -11,7 +12,7 @@
       </el-table-column>
       <el-table-column label="收藏">
         <template #default="scope">
-          <el-button @click="handleCollect(scope.row.id, scope.row.score)">收藏</el-button>
+          <el-button @click="handleCollect(scope.row.carId, scope.row.name, scope.row.score)">收藏</el-button>
         </template>
       </el-table-column>
       <el-table-column label="评分">
@@ -38,7 +39,6 @@
 import { defineComponent, onMounted, ref, watch } from 'vue';
 import axios from 'axios';
 import { ElMessage } from 'element-plus';
-import { useUserStore } from '@/store';
 
 export default defineComponent({
   name: 'CarList',
@@ -49,15 +49,10 @@ export default defineComponent({
     }
   },
   setup(props) {
-    const userStore = useUserStore();
     const cars = ref([]);
     const total = ref(0); // 总数据条数
     const pageSize = ref(10); // 每页条数
     const currentPage = ref(1); // 当前页码
-
-    const handleImageError = (event) => {
-      event.target.src = 'default-car-image.jpg';
-    };
 
     const fetchCars = async () => {
       try {
@@ -92,7 +87,7 @@ export default defineComponent({
             ...car,
             minPrice: car.minPrice || avgMinPrice,
             maxPrice: car.maxPrice || avgMaxPrice,
-            score: '' // 初始化评分字段
+            score: null // 初始化评分字段
           }));
           total.value = response.data.total; // 确保使用正确的总条数字段
         } else {
@@ -117,12 +112,12 @@ export default defineComponent({
     };
 
     // 监听 searchQuery 变化，变化时重新获取数据并重置页码
-    watch(() => props.searchQuery, (newQuery) => {
+    watch(() => props.searchQuery, () => {
       currentPage.value = 1; // 重置页码为第一页
       fetchCars();
     });
 
-    const handleCollect = async (carId, score) => {
+    const handleCollect = async (carId, name, score) => {
       const token = localStorage.getItem('token');
       if (!token) {
         ElMessage.warning('请先登录');
@@ -136,7 +131,8 @@ export default defineComponent({
 
       try {
         const response = await axios.post('/api/collect', {
-          car_id: carId,
+          carId: carId,
+          name: name,
           timestamp: new Date().toISOString(),
           score: parseInt(score)
         }, {
@@ -159,7 +155,6 @@ export default defineComponent({
     onMounted(fetchCars);
     return {
       cars,
-      handleImageError,
       total,
       pageSize,
       currentPage,
@@ -171,8 +166,4 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.el-pagination {
-  margin-top: 20px;
-  justify-content: center;
-}
 </style>

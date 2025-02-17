@@ -35,10 +35,11 @@ public class CollectController {
                 return new ResponseEntity<>("无效的 token，请重新登录", HttpStatus.UNAUTHORIZED);
             }
 
-            Integer carId = (Integer) request.get("car_id");
+            Integer carId = (Integer) request.get("carId");
+            String name = (String) request.get("name");
             Integer score = (Integer) request.get("score");
 
-            RecommendationHistory result = collectService.collectCar(carId, userId, score);
+            RecommendationHistory result = collectService.collectCar(carId, userId, name, score);
             if (result != null) {
                 return new ResponseEntity<>("收藏成功", HttpStatus.OK);
             } else {

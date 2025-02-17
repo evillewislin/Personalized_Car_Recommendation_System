@@ -2,14 +2,13 @@ package com.example.Personalized_Car_Recommendation_System.service.impl;
 
 import com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.entity.CarBrand;
-import com.example.Personalized_Car_Recommendation_System.entity.CarInfo;
 import com.example.Personalized_Car_Recommendation_System.repository.CarBrandRepository;
 import com.example.Personalized_Car_Recommendation_System.repository.CarInfoRepository;
 import com.example.Personalized_Car_Recommendation_System.service.CarService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,10 +31,11 @@ public class CarServiceImpl implements CarService {
 
         List<CarDetailsDto> content = results.stream()
                 .map(arr -> new CarDetailsDto(
-                        (String) arr[0],   // brandName
-                        (String) arr[1],   // fullName
-                        (Integer) arr[2], // minPrice
-                        (Integer) arr[3] // maxPrice
+                        (Integer) arr[0],  //carId
+                        (String) arr[1],   // brandName
+                        (String) arr[2],   // fullName
+                        (Integer) arr[3], // minPrice
+                        (Integer) arr[4] // maxPrice
                 ))
                 .collect(Collectors.toList());
 

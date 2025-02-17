@@ -1,6 +1,5 @@
 package com.example.Personalized_Car_Recommendation_System.service.impl;
 
-import com.example.Personalized_Car_Recommendation_System.entity.CarInfo;
 import com.example.Personalized_Car_Recommendation_System.entity.RecommendationHistory;
 import com.example.Personalized_Car_Recommendation_System.repository.CollectRepository;
 import com.example.Personalized_Car_Recommendation_System.service.CollectService;
@@ -16,11 +15,11 @@ public class CollectServiceImpl implements CollectService {
     private CollectRepository collectRepository;
 
     @Override
-    public RecommendationHistory collectCar(Integer carId, Integer userId, Integer score) {
+    public RecommendationHistory collectCar(Integer carId, Integer userId, String name, Integer score) {
         RecommendationHistory recommendationHistory = new RecommendationHistory();
-        CarInfo carInfo = new CarInfo();
-        carInfo.setId(carId);
         recommendationHistory.setUserId(userId);
+        recommendationHistory.setCarId(carId);
+        recommendationHistory.setCarName(name);
         recommendationHistory.setScore(score.floatValue());
         recommendationHistory.setTimestamp(new Date());
         return collectRepository.save(recommendationHistory);
