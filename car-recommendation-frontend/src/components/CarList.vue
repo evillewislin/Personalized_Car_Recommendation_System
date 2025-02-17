@@ -10,6 +10,11 @@
           {{ scope.row.minPrice }} - {{ scope.row.maxPrice }}
         </template>
       </el-table-column>
+      <el-table-column label="临时查看 carId">
+        <template #default="scope">
+          {{ scope.row.carId }}
+        </template>
+      </el-table-column>
       <el-table-column label="收藏">
         <template #default="scope">
           <el-button @click="handleCollect(scope.row.carId, scope.row.name, scope.row.score)">收藏</el-button>
@@ -128,6 +133,9 @@ export default defineComponent({
         ElMessage.warning('请输入 1 - 5 分的评分');
         return;
       }
+      console.log('Car ID:', carId); // 打印 carId 确认是否正确
+      console.log('Name:', name);
+      console.log('Score:', score);
 
       try {
         const response = await axios.post('/api/collect', {

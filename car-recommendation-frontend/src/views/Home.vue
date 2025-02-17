@@ -37,9 +37,7 @@
             type="text"
             placeholder="搜索汽车..."
             v-model="searchQuery"
-            @keyup.enter="handleSearch"
         />
-        <button @click="handleSearch">搜索</button>
       </div>
     </div>
 
@@ -71,10 +69,6 @@ export default defineComponent({
 
     const searchQuery = ref('');
 
-    const handleSearch = () => {
-      console.log('搜索关键词：', searchQuery.value);
-      // 这里可以添加更多逻辑，比如重置页码等
-    };
 
     const handleLogout = () => {
       userStore.logout();  // 清除登录状态
@@ -87,7 +81,6 @@ export default defineComponent({
       username,
       userRole,
       searchQuery,
-      handleSearch,
       handleLogout
     };
   }

@@ -36,6 +36,7 @@ public class CollectController {
             }
 
             Integer carId = (Integer) request.get("carId");
+            System.out.println("Received Car ID: " + carId);
             String name = (String) request.get("name");
             Integer score = (Integer) request.get("score");
 

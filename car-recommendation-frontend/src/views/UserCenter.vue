@@ -1,158 +1,117 @@
 <template>
   <div class="user-center">
-    <el-card class="box-card">
-      <h2>个人中心</h2>
-      <el-tabs v-model="activeTab" type="border-card">
-        <!-- 个人信息标签 -->
-        <el-tab-pane label="个人信息" name="profile">
-          <el-form :model="profileForm" ref="profileFormRef" label-width="100px">
-            <el-form-item label="用户名">
-              <el-input v-model="profileForm.username" autocomplete="off"></el-input>
-            </el-form-item>
-            <el-form-item label="密码">
-              <el-input v-model="profileForm.password" type="password" autocomplete="off" placeholder="输入新密码"></el-input>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="updateProfile">保存信息</el-button>
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-        <!-- 偏好设置标签 -->
-        <el-tab-pane label="偏好设置" name="preference">
-          <el-form :model="preferenceForm" ref="preferenceFormRef" label-width="100px">
-            <el-form-item label="最低价格">
-              <el-input v-model="preferenceForm.minPrice" autocomplete="off" placeholder="请输入最低价格"></el-input>
-            </el-form-item>
-            <el-form-item label="最高价格">
-              <el-input v-model="preferenceForm.maxPrice" autocomplete="off" placeholder="请输入最高价格"></el-input>
-            </el-form-item>
-            <el-form-item label="车型偏好">
-              <el-input v-model="preferenceForm.preferredType" autocomplete="off" placeholder="例如SUV、轿车"></el-input>
-            </el-form-item>
-            <el-form-item label="燃油偏好">
-              <el-input v-model="preferenceForm.preferredFuel" autocomplete="off" placeholder="例如汽油、电动"></el-input>
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="updatePreference">保存偏好</el-button>
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-      </el-tabs>
-    </el-card>
+    <!-- 退出按钮 -->
+    <div class="logout-button-container">
+      <el-button type="danger" @click="handleBack">返回</el-button>
+    </div>
+    <!-- 侧边栏导航 -->
+    <div class="sidebar">
+      <ul>
+        <li :class="{ active: currentTab === 'personalInfo' }" @click="currentTab = 'personalInfo'">
+          个人信息
+        </li>
+        <li :class="{ active: currentTab === 'userHistoryAnalysis' }" @click="currentTab = 'userHistoryAnalysis'">
+          用户历史分析
+        </li>
+      </ul>
+    </div>
+    <!-- 主内容区域 -->
+    <div class="main-content">
+      <!-- 根据当前选中的标签展示不同的内容 -->
+      <component :is="currentTab"></component>
+    </div>
   </div>
 </template>
 
 <script>
-import { defineComponent, ref, onMounted } from 'vue';
-import axios from 'axios';
+import { defineComponent, ref } from 'vue';
+import PersonalInfo from '../components/PersonalInfo.vue';
+import UserHistoryAnalysis from '../components/UserHistoryAnalysis.vue';
+import { useUserStore } from '@/store'; // 假设使用 Pinia 存储用户信息
+import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-// 假设用户相关信息存储在 Pinia 中，如有需要可引入使用
-import { useUserStore } from '@/store';
 
 export default defineComponent({
-  name: 'UserCenter',
+  components: {
+    PersonalInfo,
+    UserHistoryAnalysis
+  },
   setup() {
-    // 假设当前用户ID（实际使用时可从 store 中获取）
-    const userId = 1;
+    const userStore = useUserStore();
+    const router = useRouter();
+    const currentTab = ref('personalInfo');
 
-    const activeTab = ref('profile');
-
-    // 个人信息表单数据
-    const profileForm = ref({
-      username: '',
-      password: ''
-    });
-    // 偏好设置表单数据
-    const preferenceForm = ref({
-      minPrice: '',
-      maxPrice: '',
-      preferredType: '',
-      preferredFuel: ''
-    });
-
-    const profileFormRef = ref(null);
-    const preferenceFormRef = ref(null);
-
-    // 获取用户基本信息
-    const fetchUserProfile = async () => {
-      try {
-        const response = await axios.get(`/api/user/${userId}`);
-        if (response.data) {
-          profileForm.value.username = response.data.username;
-          // 密码一般不返回，可留空等待用户输入新密码
-        }
-      } catch (error) {
-        ElMessage.error('获取用户信息失败');
-        console.error(error);
-      }
+    const handleBack = () => {
+      ElMessage.info('返回');
+      router.push('/'); // 跳转回根页面
     };
-
-    // 获取用户偏好设置
-    const fetchUserPreference = async () => {
-      try {
-        const response = await axios.get(`/api/user/${userId}/preference`);
-        if (response.data) {
-          preferenceForm.value.minPrice = response.data.minPrice;
-          preferenceForm.value.maxPrice = response.data.maxPrice;
-          preferenceForm.value.preferredType = response.data.preferredType;
-          preferenceForm.value.preferredFuel = response.data.preferredFuel;
-        }
-      } catch (error) {
-        ElMessage.error('获取用户偏好失败');
-        console.error(error);
-      }
-    };
-
-    // 更新用户个人信息
-    const updateProfile = async () => {
-      try {
-        const response = await axios.put(`/api/user/${userId}`, profileForm.value);
-        if (response.data) {
-          ElMessage.success('用户信息更新成功');
-        }
-      } catch (error) {
-        ElMessage.error('更新用户信息失败');
-        console.error(error);
-      }
-    };
-
-    // 更新或新增用户偏好设置
-    const updatePreference = async () => {
-      try {
-        const response = await axios.put(`/api/user/${userId}/preference`, preferenceForm.value);
-        if (response.data) {
-          ElMessage.success('用户偏好更新成功');
-        }
-      } catch (error) {
-        ElMessage.error('更新用户偏好失败');
-        console.error(error);
-      }
-    };
-
-    onMounted(() => {
-      fetchUserProfile();
-      fetchUserPreference();
-    });
 
     return {
-      activeTab,
-      profileForm,
-      preferenceForm,
-      profileFormRef,
-      preferenceFormRef,
-      updateProfile,
-      updatePreference
+      currentTab,
+      handleBack
     };
   }
 });
 </script>
 
 <style scoped>
+/* 全局布局样式 */
 .user-center {
-  max-width: 600px;
-  margin: 20px auto;
+  display: flex;
+  min-height: 100vh;
+  position: relative; /* 为了让退出按钮定位 */
 }
-.box-card {
-  padding: 20px;
+
+/* 退出按钮容器样式 */
+.logout-button-container {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10; /* 确保按钮显示在最上层 */
+}
+
+
+
+/* 侧边栏样式 */
+.sidebar {
+  width: 150px;
+  background-color: aliceblue;
+  border-right: 1px solid #ddd;
+  padding: 50px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar li {
+  padding: 12px 16px;
+  margin: 8px 0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #333;
+}
+
+.sidebar li:hover {
+  background-color: rgba(76, 175, 80, 0.1);
+}
+
+.sidebar li.active {
+  background-color: #4CAF50;
+  color: white;
+  font-weight: 500;
+}
+
+/* 主内容区样式 */
+.main-content {
+  flex-grow: 1;
+  padding: 2rem;
+  background-color: #f5f5f5;
 }
 </style>

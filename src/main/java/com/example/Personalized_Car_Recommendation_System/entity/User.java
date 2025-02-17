@@ -31,4 +31,10 @@ public class User {
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role != null ? role : "user"; }
+
+    public void setOldPassword(String oldPassword) {this.password = oldPassword;
+    }
+
+    public void setNewPassword(String newPassword) {this.password =newPassword;
+    }
 }

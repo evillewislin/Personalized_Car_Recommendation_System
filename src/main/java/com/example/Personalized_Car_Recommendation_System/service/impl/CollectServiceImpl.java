@@ -16,6 +16,7 @@ public class CollectServiceImpl implements CollectService {
 
     @Override
     public RecommendationHistory collectCar(Integer carId, Integer userId, String name, Integer score) {
+        System.out.println("Car ID to save: " + carId);
         RecommendationHistory recommendationHistory = new RecommendationHistory();
         recommendationHistory.setUserId(userId);
         recommendationHistory.setCarId(carId);
