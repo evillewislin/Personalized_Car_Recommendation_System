@@ -25,18 +25,32 @@ public class CarController {
     @GetMapping("/search")
     public ResponseEntity<Map<String, Object>> getAllCars(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int pageSize) {
+            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(required = false) String keyword) {
 
-        Pageable pageable = PageRequest.of(page - 1, pageSize); // 转换为0-based页码
-        Page<CarDetailsDto> carPage = carService.getAllCarDetails(pageable);
+        // 将前端1-based页码转换为Spring Data的0-based
+        Pageable pageable = PageRequest.of(page - 1, pageSize);
+        Page<CarDetailsDto> carPage;
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("data", carPage.getContent());
-        response.put("total", carPage.getTotalElements());
+        if (keyword != null && !keyword.isEmpty()) {
+            // 如果有搜索关键词，调用带关键词的查询方法
+            carPage = carService.getAllCarDetails(pageable, keyword);
+        } else {
+            // 没有搜索关键词，调用默认的查询方法
+            carPage = carService.getAllCarDetails(pageable);
+        }
 
-        return ResponseEntity.ok(response);
+        try {
+            Map<String, Object> response = new HashMap<>();
+            response.put("data", carPage.getContent());
+            response.put("total", carPage.getTotalElements());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace(); // 输出堆栈信息
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
     }
-
 
     // 新增或更新车型
     @PostMapping("/add")

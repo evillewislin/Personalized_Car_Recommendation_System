@@ -1,6 +1,12 @@
 <template>
   <div>
-    <h2>车型列表</h2>
+    <h2>汽车管理</h2>
+    <!-- 操作按钮和搜索框 -->
+    <div class="action-buttons">
+      <el-button type="primary" @click="addCar">添加汽车</el-button>
+      <el-input v-model="searchQuery" placeholder="请输入搜索关键词"></el-input>
+    </div>
+    <!-- 汽车列表表格 -->
     <el-table :data="cars" style="width: 100%">
       <el-table-column prop="name" label="品牌"></el-table-column>
       <el-table-column prop="fullName" label="全名"></el-table-column>
@@ -9,14 +15,11 @@
           {{ scope.row.minPrice }} - {{ scope.row.maxPrice }}
         </template>
       </el-table-column>
-      <el-table-column label="收藏">
+      <!-- 操作列 -->
+      <el-table-column label="操作">
         <template #default="scope">
-          <el-button @click="handleCollect(scope.row.id, scope.row.score)">收藏</el-button>
-        </template>
-      </el-table-column>
-      <el-table-column label="评分">
-        <template #default="scope">
-          <el-input v-model="scope.row.score" type="number" min="1" max="5" placeholder="1-5分"></el-input>
+          <el-button size="small" @click="editCar(scope.row)">编辑</el-button>
+          <el-button size="small" type="danger" @click="deleteCar(scope.row.id)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -35,25 +38,18 @@
 </template>
 
 <script>
-import { defineComponent, onMounted, ref, watch } from 'vue';
+import {defineComponent, onMounted, ref, watch} from 'vue';
 import axios from 'axios';
-import { ElMessage } from 'element-plus';
-import { useUserStore } from '@/store';
+import {ElMessage} from 'element-plus';
 
 export default defineComponent({
-  name: 'CarList',
-  props: {
-    searchQuery: {
-      type: String,
-      default: ''
-    }
-  },
-  setup(props) {
-    const userStore = useUserStore();
+  name: 'CarManagement',
+  setup() {
     const cars = ref([]);
     const total = ref(0); // 总数据条数
     const pageSize = ref(10); // 每页条数
     const currentPage = ref(1); // 当前页码
+    const searchQuery = ref('');
 
     const handleImageError = (event) => {
       event.target.src = 'default-car-image.jpg';
@@ -75,7 +71,7 @@ export default defineComponent({
           params: {
             page: currentPage.value,
             pageSize: pageSize.value,
-            keyword: props.searchQuery
+            keyword: searchQuery.value
           },
         });
 
@@ -92,7 +88,6 @@ export default defineComponent({
             ...car,
             minPrice: car.minPrice || avgMinPrice,
             maxPrice: car.maxPrice || avgMaxPrice,
-            score: '' // 初始化评分字段
           }));
           total.value = response.data.total; // 确保使用正确的总条数字段
         } else {
@@ -117,44 +112,55 @@ export default defineComponent({
     };
 
     // 监听 searchQuery 变化，变化时重新获取数据并重置页码
-    watch(() => props.searchQuery, (newQuery) => {
+    watch(() => searchQuery.value, (newQuery) => {
       currentPage.value = 1; // 重置页码为第一页
       fetchCars();
     });
 
-    const handleCollect = async (carId, score) => {
-      const token = localStorage.getItem('token');// 假设 userStore 中有 userId
+    // 添加汽车
+    const addCar = () => {
+      // 这里可以实现添加汽车的逻辑，例如弹出模态框输入汽车信息
+      console.log('添加汽车');
+    };
 
-      if (!token) {
-        ElMessage.warning('请先登录');
-        return;
-      }
+    // 编辑汽车
+    const editCar = (car) => {
+      // 这里可以实现编辑汽车的逻辑，例如弹出模态框显示汽车信息并允许修改
+      console.log('编辑汽车:', car);
+    };
 
-      if (!score || isNaN(score) || score < 1 || score > 5) {
-        ElMessage.warning('请输入 1-5 分的评分');
-        return;
-      }
-
+    // 删除汽车
+    const deleteCar = async (carId) => {
       try {
-        const response = await axios.post('/api/collect', {
-          car_id: carId,
-          timestamp: new Date().toISOString(),
-          score: parseInt(score)
-        }, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (response.status === 200) {
-          ElMessage.success('收藏成功');
-        } else {
-          ElMessage.error('收藏失败');
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.error('Token 不存在，请重新登录');
+          return;
         }
+        await axios.delete(`/api/cars/${carId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        // 删除成功后重新获取汽车列表
+        fetchCars();
+        ElMessage.success('删除成功');
       } catch (error) {
-        console.error('收藏出错:', error);
-        ElMessage.error('收藏出错，请稍后重试');
+        console.error('删除汽车失败:', error);
+        if (error.response) {
+          ElMessage.error(`删除失败: ${error.response.status} - ${error.response.statusText}`);
+        } else if (error.request) {
+          ElMessage.error('删除失败: 无响应');
+        } else {
+          ElMessage.error('删除失败: ' + error.message);
+        }
       }
+    };
+
+    // 搜索汽车
+    const searchCars = () => {
+      currentPage.value = 1; // 重置页码为第一页
+      fetchCars();
     };
 
     onMounted(fetchCars);
@@ -165,7 +171,11 @@ export default defineComponent({
       pageSize,
       currentPage,
       handlePageChange,
-      handleCollect
+      searchQuery,
+      addCar,
+      editCar,
+      deleteCar,
+      searchCars
     };
   },
 });
@@ -175,5 +185,11 @@ export default defineComponent({
 .el-pagination {
   margin-top: 20px;
   justify-content: center;
+}
+
+.action-buttons {
+  margin-bottom: 10px;
+  display: flex;
+  gap: 10px;
 }
 </style>

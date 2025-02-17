@@ -4,3 +4,4 @@ npm install
 npm install element-plus --save
 mvn spring-boot:run
 npm run serve
+npm run build

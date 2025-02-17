@@ -5,6 +5,11 @@
 
     <!-- 登录表单 -->
     <div class="form-wrapper">
+      <div class="back-button-wrapper">
+        <router-link to="/" class="register-link">
+          返回
+        </router-link>
+      </div>
       <el-form
           :model="loginForm"
           label-position="top"
@@ -75,7 +80,7 @@ export default defineComponent({
         if (response.data) {
           const token = response.data.token;
           userStore.setToken(token); // 保存 token 到 Pinia store
-          axios.defaults.headers['Authorization'] = `Bearer ${token}`; // 设置全局 Authorization 头部
+          axios.defaults.headers['Authorization'] = `Bearer ${token}`;// 设置全局 Authorization 头部
           userStore.setUsername(loginForm.username);
           ElMessage.success('登录成功');
           await router.push('/')
@@ -144,7 +149,11 @@ export default defineComponent({
   border-color: #4CAF50;
   box-shadow: 0 0 0 rgba(76, 175, 80, 0.3);
 }
-
+.back-button-wrapper {
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 1rem;
+}
 .login-btn {
   width: 100%;
   height: 45px;

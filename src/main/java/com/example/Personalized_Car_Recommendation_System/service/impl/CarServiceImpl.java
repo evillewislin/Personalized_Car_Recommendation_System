@@ -28,31 +28,31 @@ public class CarServiceImpl implements CarService {
 
     @Override
     public Page<CarDetailsDto> getAllCarDetails(Pageable pageable) {
-        // 使用联表查询并分页
         Page<Object[]> results = carInfoRepository.findCarDetailsWithBrand(pageable);
 
-        // 将结果转换为CarDetailsDto列表
-        List<CarDetailsDto> content = results.getContent().stream()
+        List<CarDetailsDto> content = results.stream()
                 .map(arr -> new CarDetailsDto(
                         (String) arr[0],   // brandName
                         (String) arr[1],   // fullName
-                        (Integer) arr[2],  // minPrice
-                        (Integer) arr[3],  // maxPrice
-                        (String) arr[4]    // img
+                        (Integer) arr[2], // minPrice
+                        (Integer) arr[3] // maxPrice
                 ))
                 .collect(Collectors.toList());
 
         return new PageImpl<>(content, pageable, results.getTotalElements());
     }
-
-
+    @Override
+    public Page<CarDetailsDto> getAllCarDetails(Pageable pageable, String keyword) {
+        // 实现带关键词的分页查询逻辑
+        return carInfoRepository.findAllCarDetailsByKeyword(pageable, keyword);
+    }
     @Override
     public CarBrand saveCar(CarBrand car) {
-        return null;
+        return carBrandRepository.save(car);
     }
 
     @Override
     public void deleteCar(Integer id) {
-
+        carBrandRepository.deleteById(id);
     }
 }

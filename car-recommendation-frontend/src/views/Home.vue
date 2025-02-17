@@ -32,17 +32,21 @@
 
     <!-- 搜索框 -->
     <div class="search-container">
-      <input
-          type="text"
-          placeholder="搜索汽车..."
-          v-model="searchQuery"
-          @keyup.enter="handleSearch"
-      />
-      <button class="handleSearch" @click="handleSearch">搜索</button>
+      <div class="search-wrapper">
+        <input
+            type="text"
+            placeholder="搜索汽车..."
+            v-model="searchQuery"
+            @keyup.enter="handleSearch"
+        />
+        <button @click="handleSearch">搜索</button>
+      </div>
     </div>
 
     <!-- 页面内容 -->
-    <CarList />
+    <div class="car-list-container">
+      <CarList :searchQuery="searchQuery" />
+    </div>
   </div>
 </template>
 
@@ -51,7 +55,7 @@ import { defineComponent, ref, computed } from 'vue';
 import { useUserStore } from '@/store';
 import { useRouter } from 'vue-router';
 import CarList from '../components/CarList.vue';
-import {ElMessage} from "element-plus";
+import { ElMessage } from 'element-plus';
 
 export default defineComponent({
   name: 'Home',
@@ -69,6 +73,7 @@ export default defineComponent({
 
     const handleSearch = () => {
       console.log('搜索关键词：', searchQuery.value);
+      // 这里可以添加更多逻辑，比如重置页码等
     };
 
     const handleLogout = () => {
@@ -139,9 +144,14 @@ export default defineComponent({
 }
 
 .search-container {
-  margin: 50px auto 0;
+  margin: 10px auto 30px; /* 增加底部间距 */
   max-width: 600px;
   padding: 0 20px;
+}
+
+.search-wrapper {
+  display: flex;
+  gap: 10px; /* 输入框和按钮之间的间距 */
 }
 
 .search-container input {
@@ -158,21 +168,25 @@ export default defineComponent({
   border-color: #45a049;
   box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
 }
-。handleSearch{
-  width: 100%;
-  padding: 100px;
-}
+
 button {
-  padding: 8px 16px;
+  width: 90px;
+  height: 40px;
+  padding: 4px 3px;
   cursor: pointer;
   background-color: #4CAF50;
   color: white;
   border: none;
   border-radius: 4px;
   transition: background-color 0.3s;
+  align-self: center; /* 按钮垂直居中 */
 }
 
 button:hover {
   background-color: #45a049;
+}
+
+.car-list-container {
+  padding: 0 20px; /* 给车型列表添加左右内边距 */
 }
 </style>

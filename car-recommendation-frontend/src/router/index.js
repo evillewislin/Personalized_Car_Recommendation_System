@@ -22,5 +22,11 @@ const router = createRouter({
     history: createWebHistory(),
     routes
 });
-
+router.beforeEach((to, from, next) => {
+    // 检查可能为空的对象
+    if (to.meta.someObject && to.meta.someObject.component) {
+        // 执行相关操作
+    }
+    next();
+});
 export default router;

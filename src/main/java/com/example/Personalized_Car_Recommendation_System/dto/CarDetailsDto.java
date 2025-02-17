@@ -8,12 +8,11 @@ public class CarDetailsDto {
     private String img;
 
     // 构造函数
-    public CarDetailsDto(String name, String fullName, Integer minPrice, Integer maxPrice, String img) {
+    public CarDetailsDto(String name, String fullName, Integer minPrice, Integer maxPrice) {
         this.name = name;
         this.fullName = fullName;
         this.minPrice = minPrice;
         this.maxPrice = maxPrice;
-        this.img = img;
     }
 
     // Getters and Setters
@@ -25,6 +24,4 @@ public class CarDetailsDto {
     public void setMinPrice(Integer minPrice) { this.minPrice = minPrice; }
     public Integer getMaxPrice() { return maxPrice; }
     public void setMaxPrice(Integer maxPrice) { this.maxPrice = maxPrice; }
-    public String getImg() { return img; }
-    public void setImg(String img) { this.img = img; }
 }

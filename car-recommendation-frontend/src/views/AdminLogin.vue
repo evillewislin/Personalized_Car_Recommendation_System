@@ -4,16 +4,20 @@
     <h1 class="login-title">欢迎登录汽车管理后台</h1>
 
     <!-- 登录表单 -->
-    <router-link to="/" class="register-link">
-      返回
-    </router-link>
     <div class="form-wrapper">
+      <div class="back-button-wrapper">
+        <router-link to="/" class="register-link">
+          返回
+        </router-link>
+      </div>
       <el-form
           :model="loginForm"
+          :rules="rules"
           label-position="top"
           class="login-form"
+          ref="loginFormRef"
       >
-        <el-form-item label="管理员名">
+        <el-form-item label="管理员名" prop="adminname">
           <el-input
               v-model="loginForm.adminname"
               placeholder="请输入管理员名"
@@ -21,7 +25,7 @@
           ></el-input>
         </el-form-item>
 
-        <el-form-item label="密码">
+        <el-form-item label="密码" prop="password">
           <el-input
               v-model="loginForm.password"
               type="password"
@@ -36,6 +40,7 @@
               type="primary"
               @click="handleLogin"
               class="login-btn"
+              :loading="loading"
           >
             立即登录
           </el-button>
@@ -47,44 +52,77 @@
 </template>
 
 <script>
-import { defineComponent, reactive } from 'vue';
+import { defineComponent, reactive, ref } from 'vue';
 import axios from 'axios';
-import {useAdminStore} from '@/store';
+import { useAdminStore } from '@/store';
 import router from "@/router";
-import {ElMessage} from "element-plus";
+import { ElMessage } from "element-plus";
 
 export default defineComponent({
   name: 'AdminLogin',
   setup() {
-    // 保持原有逻辑不变
+    // 表单数据
     const loginForm = reactive({
       adminname: '',
       password: ''
     });
+
+    // 表单验证规则
+    const rules = reactive({
+      adminname: [
+        { required: true, message: '请输入管理员名', trigger: 'blur' }
+      ],
+      password: [
+        { required: true, message: '请输入密码', trigger: 'blur' }
+      ]
+    });
+
     const adminStore = useAdminStore();
     const loading = ref(false);
+    const loginFormRef = ref(null);
+
     const handleLogin = async () => {
-      loading.value = true;
-      try {
-        const response = await axios.post('/api/auth/adminlogin', loginForm);
-        if (response.data) {
-          const token = response.data.token;
-          adminStore.setToken(token);
-          axios.defaults.headers['Authorization'] = `Bearer ${token}`;
-          adminStore.setAdminname(loginForm.adminname);
-          ElMessage.success('登录成功');
-          await router.push('/admin')
+      const form = loginFormRef.value;
+      form.validate(async (valid) => {
+        if (valid) {
+          loading.value = true;
+          try {
+            const response = await axios.post('/api/auth/adminlogin', loginForm);
+            if (response.data) {
+              const token = response.data.token;
+              adminStore.setToken(token);
+              axios.defaults.headers['Authorization'] = `Bearer ${token}`;
+              adminStore.setAdminname(loginForm.adminname);
+              ElMessage.success('登录成功');
+              await router.push('/admin');
+            } else {
+              ElMessage.error('管理员名或密码错误');
+            }
+          } catch (error) {
+            console.error(error);
+            if (error.response) {
+              ElMessage.error(`登录失败: ${error.response.status} - ${error.response.statusText}`);
+            } else if (error.request) {
+              ElMessage.error('登录失败: 无响应');
+            } else {
+              ElMessage.error('登录失败: ' + error.message);
+            }
+          } finally {
+            loading.value = false;
+          }
         } else {
-          ElMessage.error('管理员名或密码错误');
+          ElMessage.error('请填写完整信息');
         }
-      } catch (error) {
-        console.error(error);
-      }finally {
-        loading.value = false;
-      }
+      });
     };
 
-    return { loginForm, handleLogin };
+    return {
+      loginForm,
+      rules,
+      loading,
+      loginFormRef,
+      handleLogin
+    };
   }
 });
 </script>
@@ -106,6 +144,12 @@ export default defineComponent({
   text-align: center;
 }
 
+.back-button-wrapper {
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 1rem;
+}
+
 .form-wrapper {
   width: 100%;
   max-width: 400px;
@@ -114,11 +158,13 @@ export default defineComponent({
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
+
 .custom-input :deep(.el-input__wrapper) {
   /* 添加你的自定义样式 */
   padding: 0; /* 例如，设置输入框的内边距 */
   border-radius: 4px; /* 例如，设置输入框的边框圆角 */
 }
+
 .login-form {
   margin: 0 auto;
 }

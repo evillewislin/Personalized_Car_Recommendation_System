@@ -14,7 +14,7 @@ CREATE TABLE `car_brand` (
 ) ENGINE=MyISAM AUTO_INCREMENT=400 DEFAULT CHARSET=utf8 COMMENT='品牌';
 
 INSERT INTO `car_brand` (`id`, `name`, `img`, `firstletter`) VALUES
-(117,	'AC Schnitzer',	'//car3.autoimg.cn/cardfs/series/g27/M01/B0/62/autohomecar__ChcCQFs9vBKAO3YSAAAW0WOWvRc555.png',	'A'),
+(117,	'AC Schnitzer',	'//car3.autoimg.com/cardfs/series/g27/M01/B0/62/autohomecar__ChcCQFs9vBKAO3YSAAAW0WOWvRc555.png',	'A'),
 (276,	'ALPINA',	'//car3.autoimg.cn/cardfs/series/g27/M05/AB/2E/autohomecar__wKgHHls8hiKADrqGAABK67H4HUI503.png',	'A'),
 (272,	'ARCFOX',	'//car3.autoimg.cn/cardfs/series/g27/M02/AB/F7/100x100_f40_autohomecar__ChcCQFs8nA6AP-h5AABsvxhHw3E709.png',	'A'),
 (34,	'阿尔法・罗密欧',	'//car2.autoimg.cn/cardfs/series/g26/M05/B0/29/autohomecar__ChcCP1s9u5qAemANAABON_GMdvI451.png',	'A'),
