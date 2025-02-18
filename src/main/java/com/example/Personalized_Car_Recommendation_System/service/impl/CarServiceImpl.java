@@ -2,6 +2,7 @@ package com.example.Personalized_Car_Recommendation_System.service.impl;
 
 import com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.entity.CarBrand;
+import com.example.Personalized_Car_Recommendation_System.entity.CarInfo;
 import com.example.Personalized_Car_Recommendation_System.repository.CarBrandRepository;
 import com.example.Personalized_Car_Recommendation_System.repository.CarInfoRepository;
 import com.example.Personalized_Car_Recommendation_System.service.CarService;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -54,5 +56,29 @@ public class CarServiceImpl implements CarService {
     @Override
     public void deleteCar(Integer id) {
         carBrandRepository.deleteById(id);
+    }
+
+
+     public void updateCarInfoAndBrand(Integer carId, CarInfo carInfo, CarBrand carBrand) {
+        // 更新 CarInfo 表
+        Optional<CarInfo> optionalCarInfo = carInfoRepository.findById(carId);
+        if (optionalCarInfo.isPresent()) {
+            CarInfo existingCarInfo = optionalCarInfo.get();
+            existingCarInfo.setFullName(carInfo.getFullName());
+            existingCarInfo.setMinPrice(carInfo.getMinPrice());
+            existingCarInfo.setMaxPrice(carInfo.getMaxPrice());
+            carInfoRepository.save(existingCarInfo);
+        }
+
+        // 更新 CarBrand 表
+        Integer brandId = carInfo.getBrandId();
+        if (brandId != null) {
+            Optional<CarBrand> optionalCarBrand = carBrandRepository.findById(brandId);
+            if (optionalCarBrand.isPresent()) {
+                CarBrand existingCarBrand = optionalCarBrand.get();
+                existingCarBrand.setName(carBrand.getName());
+                carBrandRepository.save(existingCarBrand);
+            }
+        }
     }
 }

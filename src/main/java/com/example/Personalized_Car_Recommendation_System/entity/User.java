@@ -1,6 +1,7 @@
 package com.example.Personalized_Car_Recommendation_System.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotEmpty;
 
 /**
  * 用户实体类，对应数据库中的 user 表
@@ -20,6 +21,7 @@ public class User {
      * 用户名，唯一且不能为空
      */
     @Column(unique = true, nullable = false, name = "username")
+    @NotEmpty(message = "用户名不能为空")
     private String username;
 
     /**

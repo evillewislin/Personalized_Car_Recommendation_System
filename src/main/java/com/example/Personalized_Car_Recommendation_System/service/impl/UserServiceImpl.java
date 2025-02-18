@@ -4,6 +4,7 @@ import com.example.Personalized_Car_Recommendation_System.entity.User;
 import com.example.Personalized_Car_Recommendation_System.repository.UserRepository;
 import com.example.Personalized_Car_Recommendation_System.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -55,5 +56,17 @@ public class UserServiceImpl implements UserService {
             return userRepository.save(user);
         }
         return null;
+    }
+    // UserService.java
+    public User updateUserInfo(Integer userId, String username, String newPassword, PasswordEncoder passwordEncoder) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            return null;
+        }
+        user.setUsername(username);
+        if (newPassword != null && !newPassword.isEmpty()) {
+            user.setPassword(passwordEncoder.encode(newPassword));
+        }
+        return userRepository.save(user);
     }
 }

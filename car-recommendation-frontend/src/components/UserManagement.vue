@@ -51,6 +51,12 @@
           <el-form-item label="用户名" prop="username">
             <el-input v-model="editForm.username"></el-input>
           </el-form-item>
+          <el-form-item label="新密码" prop="newPassword">
+            <el-input v-model="editForm.newPassword" type="password"></el-input>
+          </el-form-item>
+          <el-form-item label="确认新密码" prop="confirmNewPassword">
+            <el-input v-model="editForm.confirmNewPassword" type="password"></el-input>
+          </el-form-item>
         </el-form>
         <div class="custom-modal-footer">
           <el-button @click="editModalVisible = false">取消</el-button>
@@ -107,11 +113,30 @@ const addFormRef = ref(null);
 const editModalVisible = ref(false);
 const editForm = ref({
   userId: null,
-  username: ''
+  username: '',
+  newPassword: '',
+  confirmNewPassword: ''
 });
 const editRules = ref({
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' }
+  ],
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+  ],
+  confirmNewPassword: [
+    { required: true, message: '请确认新密码', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        if (value!== editForm.value.newPassword) {
+          callback(new Error('两次输入的新密码不一致'));
+        } else {
+          callback();
+        }
+      },
+      trigger: 'blur'
+    }
   ]
 });
 const editFormRef = ref(null);
@@ -146,8 +171,8 @@ const submitAddForm = async () => {
     form.validate(async (valid) => {
       if (valid) {
         try {
-          const {username, password, confirmPassword} = addForm.value;
-          const requestData = {username, password, confirmPassword};
+          const { username, password, confirmPassword } = addForm.value;
+          const requestData = { username, password, confirmPassword };
           console.log('请求数据:', requestData);
           await axios.post('/api/auth/register', requestData);
           ElMessage.success('用户添加成功');
@@ -167,7 +192,9 @@ const showEditModal = (user) => {
   editModalVisible.value = true;
   editForm.value = {
     userId: user.userId,
-    username: user.username
+    username: user.username,
+    newPassword: '',
+    confirmNewPassword: ''
   };
 };
 
@@ -182,9 +209,9 @@ const submitEditForm = async () => {
           const headers = {
             Authorization: `Bearer ${token}`
           };
-          const {userId, username} = editForm.value;
-          const requestData = {username};
-          await axios.put(`/api/users/${userId}`, requestData, {headers});
+          const { userId, username, newPassword } = editForm.value;
+          const requestData = { username, newPassword };
+          await axios.put(`/api/users/${userId}`, requestData, { headers });
           ElMessage.success('用户信息更新成功');
           editModalVisible.value = false;
           await getUsers();

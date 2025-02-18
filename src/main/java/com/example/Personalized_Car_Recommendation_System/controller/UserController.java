@@ -3,6 +3,7 @@ package com.example.Personalized_Car_Recommendation_System.controller;
 import com.example.Personalized_Car_Recommendation_System.entity.User;
 import com.example.Personalized_Car_Recommendation_System.service.UserService;
 import com.example.Personalized_Car_Recommendation_System.util.JwtUtil;
+import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,13 +36,6 @@ public class UserController {
         return userService.getUserById(userId);
     }
 
-    @PostMapping
-    public User addUser(@RequestBody User user) {
-        // 对密码进行加密
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        return userService.addUser(user);
-    }
-
     @PutMapping("/{userId}")
     public ResponseEntity<?> updateUser(@PathVariable Integer userId,
                                         @RequestHeader("Authorization") String authorizationHeader,
@@ -49,29 +43,36 @@ public class UserController {
         String token = authorizationHeader.replace("Bearer ", "");
         try {
             Integer tokenUserId = JwtUtil.getUserIdFromToken(token);
-            // 验证路径中的 userId 和 token 中的 userId 是否一致
             if (!userId.equals(tokenUserId)) {
                 logger.warn("Path User ID 和 Token User ID 不一致: Path User ID = {}, Token User ID = {}", userId, tokenUserId);
                 return new ResponseEntity<>("未授权，请重新登录", HttpStatus.UNAUTHORIZED);
             }
 
-            // 从请求中获取用户名
             String username = (String) request.get("username");
             if (username == null || username.isEmpty()) {
                 return new ResponseEntity<>("用户名不能为空", HttpStatus.BAD_REQUEST);
             }
 
-            // 更新用户信息
-            User updatedUser = userService.updateUsername(userId, username);
+            String newPassword = (String) request.get("newPassword");
+
+            User updatedUser = userService.updateUserInfo(userId, username, newPassword, passwordEncoder);
             if (updatedUser != null) {
                 return new ResponseEntity<>(updatedUser, HttpStatus.OK);
             } else {
                 return new ResponseEntity<>("用户不存在", HttpStatus.NOT_FOUND);
             }
+        } catch (IllegalArgumentException e) {
+            logger.error("更新用户信息时参数错误: ", e);
+            return new ResponseEntity<>("更新用户信息时参数错误，请检查输入", HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
             logger.error("更新用户信息时出现异常: ", e);
             return new ResponseEntity<>("更新用户信息失败，请稍后重试", HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+    @PostMapping
+    public User addUser(@Valid @RequestBody User user) {
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        return userService.addUser(user);
     }
 
     @DeleteMapping("/{id}")
