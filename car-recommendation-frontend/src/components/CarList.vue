@@ -10,11 +10,6 @@
           {{ scope.row.minPrice }} - {{ scope.row.maxPrice }}
         </template>
       </el-table-column>
-      <el-table-column label="临时查看 carId">
-        <template #default="scope">
-          {{ scope.row.carId }}
-        </template>
-      </el-table-column>
       <el-table-column label="收藏">
         <template #default="scope">
           <el-button @click="handleCollect(scope.row.carId, scope.row.name, scope.row.score)">收藏</el-button>

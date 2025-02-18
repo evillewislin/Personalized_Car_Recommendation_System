@@ -24,6 +24,12 @@ public class AuthController {
         String password = userData.get("password");
         String confirmPassword = userData.get("confirmPassword");
         String role = userData.getOrDefault("role", "user");
+
+        // 检查用户名和密码是否为空
+        if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("用户名和密码不能为空");
+        }
+
         // 校验密码和确认密码是否匹配
         if (!password.equals(confirmPassword)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("密码和确认密码不匹配");
@@ -46,11 +52,9 @@ public class AuthController {
     // 用户登录接口：传入 username 与 password，返回 JWT token
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> loginData) {
-        System.out.println("aaaaa");
         String username = loginData.get("username");
         String password = loginData.get("password");
         String token = authService.login(username, password);
-        System.out.println("aaaaa"+token);
         if (token != null) {
             return ResponseEntity.ok(Map.of("token", token));
         } else {

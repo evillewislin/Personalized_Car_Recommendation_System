@@ -2,8 +2,8 @@
   <div class="personal-info-container">
     <h2>个人信息</h2>
     <el-form :model="profileForm" ref="profileFormRef" label-width="120px" :rules="rules" status-icon>
-      <el-form-item label="姓名" prop="name">
-        <el-input v-model="profileForm.name" placeholder="请输入姓名"></el-input>
+      <el-form-item label="姓名" prop="username">
+        <el-input v-model="profileForm.username" placeholder="请输入姓名"></el-input>
       </el-form-item>
       <el-form-item label="旧密码" prop="oldPassword" v-if="isChangingPassword">
         <el-input v-model="profileForm.oldPassword" type="password" placeholder="请输入旧密码"></el-input>
@@ -15,7 +15,7 @@
         <el-input v-model="profileForm.confirmPassword" type="password" placeholder="请再次输入新密码"></el-input>
       </el-form-item>
       <el-form-item>
-        <el-button type="primary" @click="saveProfile">保存信息</el-button>
+        <el-button type="primary" @click="saveProfile" :loading="isLoading">保存信息</el-button>
         <el-button @click="togglePasswordChange">
           {{ isChangingPassword ? '取消修改密码' : '修改密码' }}
         </el-button>
@@ -29,7 +29,6 @@ import { defineComponent, ref, onMounted } from 'vue';
 import axios from 'axios';
 import { ElMessage } from 'element-plus';
 import { useUserStore } from '@/store';
-import { useRouter } from "vue-router";
 
 // 添加请求拦截器
 axios.interceptors.request.use(config => {
@@ -41,7 +40,6 @@ axios.interceptors.request.use(config => {
   return config;
 });
 
-// 解析 JWT token 中的 userId
 // 解析 JWT token 中的 userId
 const getUserIdFromToken = (token) => {
   if (!token) return null;
@@ -68,7 +66,7 @@ export default defineComponent({
     const userId = ref(getUserIdFromToken(token));
 
     const profileForm = ref({
-      name: '',
+      username: '',
       oldPassword: '',
       newPassword: '',
       confirmPassword: ''
@@ -77,9 +75,10 @@ export default defineComponent({
     const profileFormRef = ref(null);
 
     const isChangingPassword = ref(false);
+    const isLoading = ref(false);
 
     const rules = {
-      name: [
+      username: [
         { required: true, message: '请输入姓名', trigger: 'blur' }
       ],
       oldPassword: [
@@ -110,9 +109,10 @@ export default defineComponent({
         return;
       }
       try {
+        isLoading.value = true;
         const response = await axios.get(`/api/users/${userId.value}`);
         if (response.data) {
-          profileForm.value.name = response.data.name;
+          profileForm.value.username = response.data.username || '';
         }
       } catch (error) {
         if (error.response) {
@@ -128,6 +128,8 @@ export default defineComponent({
           ElMessage.error('网络错误，请稍后重试');
         }
         console.error(error);
+      } finally {
+        isLoading.value = false;
       }
     };
 
@@ -139,7 +141,8 @@ export default defineComponent({
       profileFormRef.value.validate(async (valid) => {
         if (valid) {
           try {
-            let dataToSend = { name: profileForm.value.name };
+            isLoading.value = true;
+            let dataToSend = {username: profileForm.value.username};
             if (isChangingPassword.value) {
               dataToSend = {
                 ...dataToSend,
@@ -150,6 +153,7 @@ export default defineComponent({
             const response = await axios.put(`/api/users/${userId.value}`, dataToSend);
             if (response.data) {
               ElMessage.success('用户信息更新成功');
+              location.reload();
               if (isChangingPassword.value) {
                 isChangingPassword.value = false;
                 profileForm.value.oldPassword = '';
@@ -165,6 +169,8 @@ export default defineComponent({
                 ElMessage.error('未授权，请重新登录');
               } else if (status === 404) {
                 ElMessage.error('未找到用户信息');
+              } else if (status === 400) {
+                ElMessage.error('旧密码不正确，请重新输入');
               } else {
                 ElMessage.error('更新用户信息失败');
               }
@@ -172,6 +178,8 @@ export default defineComponent({
               ElMessage.error('网络错误，请稍后重试');
             }
             console.error(error);
+          } finally {
+            isLoading.value = false;
           }
         } else {
           ElMessage.warning('请完善表单信息');
@@ -199,7 +207,8 @@ export default defineComponent({
       isChangingPassword,
       rules,
       saveProfile,
-      togglePasswordChange
+      togglePasswordChange,
+      isLoading
     };
   }
 });

@@ -45,7 +45,6 @@
             立即登录
           </el-button>
         </el-form-item>
-
       </el-form>
     </div>
   </div>
@@ -70,10 +69,10 @@ export default defineComponent({
     // 表单验证规则
     const rules = reactive({
       adminname: [
-        { required: true, message: '请输入管理员名', trigger: 'blur' }
+        {required: true, message: '请输入管理员名', trigger: 'blur'}
       ],
       password: [
-        { required: true, message: '请输入密码', trigger: 'blur' }
+        {required: true, message: '请输入密码', trigger: 'blur'}
       ]
     });
 
@@ -160,9 +159,8 @@ export default defineComponent({
 }
 
 .custom-input :deep(.el-input__wrapper) {
-  /* 添加你的自定义样式 */
-  padding: 0; /* 例如，设置输入框的内边距 */
-  border-radius: 4px; /* 例如，设置输入框的边框圆角 */
+  padding: 0;
+  border-radius: 4px;
 }
 
 .login-form {
@@ -197,12 +195,6 @@ export default defineComponent({
 
 .login-btn:hover {
   background-color: #45a049;
-}
-
-.register-tip {
-  text-align: center;
-  margin-top: 1.5rem;
-  color: #666;
 }
 
 .register-link {

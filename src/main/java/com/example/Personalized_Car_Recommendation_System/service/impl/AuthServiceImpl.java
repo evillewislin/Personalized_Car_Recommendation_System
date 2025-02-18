@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+
 @Service
 public class AuthServiceImpl implements AuthService {
 
@@ -17,6 +18,7 @@ public class AuthServiceImpl implements AuthService {
     private UserRepository userRepository;
     @Autowired
     private AdminRepository adminRepository;
+
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -38,7 +40,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByUsername(username);
         if (user != null && passwordEncoder.matches(password, user.getPassword())) {
             // 使用数据库中的用户 ID 生成 Token
-            return JwtUtil.generateToken(Long.valueOf(user.getId()));
+            return JwtUtil.generateToken(Long.valueOf(user.getUserId()));
         }
         return null;
     }
@@ -49,7 +51,7 @@ public class AuthServiceImpl implements AuthService {
         Admin admin = adminRepository.findByAdminname(adminname);
         if (admin != null && passwordEncoder.matches(password, admin.getPassword())) {
             // 传递 admin_id 生成 JWT Token
-            return JwtUtil.generateToken(Long.valueOf(admin.getId()));
+            return JwtUtil.generateToken(Long.valueOf(admin.getAdminId()));
         }
         return null;
     }

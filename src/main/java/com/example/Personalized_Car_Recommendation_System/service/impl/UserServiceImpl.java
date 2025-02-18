@@ -21,8 +21,8 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User getUserById(Integer id) {
-        return userRepository.findByUserid(id);
+    public User getUserById(Integer userId) {
+        return userRepository.findByUserId(userId);
     }
 
     @Override
@@ -46,5 +46,14 @@ public class UserServiceImpl implements UserService {
         return allUsers.stream()
                 .filter(user -> user.getUsername().contains(keyword))
                 .collect(Collectors.toList());
+    }
+    @Override
+    public User updateUsername(Integer userId, String username) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user != null) {
+            user.setUsername(username);
+            return userRepository.save(user);
+        }
+        return null;
     }
 }

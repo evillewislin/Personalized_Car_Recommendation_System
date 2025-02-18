@@ -16,8 +16,8 @@ public class Admin {
     @Column(nullable = false,name = "role")
     private String role;
     // getter 和 setter
-    public Integer getId(){ return id; }
-    public void setId(Integer id){ this.id = id; }
+    public Integer getAdminId(){ return id; }
+    public void setAdminId(Integer id){ this.id = id; }
     public String getAdminname(){ return adminname; }
     public void setAdminname(String adminname){ this.adminname = adminname; }
     public String getPassword(){ return password; }
