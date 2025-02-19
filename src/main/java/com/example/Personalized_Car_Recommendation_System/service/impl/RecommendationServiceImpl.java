@@ -64,6 +64,7 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     @Override
     public List<Map<String, Object>> getALSRecommendations(int userId) {
+        System.setProperty("org.apache.spark.internal.Logging", "org.apache.spark.internal.Slf4jLogging");
         // 初始化 SparkSession
         SparkSession spark = SparkSession.builder()
                 .appName("ALSRecommendation")
