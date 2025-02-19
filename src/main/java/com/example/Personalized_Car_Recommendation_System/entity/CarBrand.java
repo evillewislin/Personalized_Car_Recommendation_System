@@ -8,14 +8,14 @@ public class CarBrand {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "brand_id")
-    private Integer id;
+    private Integer brandId;
 
     @Column(name = "name")
     private String name;
 
     // Getters and Setters
-    public Integer getId() { return id; }
-    public void setId(Integer id) { this.id = id; }
+    public Integer getBrandId() { return brandId; }
+    public void setBrandIdId(Integer brandId) { this.brandId = brandId; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 }

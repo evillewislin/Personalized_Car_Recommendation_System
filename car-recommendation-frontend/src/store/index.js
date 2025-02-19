@@ -33,8 +33,8 @@ export const useUserStore = defineStore('user', {
 export const useAdminStore = defineStore('admin', {
     state: () => ({
         token: localStorage.getItem('token') || '',
-        username: localStorage.getItem('adminname') || '',
-        role: localStorage.getItem('role') || 'user'
+        adminname: localStorage.getItem('adminname') || '',
+        role: localStorage.getItem('role') || 'admin'
     }),
     actions: {
         setToken(token) {
@@ -55,6 +55,7 @@ export const useAdminStore = defineStore('admin', {
             this.role = 'user';
             localStorage.removeItem('token');
             localStorage.removeItem('adminname');
+            localStorage.removeItem('role');
         }
     }
 });

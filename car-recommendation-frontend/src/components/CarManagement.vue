@@ -67,7 +67,8 @@
         <h3>编辑汽车</h3>
         <el-form :model="editForm" :rules="editRules" ref="editFormRef">
           <el-form-item label="品牌" prop="name">
-            <el-input v-model="editForm.name"></el-input>
+            <!-- 添加 disabled 属性 -->
+            <el-input v-model="editForm.name" disabled></el-input>
           </el-form-item>
           <el-form-item label="全名" prop="fullName">
             <el-input v-model="editForm.fullName"></el-input>

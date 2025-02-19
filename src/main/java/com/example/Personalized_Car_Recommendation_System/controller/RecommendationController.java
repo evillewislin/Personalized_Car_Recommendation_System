@@ -1,57 +1,111 @@
 package com.example.Personalized_Car_Recommendation_System.controller;
 
-
-
 import com.example.Personalized_Car_Recommendation_System.service.RecommendationService;
-import org.springframework.ai.chat.client.ChatClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.ChatClient;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
-
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @RestController
-@RequestMapping("/ai")
+@RequestMapping("/api/ai")
 public class RecommendationController {
-    private final ChatClient chatClient;
+    private static final Logger log = LoggerFactory.getLogger(RecommendationController.class);
     private final JdbcTemplate jdbcTemplate;
     private final RecommendationService recommendationService;
+    private final ChatClient chatClient;
 
-    public RecommendationController(ChatClient.Builder builder, JdbcTemplate jdbcTemplate, RecommendationService recommendationService) {
-        this.chatClient = builder.build();
+    public RecommendationController(JdbcTemplate jdbcTemplate, RecommendationService recommendationService, ChatClient chatClient) {
         this.jdbcTemplate = jdbcTemplate;
         this.recommendationService = recommendationService;
+        this.chatClient = chatClient;
     }
 
+    // 读取用户历史数据
     @PostMapping("/recommend")
-    public ResponseEntity<String> chat(@RequestHeader("Authorization") String token) {
-        System.out.println("Received token: " + token);  // 打印接收到的 token
+    public ResponseEntity<List<Map<String, Object>>> getRecommendations(@RequestHeader("Authorization") String token) {
         try {
             int userId = recommendationService.getUserIdFromToken(token.replace("Bearer ", ""));
             String sql = """
             SELECT b.name, ci.full_name AS fullName,
                    CONCAT(ci.minprice, '-', ci.maxprice) AS priceRange,
-                   b.img AS imageUrl,
                    AVG(rh.score) AS avgScore
             FROM recommendation_history rh
             JOIN car_info ci ON rh.car_id = ci.car_id
             JOIN car_brand b ON ci.brand_id = b.brand_id
             WHERE rh.user_id = ?
-            GROUP BY b.name, ci.full_name, ci.minprice, ci.maxprice, b.img
+            GROUP BY b.name, ci.full_name, ci.minprice, ci.maxprice
             ORDER BY avgScore DESC
             LIMIT 10
         """;
             List<Map<String, Object>> recommendations = jdbcTemplate.queryForList(sql, userId);
-            return ResponseEntity.ok(recommendations.toString());
+
+            // 进一步合并 fullName 相同的记录（理论上 SQL 已经处理，但为确保万无一失）
+            Map<String, Map<String, Object>> mergedMap = new HashMap<>();
+            for (Map<String, Object> recommendation : recommendations) {
+                String fullName = (String) recommendation.get("fullName");
+                if (mergedMap.containsKey(fullName)) {
+                    // 如果已经存在该 fullName 的记录，更新 score
+                    Map<String, Object> existing = mergedMap.get(fullName);
+                    double existingScore = Double.parseDouble(existing.get("avgScore").toString());
+                    double newScore = Double.parseDouble(recommendation.get("avgScore").toString());
+                    // 这里由于 SQL 已经计算过平均值，简单覆盖即可
+                    existing.put("avgScore", newScore);
+                } else {
+                    // 不存在则添加到合并结果中
+                    mergedMap.put(fullName, new HashMap<>(recommendation));
+                }
+            }
+
+            List<Map<String, Object>> mergedRecommendations = new ArrayList<>(mergedMap.values());
+            return ResponseEntity.ok(mergedRecommendations);
         } catch (Exception e) {
-            System.out.println("Token parsing error: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Token 无效或已过期");
+            log.error("Token parsing error: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
         }
     }
 
+    // 调用ai接口
+    @GetMapping("/chat")
+    public ResponseEntity<String> chatWithAI(@RequestParam(value = "message") String message) {
+        log.info(message);
+        try {
+            Prompt prompt = new Prompt(new UserMessage(message));
+            CompletableFuture<String> future = recommendationService.callAI(prompt);
+            String response = future.get(); // 阻塞等待结果
+            return ResponseEntity.ok(response);
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("AI chat error: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().build();
+        }
+    }
 
+    // 添加 ALS 接口
+    @GetMapping("/als")
+    public ResponseEntity<List<Map<String, Object>>> getALSRecommendations(@RequestHeader("Authorization") String token) {
+        try {
+            int userId = recommendationService.getUserIdFromToken(token.replace("Bearer ", ""));
+            List<Map<String, Object>> alsRecommendations = recommendationService.getALSRecommendations(userId);
+            return ResponseEntity.ok(alsRecommendations);
+        } catch (Exception e) {
+            log.error("ALS recommendation error: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+        }
+    }
+
+    public ChatClient getChatClient() {
+        return chatClient;
+    }
 }

@@ -35,7 +35,7 @@ import UserManagement from '../components/UserManagement.vue';
 import CarManagement from '../components/CarManagement.vue';
 import CarAnalysis from '../components/CarAnalysis.vue';
 import UserHistoryAnalysis from '../components/UserHistoryAnalysis.vue';
-import { useUserStore } from '@/store'; // 假设使用 Pinia 存储用户信息
+import { useAdminStore } from '@/store'; // 使用管理员的 Store
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 
@@ -47,12 +47,12 @@ export default defineComponent({
     UserHistoryAnalysis
   },
   setup() {
-    const userStore = useUserStore();
+    const adminStore = useAdminStore();
     const router = useRouter();
     const currentTab = ref('userManagement');
 
     const handleLogout = () => {
-      userStore.logout(); // 清除登录状态，具体实现取决于你的 store
+      adminStore.logout(); // 调用管理员 Store 的退出方法
       ElMessage.info('用户已退出');
       router.push('/'); // 跳转回根页面
     };

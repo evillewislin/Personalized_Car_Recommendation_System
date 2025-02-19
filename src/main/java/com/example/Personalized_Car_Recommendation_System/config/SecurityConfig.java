@@ -13,7 +13,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/ai/recommend", "/api/cars/search", "/api/users/**").permitAll()  // 公开接口
+                        .requestMatchers("/api/auth/**", "api/ai/recommend", "/api/cars/search", "/api/users/**").permitAll()  // 公开接口
                         .anyRequest().permitAll() // 其他接口需要认证
                 );
         return http.build();

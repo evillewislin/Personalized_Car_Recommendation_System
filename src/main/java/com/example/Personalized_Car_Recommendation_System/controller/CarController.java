@@ -7,6 +7,8 @@ import com.example.Personalized_Car_Recommendation_System.entity.CarInfo;
 import com.example.Personalized_Car_Recommendation_System.repository.CarBrandRepository;
 import com.example.Personalized_Car_Recommendation_System.repository.CarInfoRepository;
 import com.example.Personalized_Car_Recommendation_System.service.CarService;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +25,7 @@ import java.util.Optional;
 @RequestMapping("/api/cars")
 public class CarController {
 
+    private static final Logger log = LogManager.getLogger(CarController.class);
     @Autowired
     private CarService carService;
 
@@ -58,12 +61,11 @@ public class CarController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            System.out.println(e);
+            log.error("e: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         }
     }
 
-    // 新增车型
     // 新增车型
     @PostMapping("/add")
     public ResponseEntity<CarBrand> saveCar(@RequestBody CarUpdateDto carUpdateDto) {
@@ -74,7 +76,7 @@ public class CarController {
         CarBrand savedCarBrand = carBrandRepository.save(carBrand);
 
         // 设置 CarInfo 的 brandId
-        carInfo.setBrandId(savedCarBrand.getId());
+        carInfo.setBrandId(savedCarBrand.getBrandId());
 
         // 保存 CarInfo
         carInfoRepository.save(carInfo);
@@ -90,7 +92,6 @@ public class CarController {
     }
 
     // 编辑汽车接口
-    // 编辑汽车接口
     @PutMapping("/{carId}")
     public ResponseEntity<Void> updateCar(@PathVariable Integer carId, @RequestBody CarUpdateDto carUpdateDto) {
         CarInfo carInfo = carUpdateDto.getCarInfo();
@@ -103,15 +104,22 @@ public class CarController {
             existingCarInfo.setFullName(carInfo.getFullName());
             existingCarInfo.setMinPrice(carInfo.getMinPrice());
             existingCarInfo.setMaxPrice(carInfo.getMaxPrice());
+
             // 确保设置 brandId
-            existingCarInfo.setBrandId(carInfo.getBrandId());
+            Integer brandId = carInfo.getBrandId();
+            if (brandId == null) {
+                // 如果 brandId 为 null，从现有 CarInfo 中获取
+                brandId = existingCarInfo.getBrandId();
+            }
+            existingCarInfo.setBrandId(brandId);
+
             carInfoRepository.save(existingCarInfo);
         }
+        log.info("carId: {} carBrand: {}", carId, carBrand);
 
         // 更新 CarBrand 表
-        Integer brandId = carInfo.getBrandId();
-        if (brandId != null) {
-            Optional<CarBrand> optionalCarBrand = carBrandRepository.findById(brandId);
+        if (carInfo.getBrandId() != null) {
+            Optional<CarBrand> optionalCarBrand = carBrandRepository.findById(carInfo.getBrandId());
             if (optionalCarBrand.isPresent()) {
                 CarBrand existingCarBrand = optionalCarBrand.get();
                 existingCarBrand.setName(carBrand.getName());

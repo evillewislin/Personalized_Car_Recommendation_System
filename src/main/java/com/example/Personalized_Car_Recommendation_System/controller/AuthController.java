@@ -1,6 +1,5 @@
 package com.example.Personalized_Car_Recommendation_System.controller;
 
-import ch.qos.logback.core.net.SyslogOutputStream;
 import com.example.Personalized_Car_Recommendation_System.entity.User;
 import com.example.Personalized_Car_Recommendation_System.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;

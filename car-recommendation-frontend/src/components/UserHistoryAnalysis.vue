@@ -13,35 +13,6 @@ import {Chart, registerables} from 'chart.js';
 import axios from 'axios';
 import {useUserStore} from '@/store';
 
-// 请求拦截器，添加 Token 到请求头
-axios.interceptors.request.use(config => {
-  const userStore = useUserStore();
-  const token = userStore.token;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// 从 Token 中解析用户 ID
-const getUserIdFromToken = (token) => {
-  if (!token) return null;
-  try {
-    // 去除可能存在的 "Bearer " 前缀
-    token = token.replace("Bearer ", "");
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-    const payload = JSON.parse(jsonPayload);
-    return parseInt(payload.sub); // 从 sub 字段获取 userId
-  } catch (error) {
-    console.error('解析 Token 出错:', error);
-    return null;
-  }
-};
-
 // 格式化时间戳为月日
 const formatTimestamp = (timestamp) => {
   const date = new Date(timestamp);
@@ -59,15 +30,8 @@ export default {
   methods: {
     async fetchDataAndRenderChart() {
       try {
-        const userStore = useUserStore();
-        const role = userStore.role;
-        const token = userStore.token;
-        const userId = getUserIdFromToken(token);
-
-        let url = '/api/user-history-analysis';
-        if (role === 'user' && userId!== null) {
-          url += `?userId=${userId}`;
-        }
+        // 始终使用固定的 URL
+        const url = '/api/user-history-analysis';
 
         const response = await axios.get(url);
         const data = response.data;

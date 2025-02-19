@@ -1,16 +1,23 @@
 package com.example.Personalized_Car_Recommendation_System.util;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+
+import java.util.Base64;
 import java.util.Date;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import javax.crypto.spec.SecretKeySpec;
 import java.security.Key;
 
+@Component
 public class JwtUtil {
     private static final Key SECRET_KEY = Keys.secretKeyFor(SignatureAlgorithm.HS256);
     private static final long EXPIRATION_TIME = 86400000; // 1天
-
     /**
      * 生成包含 user_id 的 JWT Token
      * @param userId 用户 ID
@@ -28,11 +35,11 @@ public class JwtUtil {
         try {
             Claims claims = Jwts.parser()
                     .setSigningKey(SECRET_KEY)
-                    .parseClaimsJws(token.replace("Bearer ", ""))
+                    .parseClaimsJws(token)
                     .getBody();
-            return Integer.valueOf(claims.getSubject()); // 修改为获取 subject
-        } catch (Exception e) {
-            return null;
+            return Integer.parseInt(claims.getSubject());
+        } catch (ExpiredJwtException e) {
+            throw new IllegalArgumentException("Token 已过期，请重新登录");
         }
     }
 }

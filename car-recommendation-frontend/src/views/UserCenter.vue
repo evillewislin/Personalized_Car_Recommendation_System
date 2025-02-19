@@ -10,7 +10,7 @@
         <li :class="{ active: currentTab === 'personalInfo' }" @click="currentTab = 'personalInfo'">
           个人信息
         </li>
-        <li :class="{ active: currentTab === 'userHistoryAnalysis' }" @click="currentTab = 'userHistoryAnalysis'">
+        <li :class="{ active: currentTab === 'singleUserHistoryAnalysis' }" @click="currentTab = 'singleUserHistoryAnalysis'">
           用户历史分析
         </li>
       </ul>
@@ -26,7 +26,7 @@
 <script>
 import { defineComponent, ref } from 'vue';
 import PersonalInfo from '../components/PersonalInfo.vue';
-import UserHistoryAnalysis from '../components/UserHistoryAnalysis.vue';
+import SingleUserHistoryAnalysis from '../components/SingleUserHistoryAnalysis.vue';
 import { useUserStore } from '@/store'; // 假设使用 Pinia 存储用户信息
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
@@ -34,7 +34,7 @@ import { ElMessage } from 'element-plus';
 export default defineComponent({
   components: {
     PersonalInfo,
-    UserHistoryAnalysis
+    SingleUserHistoryAnalysis
   },
   setup() {
     const userStore = useUserStore();
