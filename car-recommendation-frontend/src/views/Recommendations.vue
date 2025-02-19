@@ -91,20 +91,27 @@ export default {
           throw new Error('Token is missing');
         }
 
-        // 先调用 ALS 接口
+        // 调用 recommend 接口
+        const recommendResponse = await axios.post('/api/ai/recommend', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const recommendData = recommendResponse.data;
+
+        // 调用 ALS 接口
         const alsResponseData = await axios.get('/api/ai/als', {
           headers: { Authorization: `Bearer ${token}` }
         });
         alsResponse.value = alsResponseData.data;
 
-        if (alsResponse.value.length > 0) {
-          const dataString = JSON.stringify(alsResponse.value);
+        if (recommendData.value.length > 0) {
+          const dataString = JSON.stringify(recommendData.value);
           const escapedDataString = dataString.replace(/"/g, '\\"');
           const message = `为我分析一下这些汽车推荐：${escapedDataString}`;
           const encodedMessage = encodeURIComponent(message);
 
           // 调用 AI 聊天接口
           const aiChatResponse = await axios.get('/api/ai/chat', {
+            headers: { Authorization: `Bearer ${token}` },
             params: { message: encodedMessage }
           });
 

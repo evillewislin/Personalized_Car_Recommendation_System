@@ -25,7 +25,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final JwtUtil jwtUtil;
     private final ChatClient chatClient;
     private final JdbcTemplate jdbcTemplate;
-
+    private static final Logger log = LoggerFactory.getLogger(RecommendationServiceImpl.class);
     @Autowired
     public RecommendationServiceImpl(JwtUtil jwtUtil, ChatClient chatClient, JdbcTemplate jdbcTemplate) {
         this.jwtUtil = jwtUtil;
@@ -71,6 +71,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .getOrCreate();
 
         try {
+            log.info("Getting ALS recommendations for user: {}", userId);
             // 从数据库中获取用户对汽车的评分数据
             String sql = "SELECT user_id, car_id, score FROM recommendation_history";
             List<Map<String, Object>> ratingData = jdbcTemplate.queryForList(sql);

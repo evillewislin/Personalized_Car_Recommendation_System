@@ -96,7 +96,9 @@ public class RecommendationController {
     @GetMapping("/als")
     public ResponseEntity<List<Map<String, Object>>> getALSRecommendations(@RequestHeader("Authorization") String token) {
         try {
+            log.info("Received token: {}", token);
             int userId = recommendationService.getUserIdFromToken(token.replace("Bearer ", ""));
+            log.info("Received token: {}", token);
             List<Map<String, Object>> alsRecommendations = recommendationService.getALSRecommendations(userId);
             return ResponseEntity.ok(alsRecommendations);
         } catch (Exception e) {
