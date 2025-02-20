@@ -31,9 +31,6 @@ public class CollectController {
         String token = authorizationHeader.replace("Bearer ", "");
         try {
             Integer userId = JwtUtil.getUserIdFromToken(token);
-            if (userId == null) {
-                return new ResponseEntity<>("无效的 token，请重新登录", HttpStatus.UNAUTHORIZED);
-            }
 
             Integer carId = (Integer) request.get("carId");
             System.out.println("Received Car ID: " + carId);

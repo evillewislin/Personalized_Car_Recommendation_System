@@ -55,11 +55,17 @@
 	</repositories>
 
 	<properties>
-		<java.version>17</java.version>
-		<spark.version>3.4.1</spark.version>
+		<java.version>1.8</java.version>
+		<spark.version>3.5.0</spark.version>
 	</properties>
 
 	<dependencies>
+			<!-- ANTLR 运行时依赖 -->
+			<dependency>
+				<groupId>org.antlr</groupId>
+				<artifactId>antlr4-runtime</artifactId>
+				<version>4.10.1</version>
+			</dependency>
 		<!-- Spark 依赖 -->
 		<dependency>
 			<groupId>org.apache.spark</groupId>
@@ -245,8 +251,23 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.13.0</version>
 				<configuration>
-					<release>17</release>
+					<source>1.8</source>
+					<target>1.8</target>
 				</configuration>
+			</plugin>
+			<!-- ANTLR 插件配置 -->
+			<plugin>
+				<groupId>org.antlr</groupId>
+				<artifactId>antlr4-maven-plugin</artifactId>
+				<version>4.10.1</version>
+				<executions>
+					<execution>
+						<id>antlr4-generate</id>
+						<goals>
+							<goal>antlr4</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>

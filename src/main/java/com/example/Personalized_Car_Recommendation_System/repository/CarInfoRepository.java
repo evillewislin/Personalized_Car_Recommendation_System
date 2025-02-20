@@ -15,20 +15,20 @@ public interface CarInfoRepository extends JpaRepository<CarInfo, Integer> {
     @Query("SELECT i.id ,b.name AS brandName, i.fullName AS fullName, i.minPrice AS minPrice, " +
             "i.maxPrice AS maxPrice " +
             "FROM CarBrand b " +
-            "JOIN CarInfo i ON b.id = i.brandId")
+            "JOIN CarInfo i ON b.brandId = i.brandId")
     Page<Object[]> findCarDetailsWithBrand(Pageable pageable);
 
 
     @Query("SELECT new com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto(i.id,b.name, i.fullName, i.minPrice, i.maxPrice) " +
             "FROM CarBrand b " +
-            "JOIN CarInfo i ON b.id = i.brandId " +
+            "JOIN CarInfo i ON b.brandId = i.brandId " +
             "WHERE b.name LIKE %:keyword% OR i.fullName LIKE %:keyword%")
     Page<CarDetailsDto> findAllCarDetailsByKeyword(Pageable pageable, @Param("keyword") String keyword);
 
 
     @Query("SELECT new com.example.Personalized_Car_Recommendation_System.dto.CarAnalysisDataDto(cb.name, ci.minPrice, ci.maxPrice) " +
             "FROM CarInfo ci " +
-            "JOIN CarBrand cb ON ci.brandId = cb.id")
+            "JOIN CarBrand cb ON ci.brandId = cb.brandId")
     List<CarAnalysisDataDto> getCarAnalysisData();
 }
 

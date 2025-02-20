@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
-
 @Service
 public class AuthServiceImpl implements AuthService {
 
@@ -18,7 +17,8 @@ public class AuthServiceImpl implements AuthService {
     private UserRepository userRepository;
     @Autowired
     private AdminRepository adminRepository;
-
+    @Autowired
+    private JwtUtil jwtUtil;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -36,22 +36,21 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public String login(String username, String password) { // 移除 userid 参数
+    public String login(String username, String password) {
         User user = userRepository.findByUsername(username);
         if (user != null && passwordEncoder.matches(password, user.getPassword())) {
-            // 使用数据库中的用户 ID 生成 Token
-            return JwtUtil.generateToken(Long.valueOf(user.getUserId()));
+            // 使用注入的 JwtUtil 实例生成 Token
+            return jwtUtil.generateToken(user.getUserId());
         }
         return null;
     }
-
 
     @Override
     public String adminlogin(String adminname, String password) {
         Admin admin = adminRepository.findByAdminname(adminname);
         if (admin != null && passwordEncoder.matches(password, admin.getPassword())) {
-            // 传递 admin_id 生成 JWT Token
-            return JwtUtil.generateToken(Long.valueOf(admin.getAdminId()));
+            // 使用注入的 JwtUtil 实例生成 Token
+            return jwtUtil.generateToken(admin.getAdminId());
         }
         return null;
     }
