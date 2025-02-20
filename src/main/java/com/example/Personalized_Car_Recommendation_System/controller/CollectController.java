@@ -33,7 +33,7 @@ public class CollectController {
             Integer userId = JwtUtil.getUserIdFromToken(token);
 
             Integer carId = (Integer) request.get("carId");
-            System.out.println("Received Car ID: " + carId);
+            logger.info("Received Car ID: {}", carId);
             String name = (String) request.get("name");
             Integer score = (Integer) request.get("score");
 

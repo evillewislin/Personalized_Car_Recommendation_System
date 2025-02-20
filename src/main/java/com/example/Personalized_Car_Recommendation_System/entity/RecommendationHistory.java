@@ -1,5 +1,6 @@
 package com.example.Personalized_Car_Recommendation_System.entity;
 
+
 import jakarta.persistence.*;
 import java.util.Date;
 

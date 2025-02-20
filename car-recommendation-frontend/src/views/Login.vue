@@ -124,11 +124,7 @@ export default defineComponent({
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
-.custom-input :deep(.el-input__wrapper) {
-  /* 添加你的自定义样式 */
-  padding: 0; /* 例如，设置输入框的内边距 */
-  border-radius: 4px; /* 例如，设置输入框的边框圆角 */
-}
+
 .login-form {
   margin: 0 auto;
 }
@@ -137,18 +133,6 @@ export default defineComponent({
   margin-bottom: 1rem;
 }
 
-.custom-input :deep(.el-input__inner) {
-  height: 45px;
-  border-radius: 0;
-  border: 2px solid #e0e0e0;
-  padding: 10px;
-  transition: border-color 0.3s;
-}
-
-.custom-input :deep(.el-input__inner:focus) {
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 rgba(76, 175, 80, 0.3);
-}
 .back-button-wrapper {
   width: 100%;
   max-width: 400px;

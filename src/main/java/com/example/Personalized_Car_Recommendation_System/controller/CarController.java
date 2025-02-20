@@ -9,6 +9,7 @@ import com.example.Personalized_Car_Recommendation_System.repository.CarInfoRepo
 import com.example.Personalized_Car_Recommendation_System.service.CarService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -100,18 +101,7 @@ public class CarController {
         // 更新 CarInfo 表
         Optional<CarInfo> optionalCarInfo = carInfoRepository.findById(carId);
         if (optionalCarInfo.isPresent()) {
-            CarInfo existingCarInfo = optionalCarInfo.get();
-            existingCarInfo.setFullName(carInfo.getFullName());
-            existingCarInfo.setMinPrice(carInfo.getMinPrice());
-            existingCarInfo.setMaxPrice(carInfo.getMaxPrice());
-
-            // 确保设置 brandId
-            Integer brandId = carInfo.getBrandId();
-            if (brandId == null) {
-                // 如果 brandId 为 null，从现有 CarInfo 中获取
-                brandId = existingCarInfo.getBrandId();
-            }
-            existingCarInfo.setBrandId(brandId);
+            CarInfo existingCarInfo = getCarInfo(optionalCarInfo, carInfo);
 
             carInfoRepository.save(existingCarInfo);
         }
@@ -128,5 +118,21 @@ public class CarController {
         }
 
         return ResponseEntity.ok().build();
+    }
+
+    private static @NotNull CarInfo getCarInfo(Optional<CarInfo> optionalCarInfo, CarInfo carInfo) {
+        CarInfo existingCarInfo = optionalCarInfo.get();
+        existingCarInfo.setFullName(carInfo.getFullName());
+        existingCarInfo.setMinPrice(carInfo.getMinPrice());
+        existingCarInfo.setMaxPrice(carInfo.getMaxPrice());
+
+        // 确保设置 brandId
+        Integer brandId = carInfo.getBrandId();
+        if (brandId == null) {
+            // 如果 brandId 为 null，从现有 CarInfo 中获取
+            brandId = existingCarInfo.getBrandId();
+        }
+        existingCarInfo.setBrandId(brandId);
+        return existingCarInfo;
     }
 }

@@ -1,4 +1,4 @@
-package com.example.Personalized_Car_Recommendation_System.controller.Bean;
+package com.example.Personalized_Car_Recommendation_System.controller.bean;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

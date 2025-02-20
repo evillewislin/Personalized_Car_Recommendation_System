@@ -118,11 +118,6 @@ export default defineComponent({
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-.nav-left a.router-link-exact-active {
-  color: #4CAF50;
-  border-bottom: 2px solid #4CAF50;
-}
-
 .nav-right {
   display: flex;
   align-items: center;

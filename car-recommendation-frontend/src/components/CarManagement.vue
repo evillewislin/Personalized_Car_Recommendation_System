@@ -376,10 +376,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.el-pagination {
-  margin-top: 20px;
-  justify-content: center;
-}
 
 .action-buttons {
   margin-bottom: 10px;

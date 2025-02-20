@@ -80,7 +80,7 @@ export default defineComponent({
   left: 20px;
   z-index: 10; /* 确保按钮显示在最上层 */
 }
-.el-button{
+el-button{
   margin:0 8px 10px 0;
 
 }
