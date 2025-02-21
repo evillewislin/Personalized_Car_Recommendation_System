@@ -6,6 +6,7 @@ import com.example.Personalized_Car_Recommendation_System.entity.CarInfo;
 import com.example.Personalized_Car_Recommendation_System.repository.CarBrandRepository;
 import com.example.Personalized_Car_Recommendation_System.repository.CarInfoRepository;
 import com.example.Personalized_Car_Recommendation_System.service.CarService;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -53,13 +54,19 @@ public class CarServiceImpl implements CarService {
         return carBrandRepository.save(car);
     }
 
+    @Transactional
     @Override
-    public void deleteCar(Integer id) {
-        carBrandRepository.deleteById(id);
+    public void deleteCar(Integer carId) {
+        // 根据 carId 删除 CarInfo 记录
+        Optional<CarInfo> carInfoOptional = carInfoRepository.findById(carId);
+        if (carInfoOptional.isPresent()) {
+            carInfoRepository.deleteById(carId);
+        }
     }
 
 
-     public void updateCarInfoAndBrand(Integer carId, CarInfo carInfo, CarBrand carBrand) {
+
+    public void updateCarInfoAndBrand(Integer carId, CarInfo carInfo, CarBrand carBrand) {
         // 更新 CarInfo 表
         Optional<CarInfo> optionalCarInfo = carInfoRepository.findById(carId);
         if (optionalCarInfo.isPresent()) {

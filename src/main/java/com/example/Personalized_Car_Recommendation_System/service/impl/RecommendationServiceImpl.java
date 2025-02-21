@@ -29,6 +29,11 @@ public class RecommendationServiceImpl implements RecommendationService {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    /**
+     * 从令牌中获取用户ID
+     * @param token 用户的令牌
+     * @return 用户ID
+     */
     @Override
     public int getUserIdFromToken(String token) {
         logger.info("开始解析 Token: {}", token);
@@ -42,6 +47,11 @@ public class RecommendationServiceImpl implements RecommendationService {
         }
     }
 
+    /**
+     * 异步调用AI接口
+     * @param prompt 提示信息
+     * @return 异步的AI响应
+     */
     @Async
     public CompletableFuture<String> callAI(Prompt prompt) {
         try {
@@ -53,6 +63,11 @@ public class RecommendationServiceImpl implements RecommendationService {
         }
     }
 
+    /**
+     * 根据用户ID获取推荐信息
+     * @param userId 用户ID
+     * @return 推荐信息列表
+     */
     @Override
     public List<Map<String, Object>> getRecommendationsByUserId(int userId) {
         // 这里实现具体的业务逻辑，例如从数据库查询用户的推荐信息

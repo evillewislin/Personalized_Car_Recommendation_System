@@ -215,6 +215,7 @@ export default defineComponent({
 </script>
 
 <style scoped>
+/* 个人信息容器 */
 .personal-info-container {
   padding: 20px;
   background-color: #fff;
@@ -222,5 +223,41 @@ export default defineComponent({
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   max-width: 600px;
   margin: 20px auto;
+}
+
+/* 按钮样式 */
+el-button {
+  background-color: #4caf50;
+  color: white;
+  border-radius: 4px;
+}
+
+el-button:hover {
+  background-color: #45a049;
+}
+
+/* 修改密码切换按钮 */
+el-button[type="default"] {
+  background-color: #f0f0f0;
+  color: #333;
+  border-radius: 4px;
+}
+
+el-button[type="default"]:hover {
+  background-color: #d1d1d1;
+}
+
+/* 表单输入样式 */
+el-form-item {
+  margin-bottom: 20px;
+}
+
+el-input {
+  border-radius: 4px;
+  padding: 10px;
+}
+
+el-input[type="password"] {
+  width: 100%;
 }
 </style>

@@ -1,7 +1,6 @@
 <template>
-  <div>
-    <h2>汽车分析</h2>
-    <div>
+  <div class="car-analysis-container">
+    <div class="filter-section">
       <label for="minPrice">最小价格:</label>
       <input type="number" id="minPrice" v-model="minPrice" placeholder="请输入最小价格">
       <label for="maxPrice">最大价格:</label>
@@ -81,13 +80,14 @@ export default {
       return scatterData;
     },
     renderScatterChart(data) {
+      const plainData = data.map(item => ({ x: item.x, y: item.y }));
       const ctx = this.$refs.scatterChart.getContext('2d');
       const scatterChart = new Chart(ctx, {
         type: 'scatter',
         data: {
           datasets: [{
             label: '汽车品牌价格平均值',
-            data: data,
+            data: plainData,
             backgroundColor: 'rgba(75, 192, 192, 0.2)',
             borderColor: 'rgb(75, 192, 192)',
             borderWidth: 1
@@ -126,7 +126,8 @@ export default {
       while (startIndex < data.length) {
         const endIndex = Math.min(startIndex + batchSize, data.length);
         const newData = data.slice(startIndex, endIndex);
-        chart.data.datasets[0].data.push(...newData);
+        const plainNewData = newData.map(item => ({ x: item.x, y: item.y }));
+        chart.data.datasets[0].data.push(...plainNewData);
         batchCount++;
 
         if (batchCount % updateInterval === 0) {
@@ -142,37 +143,40 @@ export default {
         chart.update();
       }
     },
-    filterData() {
-      let filteredData = this.originalData;
-      if (this.minPrice) {
-        filteredData = filteredData.filter(item => item.minprice >= parseInt(this.minPrice));
-      }
-      if (this.maxPrice) {
-        filteredData = filteredData.filter(item => item.maxprice <= parseInt(this.maxPrice));
-      }
-
-      if (filteredData.length === 0) {
-        console.log('没有符合条件的数据');
-        return;
-      }
-
-      // 处理筛选后的数据
-      const scatterData = this.processScatterData(filteredData);
-      if (this.scatterChart) {
-        // 清空原有图表数据
-        this.scatterChart.data.datasets[0].data = [];
-        // 将处理后的数据转换为普通的 JavaScript 对象
-        const plainScatterData = scatterData.map(item => ({x: item.x, y: item.y}));
-        // 更新图表数据
-        this.scatterChart.data.datasets[0].data = plainScatterData;
-        // 更新图表
-        try {
-          this.scatterChart.update();
-        } catch (error) {
-          console.error('更新图表时出错:', error);
+    async filterData() {
+      try {
+        const response = await axios.get('/api/car-analysis', {
+          params: {
+            minPrice: this.minPrice,
+            maxPrice: this.maxPrice
+          }
+        });
+        let filteredData = response.data;
+        if (filteredData.length === 0) {
+          console.log('没有符合条件的数据');
+          return;
         }
-      } else {
-        console.error('图表实例未正确初始化');
+
+        // 处理筛选后的数据
+        const scatterData = this.processScatterData(filteredData);
+        if (this.scatterChart) {
+          // 清空原有图表数据
+          this.scatterChart.data.datasets[0].data = [];
+          // 将处理后的数据转换为普通的 JavaScript 对象
+          const plainScatterData = scatterData.map(item => ({ x: item.x, y: item.y }));
+          // 更新图表数据
+          this.scatterChart.data.datasets[0].data = plainScatterData;
+          // 更新图表
+          try {
+            this.scatterChart.update();
+          } catch (error) {
+            console.error('更新图表时出错:', error);
+          }
+        } else {
+          console.error('图表实例未正确初始化');
+        }
+      } catch (error) {
+        console.error('筛选数据时出错:', error);
       }
     }
   }
@@ -180,11 +184,40 @@ export default {
 </script>
 
 <style scoped>
+.car-analysis-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  height: 100vh; /* 占满整个可视区域高度 */
+  box-sizing: border-box;
+}
+
+h2 {
+  margin-bottom: 20px;
+}
+
+.filter-section {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
 .chart-container {
   background: white;
   padding: 1.5rem;
   border-radius: 8px;
-  margin-top: 1.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 800px;
+  max-height: 450px;
+  flex-grow: 1; /* 让图表容器占满剩余空间 */
+}
+
+canvas {
+  padding: 1.5rem;
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 16 / 9; /* 设置宽高比 */
 }
 </style>

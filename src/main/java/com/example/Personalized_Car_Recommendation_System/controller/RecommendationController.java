@@ -26,12 +26,20 @@ public class RecommendationController {
         this.chatClient = chatClient;
     }
 
-    // 提取从 Token 中获取用户 ID 的逻辑
+    /**
+     * 提取从 Token 中获取用户 ID 的逻辑
+     * @param token 用户的令牌
+     * @return 用户ID
+     */
     private int getUserIdFromToken(String token) {
         return recommendationService.getUserIdFromToken(token.replace("Bearer ", ""));
     }
 
-    // 读取用户历史数据
+    /**
+     * 读取用户历史数据
+     * @param token 用户的授权令牌
+     * @return 推荐信息列表
+     */
     @PostMapping("/recommend")
     public ResponseEntity<List<Map<String, Object>>> getRecommendations(@RequestHeader("Authorization") String token) {
         try {
@@ -45,7 +53,11 @@ public class RecommendationController {
         }
     }
 
-    // 调用ai接口
+    /**
+     * 调用ai接口
+     * @param message 用户输入的消息
+     * @return 异步的AI响应
+     */
     @GetMapping("/chat")
     public CompletableFuture<ResponseEntity<String>> chatWithAI(@RequestParam(value = "message") String message) {
         log.info(message);
@@ -58,13 +70,22 @@ public class RecommendationController {
                 });
     }
 
-    // 处理令牌解析错误
+    /**
+     * 处理令牌解析错误
+     * @param e 异常信息
+     * @return 错误响应
+     */
     private ResponseEntity<List<Map<String, Object>>> handleTokenParsingError(IllegalArgumentException e) {
         log.error("Token parsing error: {}", e.getMessage(), e);
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
     }
 
-    // 处理内部服务器错误
+    /**
+     * 处理内部服务器错误
+     * @param e 异常信息
+     * @param errorMessage 错误消息
+     * @return 错误响应
+     */
     private ResponseEntity<List<Map<String, Object>>> handleInternalServerError(Exception e, String errorMessage) {
         log.error("{}: {}", errorMessage, e.getMessage(), e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);

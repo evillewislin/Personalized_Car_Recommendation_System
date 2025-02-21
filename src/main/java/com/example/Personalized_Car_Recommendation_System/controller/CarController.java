@@ -87,9 +87,14 @@ public class CarController {
 
     // 根据ID删除车型
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteCar(@PathVariable Integer id) {
-        carService.deleteCar(id);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<String> deleteCar(@PathVariable Integer id) {
+        try {
+            carService.deleteCar(id);
+            return ResponseEntity.ok("删除成功");
+        } catch (Exception e) {
+            log.error("删除汽车信息失败，carId: {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("删除失败: " + e.getMessage());
+        }
     }
 
     // 编辑汽车接口

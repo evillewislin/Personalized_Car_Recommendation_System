@@ -1,6 +1,5 @@
 <template>
   <div>
-    <h2>用户历史分析</h2>
     <div class="chart-container">
       <canvas ref="userHistoryBarChart"></canvas>
       <canvas ref="userHistoryLineChart"></canvas>
@@ -156,11 +155,30 @@ export default {
 </script>
 
 <style scoped>
+/* 用户历史分析的图表容器 */
 .chart-container {
   background: white;
   padding: 1.5rem;
   border-radius: 8px;
   margin-top: 1.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.chart-container {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 800px;
+  max-height: 800px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1; /* 让图表容器占满剩余空间 */
+}
+/* 图表的 canvas */
+canvas {
+  width: 100% !important;
+  height: 400px !important;
+  margin-bottom: 20px;
 }
 </style>

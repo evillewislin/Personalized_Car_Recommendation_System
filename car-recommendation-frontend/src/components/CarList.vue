@@ -169,4 +169,34 @@ export default defineComponent({
 </script>
 
 <style scoped>
+/* 表格容器 */
+.el-table {
+  margin-top: 20px;
+  width: 100%;
+}
+
+/* 分页组件样式 */
+.el-pagination {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* 表格按钮样式 */
+.el-button {
+  background-color: #1a73e8;
+  color: white;
+  border-radius: 4px;
+}
+
+.el-button:hover {
+  background-color: #003c8f;
+}
+
+/* 分页控件样式 */
+.el-pagination .el-button {
+  padding: 5px 15px;
+  font-size: 14px;
+}
 </style>

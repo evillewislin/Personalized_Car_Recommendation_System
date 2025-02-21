@@ -4,7 +4,7 @@
     <!-- 操作按钮和搜索框 -->
     <div class="action-buttons">
       <el-button type="primary" @click="showAddModal">添加用户</el-button>
-      <el-input v-model="searchQuery" placeholder="请输入搜索关键词"></el-input>
+      <el-input v-model="searchQuery" placeholder="请输入用户名搜索"></el-input>
       <el-button @click="searchUsers">搜索</el-button>
     </div>
     <!-- 用户列表表格 -->
@@ -147,7 +147,6 @@ const getUsers = async () => {
     const response = await axios.get('/api/users');
     users.value = response.data;
     filteredUsers.value = response.data;
-    searchUsers();
   } catch (error) {
     console.error('获取用户列表失败:', error);
     ElMessage.error('获取用户列表失败，请稍后重试');
@@ -264,12 +263,47 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 操作按钮容器样式 */
 .action-buttons {
-  margin-bottom: 10px;
+  margin-bottom: 20px;
   display: flex;
-  gap: 10px;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
 }
 
+/* 表格样式 */
+.el-table {
+  margin-top: 20px;
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.el-table th {
+  background-color: #1a73e8;
+  color: white;
+}
+
+.el-table td {
+  background-color: #f9f9f9;
+}
+
+/* 编辑和删除按钮 */
+.el-button {
+  border-radius: 4px;
+}
+
+.el-button[type="danger"] {
+  background-color: #ff5252;
+  color: white;
+}
+
+.el-button[type="danger"]:hover {
+  background-color: #ff1744;
+}
+
+/* 模态框样式 */
 .custom-modal {
   position: fixed;
   top: 0;
@@ -288,10 +322,5 @@ onMounted(() => {
   padding: 20px;
   border-radius: 5px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.custom-modal-footer {
-  margin-top: 20px;
-  text-align: right;
 }
 </style>

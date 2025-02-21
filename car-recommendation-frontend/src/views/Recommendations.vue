@@ -7,6 +7,8 @@
         <router-link to="/recommendations" class="nav-link">个性化推荐</router-link>
       </div>
     </nav>
+    <!-- 用户输入要求的文本输入框 -->
+    <input v-model="userRequest" type="text" placeholder="请输入你的要求" />
     <!-- AI 推荐按钮 -->
     <button @click="fetchAIRecommendations" class="ai-recommend-btn" :disabled="loading">
       {{ loading ? '加载中...' : 'AI智能推荐' }}
@@ -71,6 +73,7 @@ import axios from 'axios';
 
 export default {
   setup() {
+    const userRequest = ref('');
     const chatResponse = ref([]);
     const recommendResponse = ref([]);
     const loading = ref(false);
@@ -91,28 +94,24 @@ export default {
           throw new Error('Token is missing');
         }
 
-        // 调用 recommend 接口
         const recommendResponseData = await axios.post('/api/ai/recommend', {
-          headers: {Authorization: `Bearer ${token}`}
+          headers: { Authorization: `Bearer ${token}` }
         });
+
         recommendResponse.value = recommendResponseData.data;
 
         if (recommendResponse.value.length > 0) {
           const dataString = JSON.stringify(recommendResponse.value);
           const escapedDataString = dataString.replace(/"/g, '\\"');
-          const message = `为我分析一下这些汽车推荐：${escapedDataString}`;
+          const message = `为我分析一下这些汽车推荐：${escapedDataString}，同时考虑我的要求：${userRequest.value}`;
           const encodedMessage = encodeURIComponent(message);
 
-          // 调用 AI 聊天接口
           const aiChatResponse = await axios.get('/api/ai/chat', {
-            headers: {Authorization: `Bearer ${token}`},
-            params: {message: encodedMessage}
+            headers: { Authorization: `Bearer ${token}` },
+            params: { message: encodedMessage }
           });
 
-          // 假设 chat 接口返回的数据是一个汽车列表
           chatResponse.value = aiChatResponse.data;
-
-          // 处理 AI 文本响应
           aiResponse.value = aiChatResponse.data.join('\n');
         }
       } catch (error) {
@@ -123,129 +122,129 @@ export default {
       }
     };
 
-    return {chatResponse, recommendResponse, fetchAIRecommendations, loading, errorMessage, aiResponse};
+    return {
+      userRequest,
+      chatResponse,
+      recommendResponse,
+      fetchAIRecommendations,
+      loading,
+      errorMessage,
+      aiResponse
+    };
   }
 };
 </script>
 
 <style scoped>
-/* 整体容器样式 */
+/* 推荐系统整体容器 */
 .recommendations-container {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  font-family: 'Arial', sans-serif;
 }
 
-/* 导航栏容器样式 */
+/* 顶部导航栏样式 */
 .nav-container {
   display: flex;
-  justify-content: flex-start;
+  justify-content: space-between;
   align-items: center;
-  background-color: #f8f9fa;
-  border-radius: 5px;
-  padding: 10px 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
+  background-color: #333;
+  padding: 15px 30px;
 }
 
-/* 导航链接样式 */
-.nav-link {
+.nav-left {
+  display: flex;
+  gap: 20px;
+}
+
+.nav-left a {
   text-decoration: none;
-  color: #007bff;
-  font-size: 1.1rem;
-  margin-right: 20px;
-  transition: color 0.3s ease;
-}
-
-.nav-link:hover {
-  color: #0056b3;
-}
-
-/* AI 推荐按钮样式 */
-.ai-recommend-btn {
-  display: block;
-  width: 200px;
-  margin: 0 auto 20px;
-  padding: 12px 20px;
-  background-color: #007bff;
   color: white;
+  font-size: 16px;
+}
+
+.nav-left a:hover {
+  color: #ffeb3b;
+}
+
+/* 导航栏右侧部分 */
+.nav-right {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+/* 用户输入框 */
+input {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  border: 2px solid #1a73e8;
+  border-radius: 25px;
+  margin-top: 20px;
+}
+
+input:focus {
+  border-color: #003c8f;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+}
+
+/* AI 推荐按钮 */
+.ai-recommend-btn {
+  margin-top: 20px;
+  padding: 12px 20px;
+  background-color: #1a73e8;
   border: none;
   border-radius: 5px;
-  font-size: 1.1rem;
+  font-size: 16px;
+  color: white;
   cursor: pointer;
-  transition: background-color 0.3s ease;
 }
 
 .ai-recommend-btn:disabled {
-  background-color: #6c757d;
-  cursor: not-allowed;
+  background-color: #cccccc;
 }
 
 .ai-recommend-btn:hover:not(:disabled) {
-  background-color: #0056b3;
+  background-color: #003c8f;
 }
 
-/* 错误提示信息样式 */
+/* 错误信息 */
 .error-message {
-  color: #dc3545;
-  text-align: center;
-  font-size: 1.1rem;
-  margin-bottom: 20px;
+  margin-top: 20px;
+  color: red;
 }
 
-/* 推荐表格样式 */
+/* 推荐结果表格 */
 .recommendations-table {
   width: 100%;
+  margin-top: 30px;
   border-collapse: collapse;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .recommendations-table th,
 .recommendations-table td {
-  border: 1px solid #ddd;
-  padding: 12px;
-  text-align: center;
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
 }
 
 .recommendations-table th {
-  background-color: #f4f4f4;
-  color: #333;
-  font-weight: 600;
+  background-color: #1a73e8;
+  color: white;
 }
 
-.recommendations-table tr:nth-child(even) {
+.recommendations-table td {
   background-color: #f9f9f9;
 }
 
-.recommendations-table tr:hover {
-  background-color: #e9ecef;
-}
-
-/* AI 响应显示区域样式 */
-.ai-response {
-  margin-top: 20px;
-  padding: 10px;
-  background-color: #f8f9fa;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-}
-
-/* 推荐结果显示区域样式 */
-.recommend-response {
-  margin-top: 20px;
-  padding: 10px;
-  background-color: #f8f9fa;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-}
-
-/* AI 文本响应显示区域样式 */
-.ai-text-response {
-  margin-top: 20px;
-  padding: 10px;
-  background-color: #f8f9fa;
-  border: 1px solid #ddd;
+/* AI 响应区域 */
+.ai-response, .ai-text-response {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: #f4f4f4;
   border-radius: 5px;
 }
 </style>

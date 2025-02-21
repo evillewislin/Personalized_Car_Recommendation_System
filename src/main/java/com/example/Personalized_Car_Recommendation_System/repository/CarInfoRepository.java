@@ -30,5 +30,7 @@ public interface CarInfoRepository extends JpaRepository<CarInfo, Integer> {
             "FROM CarInfo ci " +
             "JOIN CarBrand cb ON ci.brandId = cb.brandId")
     List<CarAnalysisDataDto> getCarAnalysisData();
+
+    List<CarInfo> findByBrandId(Integer brandId);
 }
 

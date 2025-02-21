@@ -11,6 +11,6 @@ public interface CarService {
     Page<CarDetailsDto> getAllCarDetails(Pageable pageable, String keyword);
     CarBrand saveCar(CarBrand car);
 
-    void deleteCar(Integer id);
+    void deleteCar(Integer carId);
     void updateCarInfoAndBrand(Integer carId, CarInfo carInfo, CarBrand carBrand);
 }

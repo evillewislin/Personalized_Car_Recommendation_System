@@ -100,72 +100,66 @@ export default defineComponent({
 </script>
 
 <style scoped>
+/* 登录页面整体容器 */
 .login-container {
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
-  background-color: #f8f9fa;
-  padding-top: 50px;
+  background-color: #eceff1;
+  min-height: 100vh;
 }
 
+/* 登录标题 */
 .login-title {
+  font-size: 2.5rem;
   color: #333;
-  margin-bottom: 2rem;
-  font-size: 2rem;
-  text-align: center;
+  margin-bottom: 30px;
+  font-weight: 600;
 }
 
+/* 表单容器 */
 .form-wrapper {
   width: 100%;
-  max-width: 400px;
-  padding: 2rem;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  max-width: 450px;
+  background-color: white;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
 }
 
 .login-form {
-  margin: 0 auto;
+  width: 100%;
 }
 
 .custom-input {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-.back-button-wrapper {
-  width: 100%;
-  max-width: 400px;
-  margin-bottom: 1rem;
-}
+/* 登录按钮样式 */
 .login-btn {
   width: 100%;
-  height: 45px;
-  font-size: 16px;
-  background-color: #4CAF50;
+  padding: 14px;
+  background-color: #1a73e8;
   border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  color: white;
   transition: background-color 0.3s;
 }
 
 .login-btn:hover {
-  background-color: #45a049;
+  background-color: #003c8f;
 }
 
-.register-tip {
-  text-align: center;
-  margin-top: 1.5rem;
-  color: #666;
-}
-
+/* 注册链接 */
 .register-link {
-  color: #4CAF50;
-  margin-left: 0.5rem;
+  color: #1a73e8;
   font-weight: 500;
   transition: color 0.3s;
 }
 
 .register-link:hover {
-  color: #45a049;
-  text-decoration: underline;
+  color: #003c8f;
 }
 </style>

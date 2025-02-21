@@ -55,63 +55,50 @@ export default defineComponent({
 </script>
 
 <style scoped>
-/* 全局布局样式 */
 .user-center {
+  --primary-color: #4CAF50;
+  --secondary-color: #607D8B;
   display: flex;
   min-height: 100vh;
-  position: relative; /* 为了让退出按钮定位 */
+  background: #f8fafb;
 }
 
-/* 退出按钮容器样式 */
 .logout-button-container {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  z-index: 10; /* 确保按钮显示在最上层 */
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  z-index: 100;
 }
 
-
-
-/* 侧边栏样式 */
 .sidebar {
-  width: 150px;
-  background-color: aliceblue;
-  border-right: 1px solid #ddd;
-  padding: 50px;
+  width: 240px;
+  background: linear-gradient(180deg, #2C3E50 0%, #3498DB 100%);
+  box-shadow: 4px 0 16px rgba(0,0,0,0.1);
+  padding: 32px 0;
   position: sticky;
   top: 0;
-  height: 100vh;
-}
-
-.sidebar ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
 }
 
 .sidebar li {
-  padding: 12px 16px;
-  margin: 8px 0;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  color: #333;
-}
-
-.sidebar li:hover {
-  background-color: rgba(76, 175, 80, 0.1);
+  padding: 16px 32px;
+  margin: 8px 16px;
+  color: rgba(255,255,255,0.8);
+  border-radius: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sidebar li.active {
-  background-color: #4CAF50;
-  color: white;
-  font-weight: 500;
+  background: rgba(255,255,255,0.15);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-/* 主内容区样式 */
 .main-content {
-  flex-grow: 1;
-  padding: 2rem;
-  background-color: #f5f5f5;
+  flex: 1;
+  padding: 40px;
+  background: #ffffff;
+  min-height: calc(100vh - 80px);
+  margin: 40px;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.05);
 }
 </style>

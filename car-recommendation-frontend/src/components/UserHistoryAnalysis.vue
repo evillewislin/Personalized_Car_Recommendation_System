@@ -1,6 +1,5 @@
 <template>
-  <div>
-    <h2>用户历史分析</h2>
+  <div class="user-history-container">
     <div class="chart-container">
       <canvas ref="userHistoryBarChart"></canvas>
       <canvas ref="userHistoryLineChart"></canvas>
@@ -9,9 +8,38 @@
 </template>
 
 <script>
-import {Chart, registerables} from 'chart.js';
+import { Chart, registerables } from 'chart.js';
 import axios from 'axios';
-import {useUserStore} from '@/store';
+import { useUserStore } from '@/store';
+
+// 请求拦截器，添加 Token 到请求头
+axios.interceptors.request.use(config => {
+  const userStore = useUserStore();
+  const token = userStore.token;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// 从 Token 中解析用户 ID
+const getUserIdFromToken = (token) => {
+  if (!token) return null;
+  try {
+    // 去除可能存在的 "Bearer " 前缀
+    token = token.replace("Bearer ", "");
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    const payload = JSON.parse(jsonPayload);
+    return parseInt(payload.sub); // 从 sub 字段获取 userId
+  } catch (error) {
+    console.error('解析 Token 出错:', error);
+    return null;
+  }
+};
 
 // 格式化时间戳为月日
 const formatTimestamp = (timestamp) => {
@@ -23,15 +51,21 @@ const formatTimestamp = (timestamp) => {
 
 export default {
   mounted() {
-    // 注册所有可用的插件和控制器
     Chart.register(...registerables);
     this.fetchDataAndRenderChart();
   },
   methods: {
     async fetchDataAndRenderChart() {
       try {
-        // 始终使用固定的 URL
-        const url = '/api/user-history-analysis';
+        const userStore = useUserStore();
+        const role = userStore.role;
+        const token = userStore.token;
+        const userId = getUserIdFromToken(token);
+
+        let url = '/api/user-history-analysis';
+        if (role === 'user' && userId !== null) {
+          url += `?userId=${userId}`;
+        }
 
         const response = await axios.get(url);
         const data = response.data;
@@ -120,11 +154,35 @@ export default {
 </script>
 
 <style scoped>
+.user-history-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  height: 100vh; /* 占满整个可视区域高度 */
+  box-sizing: border-box;
+}
+
+
+
 .chart-container {
   background: white;
   padding: 1.5rem;
   border-radius: 8px;
-  margin-top: 1.5rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 800px;
+  max-height: 800px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1; /* 让图表容器占满剩余空间 */
+}
+
+canvas {
+  padding: 1.5rem;
+  width: 90% !important;
+  height: auto !important;
+  aspect-ratio: 16 / 9; /* 设置宽高比 */
+  margin-bottom: 20px;
 }
 </style>

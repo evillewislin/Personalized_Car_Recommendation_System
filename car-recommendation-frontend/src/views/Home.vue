@@ -88,93 +88,81 @@ export default defineComponent({
 </script>
 
 <style scoped>
+/* 顶部导航栏样式 */
 .nav-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  background-color: #f0f0f0;
-  border-bottom: 1px solid #ddd;
-  position: sticky;
-  top: 0;
-  z-index: 1000;
+  background-color: #333;
+  padding: 15px 30px;
 }
 
 .nav-left {
   display: flex;
-  gap: 2rem;
-  margin-left: 2rem;
+  gap: 20px;
 }
 
 .nav-left a {
   text-decoration: none;
-  color: #333;
-  font-weight: 500;
-  padding: 0.5rem;
-  border-radius: 4px;
+  color: white;
+  font-size: 16px;
 }
 
 .nav-left a:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  color: #ffeb3b;
 }
 
+/* 导航栏右侧部分 */
 .nav-right {
   display: flex;
+  gap: 15px;
   align-items: center;
-  gap: 1rem;
-  margin-right: 2rem;
 }
 
 .welcome-text {
   font-size: 16px;
+  color: white;
   font-weight: bold;
-  color: #333;
 }
 
+/* 搜索框 */
 .search-container {
-  margin: 10px auto 30px; /* 增加底部间距 */
+  margin: 30px auto;
   max-width: 600px;
   padding: 0 20px;
-}
-
-.search-wrapper {
-  display: flex;
-  gap: 10px; /* 输入框和按钮之间的间距 */
 }
 
 .search-container input {
   width: 100%;
   padding: 12px 20px;
-  border: 2px solid #4CAF50;
+  border: 2px solid #1a73e8;
   border-radius: 25px;
   font-size: 16px;
-  outline: none;
-  transition: all 0.3s ease;
 }
 
 .search-container input:focus {
-  border-color: #45a049;
-  box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
+  border-color: #003c8f;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
 }
 
+/* 按钮样式 */
 button {
-  width: 90px;
-  height: 40px;
-  padding: 4px 3px;
-  cursor: pointer;
-  background-color: #4CAF50;
-  color: white;
+  padding: 10px 20px;
+  background-color: #1a73e8;
   border: none;
   border-radius: 4px;
-  transition: background-color 0.3s;
-  align-self: center; /* 按钮垂直居中 */
+  color: white;
+  cursor: pointer;
 }
 
 button:hover {
-  background-color: #45a049;
+  background-color: #003c8f;
 }
 
+/* 车型列表容器 */
 .car-list-container {
-  padding: 0 20px; /* 给车型列表添加左右内边距 */
+  padding: 20px;
+  background-color: #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 </style>
