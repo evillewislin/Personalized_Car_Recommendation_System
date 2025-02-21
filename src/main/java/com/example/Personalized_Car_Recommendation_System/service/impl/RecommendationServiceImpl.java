@@ -4,16 +4,17 @@ import com.example.Personalized_Car_Recommendation_System.service.Recommendation
 import com.example.Personalized_Car_Recommendation_System.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
 import org.springframework.ai.chat.ChatClient;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Service
 public class RecommendationServiceImpl implements RecommendationService {
@@ -53,6 +54,7 @@ public class RecommendationServiceImpl implements RecommendationService {
      * @return 异步的AI响应
      */
     @Async
+    @Override
     public CompletableFuture<String> callAI(Prompt prompt) {
         try {
             String response = chatClient.call(prompt).getResult().getOutput().getContent();
@@ -70,7 +72,6 @@ public class RecommendationServiceImpl implements RecommendationService {
      */
     @Override
     public List<Map<String, Object>> getRecommendationsByUserId(int userId) {
-        // 这里实现具体的业务逻辑，例如从数据库查询用户的推荐信息
         String sql = "SELECT b.name, ci.full_name AS fullName, " +
                 "CONCAT(ci.minprice, '-', ci.maxprice) AS priceRange, " +
                 "AVG(rh.score) AS avgScore " +
@@ -81,6 +82,8 @@ public class RecommendationServiceImpl implements RecommendationService {
                 "GROUP BY b.name, ci.full_name, ci.minprice, ci.maxprice " +
                 "ORDER BY avgScore DESC " +
                 "LIMIT 10";
-        return jdbcTemplate.queryForList(sql, userId);
+        List<Map<String, Object>> result = jdbcTemplate.queryForList(sql, userId);
+        logger.info("查询结果数量: {}", result.size());
+        return result;
     }
 }

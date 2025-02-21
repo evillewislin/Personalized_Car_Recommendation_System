@@ -6,14 +6,14 @@ SET sql_mode = 'NO_AUTO_VALUE_ON_ZERO';
 
 DROP TABLE IF EXISTS `car_brand`;
 CREATE TABLE `car_brand` (
-  `id` int(10) NOT NULL AUTO_INCREMENT,
+  `brand_id` int(10) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `img` varchar(255) NOT NULL,
   `firstletter` char(3) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=400 DEFAULT CHARSET=utf8 COMMENT='品牌';
 
-INSERT INTO `car_brand` (`id`, `name`, `img`, `firstletter`) VALUES
+INSERT INTO `car_brand` (`brand_id`, `name`, `img`, `firstletter`) VALUES
 (117,	'AC Schnitzer',	'//car3.autoimg.com/cardfs/series/g27/M01/B0/62/autohomecar__ChcCQFs9vBKAO3YSAAAW0WOWvRc555.png',	'A'),
 (276,	'ALPINA',	'//car3.autoimg.cn/cardfs/series/g27/M05/AB/2E/autohomecar__wKgHHls8hiKADrqGAABK67H4HUI503.png',	'A'),
 (272,	'ARCFOX',	'//car3.autoimg.cn/cardfs/series/g27/M02/AB/F7/100x100_f40_autohomecar__ChcCQFs8nA6AP-h5AABsvxhHw3E709.png',	'A'),
@@ -256,7 +256,7 @@ INSERT INTO `car_brand` (`id`, `name`, `img`, `firstletter`) VALUES
 
 DROP TABLE IF EXISTS `car_info`;
 CREATE TABLE `car_info` (
-  `id` int(10) NOT NULL AUTO_INCREMENT,
+  `car_id` int(10) NOT NULL AUTO_INCREMENT,
   `brand_id` int(10) NOT NULL COMMENT '品牌ID',
   `group_id` int(10) NOT NULL COMMENT '车系组ID',
   `series_id` int(10) NOT NULL COMMENT '车系id',

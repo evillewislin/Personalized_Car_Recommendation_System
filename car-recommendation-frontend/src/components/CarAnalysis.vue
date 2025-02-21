@@ -56,7 +56,12 @@ export default {
     processScatterData(data) {
       const brandPriceMap = new Map();
       data.forEach(item => {
-        if (item.car_brand_name && typeof item.minprice === 'number' && typeof item.maxprice === 'number') {
+        if (
+            item &&
+            item.car_brand_name &&
+            typeof item.minprice === 'number' &&
+            typeof item.maxprice === 'number'
+        ) {
           const brand = item.car_brand_name;
           const minPrice = item.minprice;
           const maxPrice = item.maxprice;
@@ -73,8 +78,14 @@ export default {
 
       const scatterData = [];
       brandPriceMap.forEach(([totalPrice, count], brand) => {
-        const finalAveragePrice = totalPrice / count;
-        scatterData.push({ x: brand, y: finalAveragePrice });
+        if (
+            typeof totalPrice === 'number' &&
+            typeof count === 'number' &&
+            brand
+        ) {
+          const finalAveragePrice = totalPrice / count;
+          scatterData.push({ x: brand, y: finalAveragePrice });
+        }
       });
 
       return scatterData;
@@ -147,7 +158,6 @@ export default {
       try {
         const response = await axios.get('/api/car-analysis', {
           params: {
-            minPrice: this.minPrice,
             maxPrice: this.maxPrice
           }
         });
@@ -157,24 +167,22 @@ export default {
           return;
         }
 
-        // 处理筛选后的数据
-        const scatterData = this.processScatterData(filteredData);
+        // 验证数据结构
+        const validData = filteredData.filter(item => {
+          return (
+              item &&
+              item.car_brand_name &&
+              typeof item.minprice === 'number' &&
+              typeof item.maxprice === 'number'
+          );
+        });
+
+        const scatterData = this.processScatterData(validData);
         if (this.scatterChart) {
-          // 清空原有图表数据
-          this.scatterChart.data.datasets[0].data = [];
-          // 将处理后的数据转换为普通的 JavaScript 对象
-          const plainScatterData = scatterData.map(item => ({ x: item.x, y: item.y }));
-          // 更新图表数据
-          this.scatterChart.data.datasets[0].data = plainScatterData;
-          // 更新图表
-          try {
-            this.scatterChart.update();
-          } catch (error) {
-            console.error('更新图表时出错:', error);
-          }
-        } else {
-          console.error('图表实例未正确初始化');
+          // 销毁旧的图表实例
+          this.scatterChart.destroy();
         }
+        this.scatterChart = this.renderScatterChart(scatterData);
       } catch (error) {
         console.error('筛选数据时出错:', error);
       }

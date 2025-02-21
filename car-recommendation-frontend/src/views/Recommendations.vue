@@ -8,67 +8,23 @@
       </div>
     </nav>
     <!-- 用户输入要求的文本输入框 -->
-    <input v-model="userRequest" type="text" placeholder="请输入你的要求" />
+    <input v-model="userRequest" type="text" placeholder="请输入你的要求" :disabled="loading" />
     <!-- AI 推荐按钮 -->
     <button @click="fetchAIRecommendations" class="ai-recommend-btn" :disabled="loading">
       {{ loading ? '加载中...' : 'AI智能推荐' }}
     </button>
     <!-- 错误提示信息 -->
     <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
-    <!-- 推荐结果显示区域 -->
-    <div v-if="recommendResponse.length" class="recommend-response">
-      <h2>推荐结果</h2>
-      <table class="recommendations-table">
-        <thead>
-        <tr>
-          <th>品牌</th>
-          <th>车型</th>
-          <th>价格区间</th>
-          <th>推荐指数</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr v-for="car in recommendResponse" :key="car.name">
-          <td>{{ car.name }}</td>
-          <td>{{ car.fullName }}</td>
-          <td>{{ car.priceRange }}万</td>
-          <td>{{ car.score?.toFixed(2) }}</td>
-        </tr>
-        </tbody>
-      </table>
-    </div>
-    <!-- AI 响应显示区域 -->
-    <div v-if="chatResponse.length" class="ai-response">
-      <h2>AI 分析响应</h2>
-      <table class="recommendations-table">
-        <thead>
-        <tr>
-          <th>品牌</th>
-          <th>车型</th>
-          <th>价格区间</th>
-          <th>推荐指数</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr v-for="car in chatResponse" :key="car.name">
-          <td>{{ car.name }}</td>
-          <td>{{ car.fullName }}</td>
-          <td>{{ car.priceRange }}万</td>
-          <td>{{ car.score?.toFixed(2) }}</td>
-        </tr>
-        </tbody>
-      </table>
-    </div>
     <!-- AI 文本响应显示区域 -->
     <div v-if="aiResponse.length" class="ai-text-response">
       <h2>AI 文本响应</h2>
-      <p>{{ aiResponse }}</p>
+      <div v-html="formattedAiResponse"></div>
     </div>
   </div>
 </template>
 
 <script>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import axios from 'axios';
 
 export default {
@@ -79,6 +35,14 @@ export default {
     const loading = ref(false);
     const errorMessage = ref('');
     const aiResponse = ref('');
+
+    const formattedAiResponse = computed(() => {
+      if (aiResponse.value) {
+        // 假设后端返回的是纯文本，这里简单将其用 <p> 标签包裹显示
+        return `<p>${aiResponse.value}</p>`;
+      }
+      return '';
+    });
 
     const fetchAIRecommendations = async () => {
       loading.value = true;
@@ -93,25 +57,36 @@ export default {
         if (!token) {
           throw new Error('Token is missing');
         }
+        const cleanToken = token.replace('Bearer ', '');
 
-        const recommendResponseData = await axios.post('/api/ai/recommend', {
-          headers: { Authorization: `Bearer ${token}` }
+        console.log('Clean Token:', cleanToken);
+
+        // 修正请求头传递方式
+        const recommendResponseData = await axios.post('/api/ai/recommend', null, {
+          headers: {
+            'Authorization': `Bearer ${cleanToken}`
+          }
         });
 
+        console.log('推荐结果响应数据:', recommendResponseData);
         recommendResponse.value = recommendResponseData.data;
 
         if (recommendResponse.value.length > 0) {
           const dataString = JSON.stringify(recommendResponse.value);
           const escapedDataString = dataString.replace(/"/g, '\\"');
-          const message = `为我分析一下这些汽车推荐：${escapedDataString}，同时考虑我的要求：${userRequest.value}`;
+          const message = `为我分析一下这些汽车推荐：${escapedDataString}，并且给我推荐，以品牌名，全名，价格范围和平均评分列形成的表回答，同时考虑我的要求：${userRequest.value}`;
           const encodedMessage = encodeURIComponent(message);
 
           const aiChatResponse = await axios.get('/api/ai/chat', {
-            headers: { Authorization: `Bearer ${token}` },
-            params: { message: encodedMessage }
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            params: {
+              message: encodedMessage
+            }
           });
 
-          chatResponse.value = aiChatResponse.data;
+          console.log('AI 聊天响应数据:', aiChatResponse);
           aiResponse.value = aiChatResponse.data.join('\n');
         }
       } catch (error) {
@@ -122,6 +97,9 @@ export default {
       }
     };
 
+
+
+
     return {
       userRequest,
       chatResponse,
@@ -129,7 +107,8 @@ export default {
       fetchAIRecommendations,
       loading,
       errorMessage,
-      aiResponse
+      aiResponse,
+      formattedAiResponse
     };
   }
 };
@@ -246,5 +225,17 @@ input:focus {
   padding: 20px;
   background-color: #f4f4f4;
   border-radius: 5px;
+}
+
+.ai-text-response h3 {
+  margin-top: 20px;
+}
+
+.ai-text-response ul {
+  margin-left: 20px;
+}
+
+.ai-text-response li {
+  margin: 5px 0;
 }
 </style>
