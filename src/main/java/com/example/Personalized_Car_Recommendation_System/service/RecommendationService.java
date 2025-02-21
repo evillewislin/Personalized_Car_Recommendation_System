@@ -11,5 +11,5 @@ public interface RecommendationService {
 
     CompletableFuture<String> callAI(Prompt prompt);
 
-    List<Map<String, Object>> getALSRecommendations(int userId);
+    List<Map<String, Object>> getRecommendationsByUserId(int userId);
 }

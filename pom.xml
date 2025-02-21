@@ -8,7 +8,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.2.1</version>
+		<version>3.3.4</version>
 		<relativePath/>
 	</parent>
 
@@ -18,6 +18,10 @@
 	<packaging>jar</packaging>
 
 	<repositories>
+		<repository>
+			<id>central</id>
+			<url>https://repo.maven.apache.org/maven2</url>
+		</repository>
 		<!-- Spring Milestones 仓库 -->
 		<repository>
 			<id>spring-milestones</id>
@@ -27,17 +31,6 @@
 				<enabled>false</enabled>
 			</snapshots>
 		</repository>
-
-		<!-- Spring Snapshots 仓库（如果需要快照版本） -->
-		<repository>
-			<id>spring-snapshots</id>
-			<name>Spring Snapshots</name>
-			<url>https://repo.spring.io/snapshot</url>
-			<releases>
-				<enabled>false</enabled>
-			</releases>
-		</repository>
-
 		<!-- Spring Releases 仓库 -->
 		<repository>
 			<id>spring-releases</id>
@@ -47,20 +40,13 @@
 				<enabled>false</enabled>
 			</snapshots>
 		</repository>
-
-		<repository>
-			<id>central</id>
-			<url>https://repo.maven.apache.org/maven2</url>
-		</repository>
 	</repositories>
 
 	<properties>
 		<java.version>17</java.version>
-		<spark.version>3.5.1</spark.version>
 		<jakarta.persistence-api.version>3.1.0</jakarta.persistence-api.version>
 		<jakarta.validation-api.version>3.0.2</jakarta.validation-api.version>
 		<hibernate-validator.version>8.0.0.Final</hibernate-validator.version>
-		<antlr4-runtime.version>4.13.2</antlr4-runtime.version>
 		<jackson-databind.version>2.15.3</jackson-databind.version>
 		<spring-ai-ollama.version>0.8.0</spring-ai-ollama.version>
 		<springdoc-openapi.version>2.3.0</springdoc-openapi.version>
@@ -71,77 +57,13 @@
 		<android-json.version>0.0.20131108.vaadin1</android-json.version>
 	</properties>
 
-	<dependencyManagement>
-		<dependencies>
-			<dependency>
-				<groupId>org.apache.spark</groupId>
-				<artifactId>spark-core_2.12</artifactId>
-				<version>${spark.version}</version>
-				<exclusions>
-					<exclusion>
-						<groupId>org.antlr</groupId>
-						<artifactId>antlr4-runtime</artifactId>
-					</exclusion>
-					<exclusion>
-						<groupId>org.apache.logging.log4j</groupId>
-						<artifactId>log4j-to-slf4j</artifactId>
-					</exclusion>
-					<exclusion>
-						<groupId>ch.qos.logback</groupId>
-						<artifactId>logback-classic</artifactId>
-					</exclusion>
-					<exclusion>
-						<groupId>org.slf4j</groupId>
-						<artifactId>slf4j-log4j12</artifactId>
-					</exclusion>
-				</exclusions>
-			</dependency>
-			<dependency>
-				<groupId>org.apache.spark</groupId>
-				<artifactId>spark-sql_2.12</artifactId>
-				<version>${spark.version}</version>
-				<exclusions>
-					<exclusion>
-						<groupId>org.antlr</groupId>
-						<artifactId>antlr4-runtime</artifactId>
-					</exclusion>
-					<exclusion>
-						<groupId>org.apache.logging.log4j</groupId>
-						<artifactId>log4j-to-slf4j</artifactId>
-					</exclusion>
-					<exclusion>
-						<groupId>ch.qos.logback</groupId>
-						<artifactId>logback-classic</artifactId>
-					</exclusion>
-					<exclusion>
-						<groupId>org.slf4j</groupId>
-						<artifactId>slf4j-log4j12</artifactId>
-					</exclusion>
-				</exclusions>
-			</dependency>
-			<dependency>
-				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-ollama-spring-boot-starter</artifactId>
-				<version>${spring-ai-ollama.version}</version>
-				<exclusions>
-					<exclusion>
-						<groupId>org.apache.logging.log4j</groupId>
-						<artifactId>log4j-to-slf4j</artifactId>
-					</exclusion>
-					<exclusion>
-						<groupId>ch.qos.logback</groupId>
-						<artifactId>logback-classic</artifactId>
-					</exclusion>
-				</exclusions>
-			</dependency>
-		</dependencies>
-	</dependencyManagement>
-
 	<dependencies>
+		<!-- Jakarta Servlet API -->
 		<dependency>
-			<groupId>javax.servlet</groupId>
-			<artifactId>javax.servlet-api</artifactId>
-			<version>3.1.0</version>
+			<groupId>jakarta.servlet</groupId>
+			<artifactId>jakarta.servlet-api</artifactId>
+			<version>${jakarta.servlet-api.version}</version>
+			<scope>provided</scope>
 		</dependency>
 		<!-- Jakarta Persistence API -->
 		<dependency>
@@ -162,42 +84,21 @@
 			<artifactId>hibernate-validator</artifactId>
 			<version>${hibernate-validator.version}</version>
 		</dependency>
-		<!-- ANTLR 运行时依赖 -->
 		<dependency>
-			<groupId>org.antlr</groupId>
-			<artifactId>antlr4-runtime</artifactId>
-			<version>${antlr4-runtime.version}</version>
-		</dependency>
-		<!-- Spark 依赖 -->
-		<dependency>
-			<groupId>org.apache.spark</groupId>
-			<artifactId>spark-mllib_2.12</artifactId>
-			<version>${spark.version}</version>
-			<exclusions>
-				<exclusion>
-					<groupId>org.antlr</groupId>
-					<artifactId>antlr4-runtime</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.apache.logging.log4j</groupId>
-					<artifactId>log4j-to-slf4j</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>ch.qos.logback</groupId>
-					<artifactId>logback-classic</artifactId>
-				</exclusion>
-				<exclusion>
-					<groupId>org.slf4j</groupId>
-					<artifactId>slf4j-log4j12</artifactId>
-				</exclusion>
-			</exclusions>
+			<groupId>org.hibernate.orm</groupId>
+			<artifactId>hibernate-core</artifactId>
+			<version>6.4.1.Final</version>
 		</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-databind</artifactId>
 			<version>${jackson-databind.version}</version>
 		</dependency>
-
+		<dependency>
+			<groupId>org.jetbrains</groupId>
+			<artifactId>annotations</artifactId>
+			<version>24.0.1</version>
+		</dependency>
 		<!-- Spring Boot Starters -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -227,10 +128,6 @@
 					<groupId>org.springframework.boot</groupId>
 					<artifactId>spring-boot-starter-logging</artifactId>
 				</exclusion>
-				<exclusion>
-				<groupId>org.antlr</groupId>
-				<artifactId>antlr4-runtime</artifactId>
-				</exclusion>
 			</exclusions>
 		</dependency>
 		<dependency>
@@ -249,12 +146,9 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-log4j2</artifactId>
-		</dependency>
-		<dependency>
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-ollama-spring-boot-starter</artifactId>
+			<version>${spring-ai-ollama.version}</version>
 		</dependency>
 
 		<!-- SpringDoc OpenAPI -->
@@ -296,14 +190,6 @@
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 
-		<!-- Jakarta Servlet API -->
-		<dependency>
-			<groupId>jakarta.servlet</groupId>
-			<artifactId>jakarta.servlet-api</artifactId>
-			<version>${jakarta.servlet-api.version}</version>
-			<scope>provided</scope>
-		</dependency>
-
 		<!-- Jersey 依赖 -->
 		<dependency>
 			<groupId>org.glassfish.jersey.containers</groupId>
@@ -340,11 +226,21 @@
 						--add-exports=java.base/sun.nio.ch=ALL-UNNAMED
 						--add-opens=java.base/java.nio=ALL-UNNAMED
 						--add-opens=java.base/sun.nio.ch=ALL-UNNAMED
-						--add-opens java.base/sun.nio.ch=ALL-UNNAMED
 					</jvmArguments>
 				</configuration>
 			</plugin>
-
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>2.22.2</version>
+				<configuration>
+					<argLine>
+						--add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+						--add-opens=java.base/java.lang=ALL-UNNAMED
+						--add-exports=java.base/sun.nio.ch=ALL-UNNAMED
+					</argLine>
+				</configuration>
+			</plugin>
 			<!-- Maven Compiler Plugin -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -353,21 +249,8 @@
 				<configuration>
 					<source>17</source>
 					<target>17</target>
+					<release>17</release>
 				</configuration>
-			</plugin>
-			<!-- ANTLR 插件配置 -->
-			<plugin>
-				<groupId>org.antlr</groupId>
-				<artifactId>antlr4-maven-plugin</artifactId>
-				<version>${antlr4-runtime.version}</version>
-				<executions>
-					<execution>
-						<id>antlr4-generate</id>
-						<goals>
-							<goal>antlr4</goal>
-						</goals>
-					</execution>
-				</executions>
 			</plugin>
 		</plugins>
 	</build>

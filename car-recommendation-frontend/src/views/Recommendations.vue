@@ -13,9 +13,9 @@
     </button>
     <!-- 错误提示信息 -->
     <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
-    <!-- ALS 推荐结果显示区域 -->
-    <div v-if="alsResponse.length" class="als-response">
-      <h2>ALS 推荐结果</h2>
+    <!-- 推荐结果显示区域 -->
+    <div v-if="recommendResponse.length" class="recommend-response">
+      <h2>推荐结果</h2>
       <table class="recommendations-table">
         <thead>
         <tr>
@@ -26,7 +26,7 @@
         </tr>
         </thead>
         <tbody>
-        <tr v-for="car in alsResponse" :key="car.name">
+        <tr v-for="car in recommendResponse" :key="car.name">
           <td>{{ car.name }}</td>
           <td>{{ car.fullName }}</td>
           <td>{{ car.priceRange }}万</td>
@@ -72,7 +72,7 @@ import axios from 'axios';
 export default {
   setup() {
     const chatResponse = ref([]);
-    const alsResponse = ref([]);
+    const recommendResponse = ref([]);
     const loading = ref(false);
     const errorMessage = ref('');
     const aiResponse = ref('');
@@ -80,7 +80,7 @@ export default {
     const fetchAIRecommendations = async () => {
       loading.value = true;
       chatResponse.value = [];
-      alsResponse.value = [];
+      recommendResponse.value = [];
       errorMessage.value = '';
       aiResponse.value = '';
 
@@ -92,27 +92,21 @@ export default {
         }
 
         // 调用 recommend 接口
-        const recommendResponse = await axios.post('/api/ai/recommend', {
-          headers: { Authorization: `Bearer ${token}` }
+        const recommendResponseData = await axios.post('/api/ai/recommend', {
+          headers: {Authorization: `Bearer ${token}`}
         });
-        const recommendData = recommendResponse.data;
+        recommendResponse.value = recommendResponseData.data;
 
-        // 调用 ALS 接口
-        const alsResponseData = await axios.get('/api/ai/als', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        alsResponse.value = alsResponseData.data;
-
-        if (recommendData.value.length > 0) {
-          const dataString = JSON.stringify(recommendData.value);
+        if (recommendResponse.value.length > 0) {
+          const dataString = JSON.stringify(recommendResponse.value);
           const escapedDataString = dataString.replace(/"/g, '\\"');
           const message = `为我分析一下这些汽车推荐：${escapedDataString}`;
           const encodedMessage = encodeURIComponent(message);
 
           // 调用 AI 聊天接口
           const aiChatResponse = await axios.get('/api/ai/chat', {
-            headers: { Authorization: `Bearer ${token}` },
-            params: { message: encodedMessage }
+            headers: {Authorization: `Bearer ${token}`},
+            params: {message: encodedMessage}
           });
 
           // 假设 chat 接口返回的数据是一个汽车列表
@@ -129,7 +123,7 @@ export default {
       }
     };
 
-    return { chatResponse, alsResponse, fetchAIRecommendations, loading, errorMessage, aiResponse };
+    return {chatResponse, recommendResponse, fetchAIRecommendations, loading, errorMessage, aiResponse};
   }
 };
 </script>
@@ -237,8 +231,8 @@ export default {
   border-radius: 5px;
 }
 
-/* ALS 推荐结果显示区域样式 */
-.als-response {
+/* 推荐结果显示区域样式 */
+.recommend-response {
   margin-top: 20px;
   padding: 10px;
   background-color: #f8f9fa;
