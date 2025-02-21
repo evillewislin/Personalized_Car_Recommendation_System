@@ -36,39 +36,17 @@ public class RecommendationController {
     }
 
     /**
-     * 将推荐信息列表转换为文本格式
-     * @param recommendations 推荐信息列表
-     * @return 文本格式的推荐信息
-     */
-    private String convertRecommendationsToText(List<Map<String, Object>> recommendations) {
-        StringBuilder text = new StringBuilder();
-        text.append("品牌名\t全名\t价格范围\t平均评分\n");
-        for (Map<String, Object> recommendation : recommendations) {
-            String name = (String) recommendation.get("name");
-            String fullName = (String) recommendation.get("fullName");
-            String priceRange = (String) recommendation.get("priceRange");
-            double avgScore = (double) recommendation.get("avgScore");
-            text.append(name).append("\t")
-                    .append(fullName).append("\t")
-                    .append(priceRange).append("\t")
-                    .append(avgScore).append("\n");
-        }
-        return text.toString();
-    }
-
-    /**
      * 读取用户历史数据
      * @param token 用户的授权令牌
-     * @return 推荐信息的文本格式
+     * @return 推荐信息的 JSON 格式
      */
     @PostMapping("/recommend")
-    public ResponseEntity<String> getRecommendations(@RequestHeader("Authorization") String token) {
+    public ResponseEntity<List<Map<String, Object>>> getRecommendations(@RequestHeader("Authorization") String token) {
         token = token.replace("Bearer ", "").trim();
         try {
             int userId = recommendationService.getUserIdFromToken(token);
             List<Map<String, Object>> recommendations = recommendationService.getRecommendationsByUserId(userId);
-            String textRecommendations = convertRecommendationsToText(recommendations);
-            return ResponseEntity.ok(textRecommendations);
+            return ResponseEntity.ok(recommendations);
         } catch (IllegalArgumentException e) {
             return handleTokenParsingError(e);
         } catch (Exception e) {
@@ -83,7 +61,8 @@ public class RecommendationController {
      */
     @GetMapping("/chat")
     public CompletableFuture<ResponseEntity<String>> chatWithAI(@RequestParam(value = "message") String message) {
-        log.info(message);
+        // 输出向 AI 发送的信息
+        log.info("向 AI 发送的信息: {}", message);
         Prompt prompt = new Prompt(new UserMessage(message));
         return recommendationService.callAI(prompt)
                 .thenApply(ResponseEntity::ok)
@@ -98,7 +77,7 @@ public class RecommendationController {
      * @param e 异常信息
      * @return 错误响应
      */
-    private ResponseEntity<String> handleTokenParsingError(IllegalArgumentException e) {
+    private ResponseEntity<List<Map<String, Object>>> handleTokenParsingError(IllegalArgumentException e) {
         log.error("Token parsing error: {}", e.getMessage(), e);
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
     }
@@ -109,7 +88,7 @@ public class RecommendationController {
      * @param errorMessage 错误消息
      * @return 错误响应
      */
-    private ResponseEntity<String> handleInternalServerError(Exception e, String errorMessage) {
+    private ResponseEntity<List<Map<String, Object>>> handleInternalServerError(Exception e, String errorMessage) {
         log.error("{}: {}", errorMessage, e.getMessage(), e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
     }

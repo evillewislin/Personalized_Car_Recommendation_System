@@ -17,7 +17,6 @@
     <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
     <!-- AI 文本响应显示区域 -->
     <div v-if="aiResponse.length" class="ai-text-response">
-      <h2>AI 文本响应</h2>
       <div v-html="formattedAiResponse"></div>
     </div>
   </div>
@@ -87,7 +86,7 @@ export default {
           });
 
           console.log('AI 聊天响应数据:', aiChatResponse);
-          aiResponse.value = aiChatResponse.data.join('\n');
+          aiResponse.value = aiChatResponse.data
         }
       } catch (error) {
         console.error('获取AI推荐失败:', error);
