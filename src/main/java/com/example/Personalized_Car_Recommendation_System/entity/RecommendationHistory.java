@@ -20,6 +20,7 @@ public class RecommendationHistory {
     private String name;
     @Temporal(TemporalType.TIMESTAMP)
     private Date timestamp;
+
     // getter 和 setter
     public Integer getId(){ return id; }
     public void setId(Integer id){ this.id = id; }

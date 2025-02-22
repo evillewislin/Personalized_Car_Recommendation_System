@@ -1,240 +1,107 @@
 <template>
-  <div class="recommendations-container">
-    <!-- 导航栏 -->
-    <nav class="nav-container">
-      <div class="nav-left">
-        <router-link to="/" class="nav-link">首页</router-link>
-        <router-link to="/recommendations" class="nav-link">个性化推荐</router-link>
-      </div>
-    </nav>
-    <!-- 用户输入要求的文本输入框 -->
-    <input v-model="userRequest" type="text" placeholder="请输入你的要求" :disabled="loading" />
-    <!-- AI 推荐按钮 -->
-    <button @click="fetchAIRecommendations" class="ai-recommend-btn" :disabled="loading">
-      {{ loading ? '加载中...' : 'AI智能推荐' }}
-    </button>
-    <!-- 错误提示信息 -->
-    <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
-    <!-- AI 文本响应显示区域 -->
-    <div v-if="aiResponse.length" class="ai-text-response">
-      <div v-html="formattedAiResponse"></div>
+  <div class="recommendation-center">
+    <!-- 退出按钮 -->
+    <div class="back-button-container">
+      <el-button type="danger" @click="handleBack">返回</el-button>
+    </div>
+    <!-- 侧边栏导航 -->
+    <div class="sidebar">
+      <ul>
+        <li :class="{ active: currentTab === 'FavoriteHistory' }" @click="currentTab = 'FavoriteHistory'">
+          收藏历史
+        </li>
+        <li :class="{ active: currentTab === 'AIRecommendation' }" @click="currentTab = 'AIRecommendation'">
+          AI 推荐
+        </li>
+        <li :class="{ active: currentTab === 'ALSRecommendation' }" @click="currentTab = 'ALSRecommendation'">
+          ALS 推荐
+        </li>
+      </ul>
+    </div>
+    <!-- 主内容区域 -->
+    <div class="main-content">
+      <!-- 根据当前选中的标签展示不同的内容 -->
+      <component :is="currentTab"></component>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, computed } from 'vue';
-import axios from 'axios';
+import { defineComponent, ref } from 'vue';
+import AIRecommendation from '../components/AIRecommendation.vue';
+import ALSRecommendation from '../components/ALSRecommendation.vue';
+import FavoriteHistory from '../components/FavoriteHistory.vue';
+import { useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
 
-export default {
+export default defineComponent({
+  components: {
+    AIRecommendation,
+    ALSRecommendation,
+    FavoriteHistory
+  },
   setup() {
-    const userRequest = ref('');
-    const chatResponse = ref([]);
-    const recommendResponse = ref([]);
-    const loading = ref(false);
-    const errorMessage = ref('');
-    const aiResponse = ref('');
+    const router = useRouter();
+    const currentTab = ref('FavoriteHistory');
 
-    const formattedAiResponse = computed(() => {
-      if (aiResponse.value) {
-        // 假设后端返回的是纯文本，这里简单将其用 <p> 标签包裹显示
-        return `<p>${aiResponse.value}</p>`;
-      }
-      return '';
-    });
-
-    const fetchAIRecommendations = async () => {
-      loading.value = true;
-      chatResponse.value = [];
-      recommendResponse.value = [];
-      errorMessage.value = '';
-      aiResponse.value = '';
-
-      try {
-        const token = localStorage.getItem('token');
-        console.log('Token:', token);
-        if (!token) {
-          throw new Error('Token is missing');
-        }
-        const cleanToken = token.replace('Bearer ', '');
-
-        console.log('Clean Token:', cleanToken);
-
-        // 修正请求头传递方式
-        const recommendResponseData = await axios.post('/api/ai/recommend', null, {
-          headers: {
-            'Authorization': `Bearer ${cleanToken}`
-          }
-        });
-
-        console.log('推荐结果响应数据:', recommendResponseData);
-        recommendResponse.value = recommendResponseData.data;
-
-        if (recommendResponse.value.length > 0) {
-          const dataString = JSON.stringify(recommendResponse.value);
-          const escapedDataString = dataString.replace(/"/g, '\\"');
-          const message = `为我分析一下这些汽车推荐：${escapedDataString}，并且给我推荐，以品牌名，全名，价格范围和平均评分列形成的表回答，同时考虑我的要求：${userRequest.value}`;
-          const encodedMessage = encodeURIComponent(message);
-
-          const aiChatResponse = await axios.get('/api/ai/chat', {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            },
-            params: {
-              message: encodedMessage
-            }
-          });
-
-          console.log('AI 聊天响应数据:', aiChatResponse);
-          aiResponse.value = aiChatResponse.data
-        }
-      } catch (error) {
-        console.error('获取AI推荐失败:', error);
-        errorMessage.value = '获取推荐信息失败，请稍后重试。';
-      } finally {
-        loading.value = false;
-      }
+    const handleBack = () => {
+      ElMessage.info('返回');
+      router.push('/'); // 跳转回根页面
     };
-
-
-
 
     return {
-      userRequest,
-      chatResponse,
-      recommendResponse,
-      fetchAIRecommendations,
-      loading,
-      errorMessage,
-      aiResponse,
-      formattedAiResponse
+      currentTab,
+      handleBack
     };
   }
-};
+});
 </script>
 
 <style scoped>
-/* 推荐系统整体容器 */
-.recommendations-container {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-  font-family: 'Arial', sans-serif;
-}
-
-/* 顶部导航栏样式 */
-.nav-container {
+.recommendation-center {
+  --primary-color: #4CAF50;
+  --secondary-color: #607D8B;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #333;
-  padding: 15px 30px;
+  min-height: 100vh;
+  background: #f8fafb;
 }
 
-.nav-left {
-  display: flex;
-  gap: 20px;
+.back-button-container {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  z-index: 100;
 }
 
-.nav-left a {
-  text-decoration: none;
-  color: white;
-  font-size: 16px;
+.sidebar {
+  width: 240px;
+  background: linear-gradient(180deg, #2C3E50 0%, #3498DB 100%);
+  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.1);
+  padding: 32px 0;
+  position: sticky;
+  top: 0;
 }
 
-.nav-left a:hover {
-  color: #ffeb3b;
+.sidebar li {
+  padding: 16px 32px;
+  margin: 8px 16px;
+  color: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 导航栏右侧部分 */
-.nav-right {
-  display: flex;
-  gap: 15px;
-  align-items: center;
+.sidebar li.active {
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* 用户输入框 */
-input {
-  width: 100%;
-  padding: 12px;
-  font-size: 16px;
-  border: 2px solid #1a73e8;
-  border-radius: 25px;
-  margin-top: 20px;
-}
-
-input:focus {
-  border-color: #003c8f;
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
-}
-
-/* AI 推荐按钮 */
-.ai-recommend-btn {
-  margin-top: 20px;
-  padding: 12px 20px;
-  background-color: #1a73e8;
-  border: none;
-  border-radius: 5px;
-  font-size: 16px;
-  color: white;
-  cursor: pointer;
-}
-
-.ai-recommend-btn:disabled {
-  background-color: #cccccc;
-}
-
-.ai-recommend-btn:hover:not(:disabled) {
-  background-color: #003c8f;
-}
-
-/* 错误信息 */
-.error-message {
-  margin-top: 20px;
-  color: red;
-}
-
-/* 推荐结果表格 */
-.recommendations-table {
-  width: 100%;
-  margin-top: 30px;
-  border-collapse: collapse;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.recommendations-table th,
-.recommendations-table td {
-  padding: 10px;
-  text-align: left;
-  border-bottom: 1px solid #ddd;
-}
-
-.recommendations-table th {
-  background-color: #1a73e8;
-  color: white;
-}
-
-.recommendations-table td {
-  background-color: #f9f9f9;
-}
-
-/* AI 响应区域 */
-.ai-response, .ai-text-response {
-  margin-top: 30px;
-  padding: 20px;
-  background-color: #f4f4f4;
-  border-radius: 5px;
-}
-
-.ai-text-response h3 {
-  margin-top: 20px;
-}
-
-.ai-text-response ul {
-  margin-left: 20px;
-}
-
-.ai-text-response li {
-  margin: 5px 0;
+.main-content {
+  flex: 1;
+  padding: 40px;
+  background: #ffffff;
+  min-height: calc(100vh - 80px);
+  margin: 40px;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
 }
 </style>

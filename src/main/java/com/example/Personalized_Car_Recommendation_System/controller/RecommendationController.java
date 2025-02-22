@@ -73,6 +73,26 @@ public class RecommendationController {
     }
 
     /**
+     * 新增：ALS 算法接口
+     * @param token 用户的授权令牌
+     * @param data 调用 /api/ai/recommend 接口返回的数据
+     * @return ALS 算法过滤后的数据
+     */
+    @PostMapping("/als")
+    public ResponseEntity<List<Map<String, Object>>> getAlsRecommendations(@RequestHeader("Authorization") String token, @RequestBody List<Map<String, Object>> data) {
+        token = token.replace("Bearer ", "").trim();
+        try {
+            int userId = recommendationService.getUserIdFromToken(token);
+            List<Map<String, Object>> alsRecommendations = recommendationService.getAlsRecommendations(userId, data);
+            return ResponseEntity.ok(alsRecommendations);
+        } catch (IllegalArgumentException e) {
+            return handleTokenParsingError(e);
+        } catch (Exception e) {
+            return handleInternalServerError(e, "Error getting ALS recommendations");
+        }
+    }
+
+    /**
      * 处理令牌解析错误
      * @param e 异常信息
      * @return 错误响应
