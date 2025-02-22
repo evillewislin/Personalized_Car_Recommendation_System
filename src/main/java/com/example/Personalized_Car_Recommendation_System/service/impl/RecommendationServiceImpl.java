@@ -44,6 +44,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         this.chatClient = chatClient;
         this.jdbcTemplate = jdbcTemplate;
         this.recommendationHistoryRepository = recommendationHistoryRepository;
+
     }
 
     /**
@@ -112,6 +113,7 @@ public class RecommendationServiceImpl implements RecommendationService {
      */
     @Override
     public List<Map<String, Object>> getAlsRecommendations(int userId, List<Map<String, Object>> data) {
+        System.setProperty("hadoop.home.dir", "D:\\hadoop-3.0.0");
         JavaSparkContext sc = null;
         try {
             // 初始化 Spark 配置和上下文
