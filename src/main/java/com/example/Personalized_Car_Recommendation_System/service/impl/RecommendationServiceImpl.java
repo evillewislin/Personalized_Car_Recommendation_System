@@ -14,6 +14,7 @@ import com.example.Personalized_Car_Recommendation_System.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.ChatClient;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -72,14 +73,16 @@ public class RecommendationServiceImpl implements RecommendationService {
      */
     @Async
     @Override
-    public CompletableFuture<String> callAI(Prompt prompt) {
+    public CompletableFuture<String> callAI(String message) {
         try {
+            Prompt prompt = new Prompt(new UserMessage(message));
             String response = chatClient.call(prompt).getResult().getOutput().getContent();
+            logger.info("AI响应内容: {}", response);
             return CompletableFuture.completedFuture(response);
         } catch (Exception e) {
             logger.error("AI 调用异常: {}", e.getMessage(), e);
             // 可以添加重试机制或者其他处理逻辑
-            return CompletableFuture.failedFuture(e);
+            return CompletableFuture.completedFuture("AI服务异常，请稍后重试");
         }
     }
 

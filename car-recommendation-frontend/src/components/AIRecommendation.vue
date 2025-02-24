@@ -19,17 +19,8 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue';
+import {ref} from 'vue';
 import axios from 'axios';
-
-// 提取获取和处理token的公共函数
-const getCleanToken = () => {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    throw new Error('Token is missing');
-  }
-  return token.replace('Bearer ', '');
-};
 
 export default {
   setup() {
@@ -37,41 +28,25 @@ export default {
     const loading = ref(false);
     const errorMessage = ref('');
     const aiResponse = ref('');
-    const recommendResponse = ref([]);
 
     const fetchAIRecommendations = async () => {
       loading.value = true;
       errorMessage.value = '';
       aiResponse.value = '';
-      recommendResponse.value = [];
 
       try {
-        const cleanToken = getCleanToken();
+        const message = `你是一位优秀的汽车咨询师，${userRequest.value}，以品牌名，全名，价格范围和平均评分形式进行回答，`;
+        const encodedMessage = encodeURIComponent(message);
 
-        const recommendResponseData = await axios.post('/api/ai/recommend', null, {
+        const aiChatResponse = await axios.get('/api/ai/chat', {
           headers: {
-            'Authorization': `Bearer ${cleanToken}`
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          params: {
+            message: encodedMessage
           }
         });
-
-        recommendResponse.value = recommendResponseData.data;
-
-        if (recommendResponse.value.length > 0) {
-          const dataString = JSON.stringify(recommendResponse.value);
-          const message = `为我分析一下这些汽车推荐：${dataString}，并且给我推荐，以品牌名，全名，价格范围和平均评分列形成的表回答，同时考虑我的要求：${userRequest.value}`;
-          const encodedMessage = encodeURIComponent(message);
-
-          const aiChatResponse = await axios.get('/api/ai/chat', {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            params: {
-              message: encodedMessage
-            }
-          });
-
-          aiResponse.value = aiChatResponse.data;
-        }
+        aiResponse.value = aiChatResponse.data.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
       } catch (error) {
         console.error('获取AI推荐失败:', error);
         if (error.response) {
@@ -89,7 +64,6 @@ export default {
       }
     };
 
-    // 在返回对象中添加 fetchAIRecommendations 函数
     return {
       userRequest,
       loading,
@@ -100,6 +74,7 @@ export default {
   }
 };
 </script>
+
 
 <style scoped>
 /* 提取颜色和尺寸变量 */

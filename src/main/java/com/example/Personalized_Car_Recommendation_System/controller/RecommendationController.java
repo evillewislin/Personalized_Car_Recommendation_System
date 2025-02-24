@@ -63,8 +63,8 @@ public class RecommendationController {
     public CompletableFuture<ResponseEntity<String>> chatWithAI(@RequestParam(value = "message") String message) {
         // 输出向 AI 发送的信息
         log.info("向 AI 发送的信息: {}", message);
-        Prompt prompt = new Prompt(new UserMessage(message));
-        return recommendationService.callAI(prompt)
+
+        return recommendationService.callAI(message)
                 .thenApply(ResponseEntity::ok)
                 .exceptionally(ex -> {
                     log.error("AI chat error: {}", ex.getMessage(), ex);

@@ -10,11 +10,10 @@ import java.util.concurrent.CompletableFuture;
 public interface RecommendationService {
     int getUserIdFromToken(String token);
 
-    CompletableFuture<String> callAI(Prompt prompt);
+    CompletableFuture<String> callAI(String message);
 
     List<Map<String, Object>> getRecommendationsByUserId(int userId);
 
-    // 新增：ALS 算法过滤方法
     List<Map<String, Object>> getAlsRecommendations(int userId, List<Map<String, Object>> data);
 
 
