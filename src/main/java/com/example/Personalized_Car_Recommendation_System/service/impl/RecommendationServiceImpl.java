@@ -11,6 +11,7 @@ import com.example.Personalized_Car_Recommendation_System.entity.RecommendationH
 import com.example.Personalized_Car_Recommendation_System.repository.*;
 import com.example.Personalized_Car_Recommendation_System.service.RecommendationService;
 import com.example.Personalized_Car_Recommendation_System.util.JwtUtil;
+import org.apache.spark.rdd.RDD;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.ChatClient;
@@ -68,7 +69,7 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     /**
      * 异步调用AI接口
-     * @param prompt 提示信息
+     * @param message 提示信息
      * @return 异步的AI响应
      */
     @Async
@@ -160,12 +161,12 @@ public class RecommendationServiceImpl implements RecommendationService {
             JavaPairRDD<Integer, Integer> userCarPairsRDD = sc.parallelizePairs(userCarPairs);
 
             // 转换为 RDD<scala.Tuple2<Object, Object>> 类型
-            JavaRDD<scala.Tuple2<Object, Object>> inputRDD = userCarPairsRDD.map(pair ->
-                    new scala.Tuple2<>(pair._1(), pair._2())
+            JavaRDD<Tuple2<Object, Object>> inputRDD = userCarPairsRDD.map(pair ->
+                    new Tuple2<>(pair._1(), pair._2())
             );
 
             // 使用模型进行预测
-            org.apache.spark.rdd.RDD<Rating> predictedRatingsRDD = model.predict(inputRDD.rdd());
+            RDD<Rating> predictedRatingsRDD = model.predict(inputRDD.rdd());
 
             // 手动获取 Rating 类型的 ClassTag
             ClassTag<Rating> ratingClassTag = ClassTag$.MODULE$.apply(Rating.class);
@@ -201,10 +202,6 @@ public class RecommendationServiceImpl implements RecommendationService {
         } catch (Exception e) {
             logger.error("ALS 推荐过程中出现异常: {}", e.getMessage(), e);
             return getDefaultRecommendations(data);
-        } finally {
-            if (sc != null) {
-                sc.stop();
-            }
         }
     }
 

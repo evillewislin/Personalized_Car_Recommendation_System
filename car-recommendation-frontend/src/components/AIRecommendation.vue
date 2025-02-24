@@ -4,15 +4,13 @@
     <input v-model="userRequest" type="text" placeholder="请输入你的要求" :disabled="loading" />
     <!-- 错误提示信息 -->
     <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
-    <!-- 加载状态提示 -->
-    <div v-if="loading" class="loading-message">加载中...</div>
     <!-- AI 推荐按钮 -->
     <button @click="fetchAIRecommendations" class="ai-recommend-btn" :disabled="loading">
       {{ loading? '加载中...' : 'AI智能推荐' }}
     </button>
     <!-- AI 文本响应显示区域 -->
     <div v-if="!loading && aiResponse.length" class="ai-text-response">
-      <!-- 直接显示文本，避免使用 v-html 可能带来的安全风险 -->
+
       <p>{{ aiResponse }}</p>
     </div>
   </div>
@@ -35,7 +33,7 @@ export default {
       aiResponse.value = '';
 
       try {
-        const message = `你是一位优秀的汽车咨询师，${userRequest.value}，以品牌名，全名，价格范围和平均评分形式进行回答，`;
+        const message = `${userRequest.value}，以品牌名，全名，价格范围和平均评分形式进行回答，`;
         const encodedMessage = encodeURIComponent(message);
 
         const aiChatResponse = await axios.get('/api/ai/chat', {
@@ -172,6 +170,7 @@ input:focus {
   padding: 20px;
   background-color: #f4f4f4;
   border-radius: 5px;
+  white-space: pre-line;
 }
 
 .loading-message {
