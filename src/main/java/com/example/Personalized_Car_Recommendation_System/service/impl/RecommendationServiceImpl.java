@@ -36,7 +36,6 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final ChatClient chatClient;
     private final JdbcTemplate jdbcTemplate;
     private final RecommendationHistoryRepository recommendationHistoryRepository;
-
     @Value("${user.max.price:300000}")
     private int userMaxPrice;
 
@@ -46,7 +45,6 @@ public class RecommendationServiceImpl implements RecommendationService {
         this.chatClient = chatClient;
         this.jdbcTemplate = jdbcTemplate;
         this.recommendationHistoryRepository = recommendationHistoryRepository;
-
     }
 
     /**
@@ -94,14 +92,14 @@ public class RecommendationServiceImpl implements RecommendationService {
      */
     @Override
     public List<Map<String, Object>> getRecommendationsByUserId(int userId) {
-        String sql = "SELECT b.name, ci.full_name AS fullName, " +
+        String sql = "SELECT ci.car_id, b.name, ci.full_name AS fullName, " +
                 "CONCAT(ci.minprice, '-', ci.maxprice) AS priceRange, " +
                 "AVG(rh.score) AS avgScore " +
                 "FROM recommendation_history rh " +
                 "JOIN car_info ci ON rh.car_id = ci.car_id " +
                 "JOIN car_brand b ON ci.brand_id = b.brand_id " +
                 "WHERE rh.user_id = ? " +
-                "GROUP BY b.name, ci.full_name, ci.minprice, ci.maxprice " +
+                "GROUP BY ci.car_id, b.name, ci.full_name, ci.minprice, ci.maxprice " +
                 "ORDER BY avgScore DESC " +
                 "LIMIT 10";
         List<Map<String, Object>> result = jdbcTemplate.queryForList(sql, userId);
@@ -120,9 +118,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         System.setProperty("hadoop.home.dir", "D:\\hadoop-3.0.0");
         JavaSparkContext sc = null;
         try {
-            // 初始化 Spark 配置和上下文
-            SparkConf conf = new SparkConf().setAppName("CarRecommendationALS").setMaster("local");
-            sc = new JavaSparkContext(conf);
+            sc = createSparkContext();
 
             // 获取所有用户的推荐历史记录
             List<RecommendationHistory> allHistory = recommendationHistoryRepository.findAll();
@@ -132,47 +128,23 @@ public class RecommendationServiceImpl implements RecommendationService {
             }
 
             // 将推荐历史记录转换为 Spark 的 Rating 对象
-            JavaRDD<Rating> ratingsRDD = sc.parallelize(allHistory.stream()
-                    .map(history -> new Rating(history.getUserId(), history.getCarId(), history.getScore()))
-                    .collect(Collectors.toList()));
+            JavaRDD<Rating> ratingsRDD = convertToRatingsRDD(sc, allHistory);
 
             // 训练 ALS 模型
-            int rank = 10;
-            int numIterations = 10;
-            MatrixFactorizationModel model = ALS.train(ratingsRDD.rdd(), rank, numIterations, 0.01);
+            MatrixFactorizationModel model = trainALSModel(ratingsRDD);
 
             // 获取所有汽车的 ID
-            List<Integer> carIds = data.stream()
-                    .map(carMap -> (Integer) carMap.get("carId"))
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-
+            List<Integer> carIds = extractCarIds(data);
             if (carIds.isEmpty()) {
                 logger.info("没有有效的汽车 ID，返回默认推荐");
                 return getDefaultRecommendations(data);
             }
 
             // 创建待预测的 (用户 ID, 物品 ID) 元组列表
-            List<Tuple2<Integer, Integer>> userCarPairs = carIds.stream()
-                    .map(carId -> new Tuple2<>(userId, carId))
-                    .collect(Collectors.toList());
-
-            // 将待预测的元组列表转换为 JavaPairRDD
-            JavaPairRDD<Integer, Integer> userCarPairsRDD = sc.parallelizePairs(userCarPairs);
-
-            // 转换为 RDD<scala.Tuple2<Object, Object>> 类型
-            JavaRDD<Tuple2<Object, Object>> inputRDD = userCarPairsRDD.map(pair ->
-                    new Tuple2<>(pair._1(), pair._2())
-            );
+            JavaRDD<Tuple2<Object, Object>> inputRDD = createInputRDD(sc, userId, carIds);
 
             // 使用模型进行预测
-            RDD<Rating> predictedRatingsRDD = model.predict(inputRDD.rdd());
-
-            // 手动获取 Rating 类型的 ClassTag
-            ClassTag<Rating> ratingClassTag = ClassTag$.MODULE$.apply(Rating.class);
-
-            // 使用 JavaRDD.fromRDD 并传入正确的参数
-            JavaRDD<Rating> userCarRatingsRDD = JavaRDD.fromRDD(predictedRatingsRDD, ratingClassTag);
+            JavaRDD<Rating> userCarRatingsRDD = predictRatings(model, inputRDD);
 
             // 将预测结果转换为列表
             List<Rating> userCarRatings = userCarRatingsRDD.collect();
@@ -181,16 +153,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             userCarRatings.sort((r1, r2) -> Double.compare(r2.rating(), r1.rating()));
 
             // 根据排序后的评分筛选出对应的汽车信息
-            List<Map<String, Object>> recommendedCars = new ArrayList<>();
-            for (Rating rating : userCarRatings) {
-                for (Map<String, Object> carMap : data) {
-                    Integer carId = (Integer) carMap.get("carId");
-                    if (carId != null && carId == rating.product()) {
-                        recommendedCars.add(carMap);
-                        break;
-                    }
-                }
-            }
+            List<Map<String, Object>> recommendedCars = filterRecommendedCars(data, userCarRatings);
 
             if (recommendedCars.isEmpty()) {
                 logger.info("没有推荐的汽车，返回默认推荐");
@@ -202,7 +165,63 @@ public class RecommendationServiceImpl implements RecommendationService {
         } catch (Exception e) {
             logger.error("ALS 推荐过程中出现异常: {}", e.getMessage(), e);
             return getDefaultRecommendations(data);
+        } finally {
+            if (sc != null) {
+                sc.stop();
+            }
         }
+    }
+
+    private JavaSparkContext createSparkContext() {
+        SparkConf conf = new SparkConf().setAppName("CarRecommendationALS").setMaster("local");
+        return new JavaSparkContext(conf);
+    }
+
+    private JavaRDD<Rating> convertToRatingsRDD(JavaSparkContext sc, List<RecommendationHistory> allHistory) {
+        return sc.parallelize(allHistory.stream()
+                .map(history -> new Rating(history.getUserId(), history.getCarId(), history.getScore()))
+                .collect(Collectors.toList()));
+    }
+
+    private MatrixFactorizationModel trainALSModel(JavaRDD<Rating> ratingsRDD) {
+        int rank = 10;
+        int numIterations = 10;
+        return ALS.train(ratingsRDD.rdd(), rank, numIterations, 0.01);
+    }
+
+    private List<Integer> extractCarIds(List<Map<String, Object>> data) {
+        return data.stream()
+                .map(carMap -> (Integer) carMap.get("carId"))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
+
+    private JavaRDD<Tuple2<Object, Object>> createInputRDD(JavaSparkContext sc, int userId, List<Integer> carIds) {
+        List<Tuple2<Integer, Integer>> userCarPairs = carIds.stream()
+                .map(carId -> new Tuple2<>(userId, carId))
+                .collect(Collectors.toList());
+        JavaPairRDD<Integer, Integer> userCarPairsRDD = sc.parallelizePairs(userCarPairs);
+        return userCarPairsRDD.map(pair -> new Tuple2<>(pair._1(), pair._2()));
+    }
+
+    private JavaRDD<Rating> predictRatings(MatrixFactorizationModel model, JavaRDD<Tuple2<Object, Object>> inputRDD) {
+        RDD<Rating> predictedRatingsRDD = model.predict(inputRDD.rdd());
+        ClassTag<Rating> ratingClassTag = ClassTag$.MODULE$.apply(Rating.class);
+        return JavaRDD.fromRDD(predictedRatingsRDD, ratingClassTag);
+    }
+
+    private List<Map<String, Object>> filterRecommendedCars(List<Map<String, Object>> data, List<Rating> userCarRatings) {
+        List<Map<String, Object>> recommendedCars = new ArrayList<>();
+        for (Rating rating : userCarRatings) {
+            for (Map<String, Object> carMap : data) {
+                Integer carId = (Integer) carMap.get("carId");
+                if (carId != null && carId == rating.product()) {
+                    recommendedCars.add(carMap);
+                    break;
+                }
+            }
+        }
+        return recommendedCars;
     }
 
     // 按热度排序
