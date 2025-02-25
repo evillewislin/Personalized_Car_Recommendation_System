@@ -60,8 +60,9 @@ export default {
         });
 
         recommendResponse.value = recommendResponseData.data;
-        console.log(recommendResponse.value);
-        if (recommendResponse.value.length > 0) {
+        const dataArray = recommendResponse.value;
+        console.log(dataArray);
+        if (recommendResponse.value.length < 0) {
           console.log('开始请求 als 接口');
           const alsResponseData = await axios.post('/api/ai/als', recommendResponse.value, {
             headers: {
