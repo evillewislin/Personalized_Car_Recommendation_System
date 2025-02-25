@@ -30,17 +30,6 @@
       </div>
     </nav>
 
-    <!-- 搜索框 -->
-    <div class="search-container">
-      <div class="search-wrapper">
-        <input
-            type="text"
-            placeholder="搜索汽车..."
-            v-model="searchQuery"
-        />
-      </div>
-    </div>
-
     <!-- 页面内容 -->
     <div class="car-list-container">
       <CarList :searchQuery="searchQuery" />

@@ -1,5 +1,10 @@
 <template>
   <div>
+    <!-- 输入最高价格的文本框 -->
+    <label for="maxPrice">请输入您可接受的最高价格:</label>
+    <input type="number" id="maxPrice" v-model="maxPrice" placeholder="请输入价格">
+    <button @click="fetchALSRecommendations">获取推荐</button>
+
     <!-- 错误提示信息 -->
     <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
     <!-- Als推荐结果表格 -->
@@ -43,6 +48,7 @@ export default {
     const errorMessage = ref('');
     const alsResponse = ref([]);
     const recommendResponse = ref([]);
+    const maxPrice = ref(''); // 添加 maxPrice 变量
 
     const fetchALSRecommendations = async () => {
       loading.value = true;
@@ -53,25 +59,30 @@ export default {
       try {
         const cleanToken = getCleanToken();
 
-        const recommendResponseData = await axios.get('/api/ai/allrecommend', null, {
+        // 如果该接口不需要请求体，可以修改后端接口定义
+        // 这里假设该接口不需要请求体，将请求体改为 {}
+        const recommendResponseData = await axios.post('/api/ai/allrecommend', {}, {
           headers: {
-            'Authorization': `Bearer ${cleanToken}`
+            'Authorization': `Bearer ${cleanToken}`,
+            'Content-Type': 'application/json'
           }
         });
 
         recommendResponse.value = recommendResponseData.data;
-        const dataArray = recommendResponse.value;
+        const dataArray = recommendResponse.value.data;
         console.log(dataArray);
-        if (recommendResponse.value.length < 0) {
+
+        if (dataArray && dataArray.length > 0) {
           console.log('开始请求 als 接口');
-          const alsResponseData = await axios.post('/api/ai/als', recommendResponse.value, {
+          const alsResponseData = await axios.post(`/api/ai/als?maxPrice=${maxPrice.value}`, dataArray, {
             headers: {
-              'Authorization': `Bearer ${cleanToken}`
+              'Authorization': `Bearer ${cleanToken}`,
+              'Content-Type': 'application/json'
             }
           });
           console.log('als 接口请求成功，返回数据:', alsResponseData.data);
           alsResponse.value = alsResponseData.data;
-        }else {
+        } else {
           console.log('allrecommend 接口返回的数据为空，不请求 als 接口');
         }
       } catch (error) {
@@ -92,13 +103,16 @@ export default {
     };
 
     onMounted(async () => {
-      await fetchALSRecommendations();
+      // 移除自动触发推荐请求的逻辑
+      // await fetchALSRecommendations();
     });
 
     return {
       loading,
       errorMessage,
-      alsResponse
+      alsResponse,
+      maxPrice, // 返回 maxPrice 变量
+      fetchALSRecommendations
     };
   }
 };

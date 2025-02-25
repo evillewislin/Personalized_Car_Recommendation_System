@@ -6,8 +6,6 @@
     <el-button @click="handleSearch">搜索</el-button>
 
     <el-table :data="cars" style="width: 100%">
-      <!-- 表格列定义保持不变 -->
-      <el-table-column prop="carId" label="编号"></el-table-column>
       <el-table-column prop="name" label="品牌"></el-table-column>
       <el-table-column prop="fullName" label="全名"></el-table-column>
       <el-table-column label="价格区间">

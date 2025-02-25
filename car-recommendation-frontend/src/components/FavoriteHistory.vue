@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2>推荐汽车列表</h2>
+    <h2>收藏历史</h2>
     <!-- 添加搜索框 -->
     <el-input v-model="searchInput" placeholder="请输入搜索关键词" style="width: 300px; margin-right: 10px;"></el-input>
     <el-button @click="handleSearch">搜索</el-button>

@@ -29,6 +29,7 @@ import scala.reflect.ClassTag$;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -67,8 +68,6 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final JdbcTemplate jdbcTemplate;
     private final RecommendationHistoryRepository recommendationHistoryRepository;
 
-    @Value("${user.max.price:300000}")
-    private int userMaxPrice;
     @Value("${hadoop.home.dir}")
     private String hadoopHomeDir;
     @Value("${als.rank:10}")
@@ -167,6 +166,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     @Override
     public Map<String, Object> getAllRecommendations(int userId) {
         try {
+            // 查询数据
             List<Map<String, Object>> resultList = jdbcTemplate.queryForList(ALL_RECOMMENDATION_SQL, userId);
             List<CarRecommendationDto> carRecommendations = new ArrayList<>();
             for (Map<String, Object> row : resultList) {
@@ -178,9 +178,12 @@ public class RecommendationServiceImpl implements RecommendationService {
                 carRecommendations.add(new CarRecommendationDto(carId, brandName, fullName, priceRange, avgScore));
             }
 
+            // 查询总数
+            int total = jdbcTemplate.queryForObject(COUNT_SQL, Integer.class, userId, "%", "%");
+
             Map<String, Object> response = new HashMap<>();
             response.put("data", carRecommendations);
-            response.put("total", carRecommendations.size());
+            response.put("total", total); // 使用COUNT_SQL查询的总数
             return response;
         } catch (Exception e) {
             logger.error("查询全部推荐汽车列表时出错: {}", e.getMessage(), e);
@@ -192,10 +195,11 @@ public class RecommendationServiceImpl implements RecommendationService {
      * 新增：基于历史记录的推荐方法
      * @param userId 用户ID
      * @param data 调用 /api/ai/recommend 接口返回的数据
+     * @param maxPrice 用户输入的最高价格
      * @return 过滤后的数据
      */
     @Override
-    public List<Map<String, Object>> getAlsRecommendations(int userId, List<Map<String, Object>> data) {
+    public List<Map<String, Object>> getAlsRecommendations(int userId, List<Map<String, Object>> data, int maxPrice) {
         JavaSparkContext sc = null;
         try {
             sc = createSparkContext();
@@ -215,10 +219,26 @@ public class RecommendationServiceImpl implements RecommendationService {
                 return getDefaultRecommendations(data);
             }
 
+            // 划分训练集和测试集，这里使用 80% 作为训练集，20% 作为测试集
+            JavaRDD<Rating>[] splits = ratingsRDD.randomSplit(new double[]{0.8, 0.2}, 12345L);
+            JavaRDD<Rating> training = splits[0];
+            JavaRDD<Rating> test = splits[1];
+
             // 训练 ALS 模型
-            MatrixFactorizationModel model = trainALSModel(ratingsRDD);
+            MatrixFactorizationModel model = trainALSModel(training);
             if (model == null) {
                 logger.info("无法训练 ALS 模型，返回默认推荐");
+                return getDefaultRecommendations(data);
+            }
+
+            // 模型性能检查：计算均方误差（MSE）
+            double mse = calculateMSE(model, test);
+            logger.info("模型的均方误差 (MSE): {}", mse);
+
+            // 可以设置一个 MSE 阈值，如果 MSE 过高，认为模型性能不佳，返回默认推荐
+            double mseThreshold = 1.0;
+            if (mse > mseThreshold) {
+                logger.info("模型性能不佳，MSE 超过阈值，返回默认推荐");
                 return getDefaultRecommendations(data);
             }
 
@@ -242,12 +262,15 @@ public class RecommendationServiceImpl implements RecommendationService {
             List<Rating> userCarRatings = userCarRatingsRDD.collect();
             logger.info("预测结果列表: {}", userCarRatings);
 
+            // 将列表转换为支持修改操作的 ArrayList
+            userCarRatings = new ArrayList<>(userCarRatings);
+
             // 根据预测评分对汽车进行排序
             userCarRatings.sort((r1, r2) -> Double.compare(r2.rating(), r1.rating()));
             logger.info("排序预测结果: {}", userCarRatings);
 
             // 根据排序后的评分筛选出对应的汽车信息
-            List<Map<String, Object>> recommendedCars = filterRecommendedCars(data, userCarRatings);
+            List<Map<String, Object>> recommendedCars = filterRecommendedCars(data, userCarRatings, maxPrice);
             logger.info("筛选预测结果: {}", recommendedCars);
 
             if (recommendedCars.isEmpty()) {
@@ -267,6 +290,26 @@ public class RecommendationServiceImpl implements RecommendationService {
         }
     }
 
+    // 计算均方误差（MSE）的方法
+    private double calculateMSE(MatrixFactorizationModel model, JavaRDD<Rating> testData) {
+        JavaRDD<Tuple2<Object, Object>> userProducts = testData.map(rating -> new Tuple2<>(rating.user(), rating.product()));
+        JavaRDD<Rating> predictions = predictRatings(model, userProducts);
+
+        JavaRDD<Tuple2<Double, Double>> ratesAndPreds = testData.mapToPair(rating -> new Tuple2<>(new Tuple2<>(rating.user(), rating.product()), rating.rating()))
+                .join(predictions.mapToPair(rating -> new Tuple2<>(new Tuple2<>(rating.user(), rating.product()), rating.rating())))
+                .values();
+
+        double mse = ratesAndPreds.mapToDouble(pair -> {
+            double err = pair._1() - pair._2();
+            return err * err;
+        }).mean();
+
+        // 记录 MSE 结果到日志
+        logger.info("模型在测试集上计算得到的均方误差 (MSE) 为: {}", mse);
+
+        return mse;
+    }
+
     private JavaSparkContext createSparkContext() {
         System.setProperty("hadoop.home.dir", hadoopHomeDir);
         SparkConf conf = new SparkConf().setAppName("CarRecommendationALS").setMaster("local");
@@ -274,8 +317,21 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     private JavaRDD<Rating> convertToRatingsRDD(JavaSparkContext sc, List<RecommendationHistory> allHistory) {
+        Date now = new Date();
         return sc.parallelize(allHistory.stream()
-                .map(history -> new Rating(history.getUserId(), history.getCarId(), history.getScore()))
+                .map(history -> {
+                    // 计算时间间隔（天）
+                    long diffInMillies = Math.abs(now.getTime() - history.getTimestamp().getTime());
+                    long diffInDays = TimeUnit.DAYS.convert(diffInMillies, TimeUnit.MILLISECONDS);
+
+                    // 定义时间衰减因子（例如，每天衰减 0.99）
+                    double decayFactor = Math.pow(0.99, diffInDays);
+
+                    // 调整评分
+                    float adjustedScore = (float) (history.getScore() * decayFactor);
+
+                    return new Rating(history.getUserId(), history.getCarId(), adjustedScore);
+                })
                 .collect(Collectors.toList()));
     }
 
@@ -290,7 +346,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private List<Integer> extractCarIds(List<Map<String, Object>> data) {
         logger.debug("传入的汽车数据列表: {}", data);
         return data.stream()
-                .map(carMap -> (Integer) carMap.get("car_id"))
+                .map(carMap -> (Integer) carMap.get("carId"))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
@@ -309,7 +365,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         return JavaRDD.fromRDD(predictedRatingsRDD, ratingClassTag);
     }
 
-    private List<Map<String, Object>> filterRecommendedCars(List<Map<String, Object>> data, List<Rating> userCarRatings) {
+    private List<Map<String, Object>> filterRecommendedCars(List<Map<String, Object>> data, List<Rating> userRatings, int userMaxPrice) {
         List<Map<String, Object>> recommendedCars = new ArrayList<>();
 
         // 从 carinfo 表中查询所有汽车信息
@@ -323,23 +379,27 @@ public class RecommendationServiceImpl implements RecommendationService {
             carInfoMap.put(carId, carInfo);
         }
 
-        for (Rating rating : userCarRatings) {
+        for (Rating rating : userRatings) {
+            logger.info("当前预测的汽车 ID: {}", rating.product());
             for (Map<String, Object> carMap : data) {
-                Integer carId = (Integer) carMap.get("car_id");
-                if (carId != null && carId == rating.product()) {
-                    Map<String, Object> carInfo = carInfoMap.get(carId);
-                    if (carInfo != null) {
-                        Integer minPrice = (Integer) carInfo.get("minprice");
-                        Integer maxPrice = (Integer) carInfo.get("maxprice");
-                        // 假设 userMaxPrice 是用户可接受的最大价格
-                        if (maxPrice != null && maxPrice <= userMaxPrice) {
-                            recommendedCars.add(carMap);
-                            break;
+                Integer carId = (Integer) carMap.get("carId");
+                if (carId != null) {
+                    if (carId == rating.product()) {
+                        Map<String, Object> carInfo = carInfoMap.get(carId);
+                        if (carInfo != null) {
+                            Integer minPrice = (Integer) carInfo.get("minprice");
+                            Integer maxPrice = (Integer) carInfo.get("maxprice");
+                            if (maxPrice != null && maxPrice <= userMaxPrice) {
+                                recommendedCars.add(carMap);
+                                logger.info("添加符合条件的汽车，car_id: {}", carId);
+                                break;
+                            }
                         }
                     }
                 }
             }
         }
+        logger.info("最终推荐的汽车列表: {}", recommendedCars);
         return recommendedCars;
     }
 

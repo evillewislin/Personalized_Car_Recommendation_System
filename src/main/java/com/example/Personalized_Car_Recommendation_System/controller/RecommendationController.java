@@ -55,13 +55,15 @@ public class RecommendationController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
-    @GetMapping("/allrecommend")
+
+    @PostMapping("/allrecommend")
     public ResponseEntity<Map<String, Object>> getAllRecommendations(
             @RequestHeader("Authorization") String token) {
         try {
             String cleanToken = token.replace("Bearer ", "");
             log.info("收到请求，Token: {}", cleanToken);
             int userId = recommendationService.getUserIdFromToken(cleanToken);
+            log.info("Processing allrecommend for user: {}", userId);
             Map<String, Object> result = recommendationService.getAllRecommendations(userId);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
@@ -69,6 +71,7 @@ public class RecommendationController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
+
     /**
      * 调用ai接口
      * @param message 用户输入的消息
@@ -91,14 +94,19 @@ public class RecommendationController {
      * 新增：ALS 算法接口
      * @param token 用户的授权令牌
      * @param data 调用 /api/ai/recommend 接口返回的数据
+     * @param maxPrice 用户输入的最高价格
      * @return ALS 算法过滤后的数据
      */
     @PostMapping("/als")
-    public ResponseEntity<List<Map<String, Object>>> getAlsRecommendations(@RequestHeader("Authorization") String token, @RequestBody List<Map<String, Object>> data) {
+    public ResponseEntity<List<Map<String, Object>>> getAlsRecommendations(
+            @RequestHeader("Authorization") String token,
+            @RequestBody List<Map<String, Object>> data,
+            @RequestParam("maxPrice") int maxPrice) {
+        log.info("ALS request received with data size: {}, maxPrice: {}", data.size(), maxPrice);
         token = token.replace("Bearer ", "").trim();
         try {
             int userId = recommendationService.getUserIdFromToken(token);
-            List<Map<String, Object>> alsRecommendations = recommendationService.getAlsRecommendations(userId, data);
+            List<Map<String, Object>> alsRecommendations = recommendationService.getAlsRecommendations(userId, data, maxPrice);
             return ResponseEntity.ok(alsRecommendations);
         } catch (IllegalArgumentException e) {
             return handleTokenParsingError(e);
