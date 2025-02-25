@@ -60,16 +60,18 @@ export default {
         });
 
         recommendResponse.value = recommendResponseData.data;
-
+        console.log(recommendResponse.value);
         if (recommendResponse.value.length > 0) {
-          console.log(recommendResponseData.data);
+          console.log('开始请求 als 接口');
           const alsResponseData = await axios.post('/api/ai/als', recommendResponse.value, {
             headers: {
               'Authorization': `Bearer ${cleanToken}`
             }
           });
-
+          console.log('als 接口请求成功，返回数据:', alsResponseData.data);
           alsResponse.value = alsResponseData.data;
+        }else {
+          console.log('allrecommend 接口返回的数据为空，不请求 als 接口');
         }
       } catch (error) {
         console.error('获取ALS推荐失败:', error);
