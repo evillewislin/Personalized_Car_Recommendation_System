@@ -4,8 +4,6 @@ import com.example.Personalized_Car_Recommendation_System.service.Recommendation
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.ChatClient;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -40,20 +38,37 @@ public class RecommendationController {
      * @param token 用户的授权令牌
      * @return 推荐信息的 JSON 格式
      */
-    @PostMapping("/recommend")
-    public ResponseEntity<List<Map<String, Object>>> getRecommendations(@RequestHeader("Authorization") String token) {
-        token = token.replace("Bearer ", "").trim();
+    @GetMapping("/recommend")
+    public ResponseEntity<Map<String, Object>> getRecommendations(
+            @RequestHeader("Authorization") String token,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String keyword) {
         try {
-            int userId = recommendationService.getUserIdFromToken(token);
-            List<Map<String, Object>> recommendations = recommendationService.getRecommendationsByUserId(userId);
-            return ResponseEntity.ok(recommendations);
-        } catch (IllegalArgumentException e) {
-            return handleTokenParsingError(e);
+            String cleanToken = token.replace("Bearer ", "");
+            log.info("收到请求，Token: {}, 页码: {}, 每页数量: {}, 关键词: {}", cleanToken, page, size, keyword);
+            int userId = recommendationService.getUserIdFromToken(cleanToken);
+            Map<String, Object> result = recommendationService.getRecommendations(userId, page, size, keyword);
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
-            return handleInternalServerError(e, "Error getting recommendations");
+            log.error("处理推荐汽车列表请求时出错: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
-
+    @GetMapping("/allrecommend")
+    public ResponseEntity<Map<String, Object>> getAllRecommendations(
+            @RequestHeader("Authorization") String token) {
+        try {
+            String cleanToken = token.replace("Bearer ", "");
+            log.info("收到请求，Token: {}", cleanToken);
+            int userId = recommendationService.getUserIdFromToken(cleanToken);
+            Map<String, Object> result = recommendationService.getAllRecommendations(userId);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("处理全部推荐汽车列表请求时出错: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
     /**
      * 调用ai接口
      * @param message 用户输入的消息

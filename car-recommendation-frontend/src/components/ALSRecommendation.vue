@@ -53,7 +53,7 @@ export default {
       try {
         const cleanToken = getCleanToken();
 
-        const recommendResponseData = await axios.post('/api/ai/recommend', null, {
+        const recommendResponseData = await axios.get('/api/ai/allrecommend', null, {
           headers: {
             'Authorization': `Bearer ${cleanToken}`
           }
@@ -62,6 +62,7 @@ export default {
         recommendResponse.value = recommendResponseData.data;
 
         if (recommendResponse.value.length > 0) {
+          console.log(recommendResponseData.data);
           const alsResponseData = await axios.post('/api/ai/als', recommendResponse.value, {
             headers: {
               'Authorization': `Bearer ${cleanToken}`

@@ -1,167 +1,147 @@
 <template>
   <div>
-    <!-- 错误提示信息 -->
-    <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
-    <!-- 收藏历史表格 -->
-    <table v-if="!loading && favoriteHistory.length" class="favorite-history-table">
-      <thead>
-      <tr>
-        <th>品牌名</th>
-        <th>全名</th>
-        <th>价格范围</th>
-        <th>平均评分</th>
-      </tr>
-      </thead>
-      <tbody>
-      <tr v-for="item in favoriteHistory" :key="item.fullName">
-        <td>{{ item.name }}</td>
-        <td>{{ item.fullName }}</td>
-        <td>{{ item.priceRange }}</td>
-        <td>{{ item.avgScore }}</td>
-      </tr>
-      </tbody>
-    </table>
-    <div v-else-if="loading">加载中...</div>
+    <h2>推荐汽车列表</h2>
+    <!-- 添加搜索框 -->
+    <el-input v-model="searchInput" placeholder="请输入搜索关键词" style="width: 300px; margin-right: 10px;"></el-input>
+    <el-button @click="handleSearch">搜索</el-button>
+
+    <el-table :data="recommendedCars" style="width: 100%">
+      <el-table-column prop="brandName" label="品牌名称"></el-table-column>
+      <el-table-column prop="fullName" label="汽车全名"></el-table-column>
+      <el-table-column label="价格区间">
+        <template #default="scope">
+          {{ scope.row.priceRange }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="avgScore" label="平均评分"></el-table-column>
+    </el-table>
+
+    <!-- 分页组件 -->
+    <el-pagination
+        background
+        layout="prev, pager, next, jumper"
+        :total="total"
+        :page-size="pageSize"
+        :current-page="currentPage"
+        :pager-count="5"
+        @current-change="handlePageChange"
+    />
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { defineComponent, onMounted, ref, watch } from 'vue';
 import axios from 'axios';
+import { ElMessage } from 'element-plus';
 
-export default {
+export default defineComponent({
+  name: 'RecommendedCarList',
   setup() {
-    const loading = ref(true);
-    const errorMessage = ref('');
-    const favoriteHistory = ref([]);
+    const recommendedCars = ref([]);
+    const total = ref(0); // 总数据条数
+    const pageSize = ref(10); // 每页条数
+    const currentPage = ref(1); // 当前页码
+    const searchInput = ref(''); // 搜索框输入值
 
-    const fetchFavoriteHistory = async () => {
-      loading.value = true;
-      errorMessage.value = '';
-      favoriteHistory.value = [];
+    const fetchRecommendedCars = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('token'); // 获取 token
         if (!token) {
-          throw new Error('Token is missing');
+          console.error('Token 不存在，请重新登录');
+          return;
         }
-        const cleanToken = token.replace('Bearer ', '');
 
-        const recommendResponseData = await axios.post('/api/ai/recommend', null, {
+        // 发送分页请求，将搜索关键词传递给后端
+        const response = await axios.get('/api/ai/recommend', {
           headers: {
-            'Authorization': `Bearer ${cleanToken}`
+            Authorization: `Bearer ${token}`
+          },
+          params: {
+            page: currentPage.value,
+            size: pageSize.value,
+            keyword: searchInput.value // 使用搜索框输入值作为关键词
           }
         });
-        favoriteHistory.value = recommendResponseData.data;
+
+        console.log("Response:", response); // 打印响应，确保返回正常
+        if (response.status === 200 && response.data.data) {
+          recommendedCars.value = response.data.data;
+          total.value = response.data.total || 0;
+        } else {
+          ElMessage.error('获取推荐汽车列表失败: ' + response.statusText);
+        }
       } catch (error) {
-        console.error('获取默认推荐数据失败:', error);
-        errorMessage.value = '获取收藏历史信息失败，请稍后重试。';
-      } finally {
-        loading.value = false;
+        console.error('请求失败:', error);
+        if (error.response) {
+          ElMessage.error(`请求失败: ${error.response.status} - ${error.response.statusText}`);
+        } else if (error.request) {
+          ElMessage.error('请求失败: 无响应');
+        } else {
+          ElMessage.error('请求失败: ' + error.message);
+        }
       }
     };
 
-    onMounted(async () => {
-      await fetchFavoriteHistory();
-    });
-
-    return {
-      loading,
-      errorMessage,
-      favoriteHistory
+    // 处理页码变化
+    const handlePageChange = (page) => {
+      currentPage.value = page;
+      fetchRecommendedCars(); // 重新获取数据
     };
-  }
-};
+
+    // 处理搜索按钮点击事件
+    const handleSearch = () => {
+      currentPage.value = 1; // 重置页码为第一页
+      fetchRecommendedCars(); // 重新获取数据
+    };
+
+    onMounted(fetchRecommendedCars);
+    return {
+      recommendedCars,
+      total,
+      pageSize,
+      currentPage,
+      handlePageChange,
+      searchInput,
+      handleSearch
+    };
+  },
+});
 </script>
 
 <style scoped>
-/* 样式保持不变 */
-.recommendations-container {
-  display: flex;
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-  font-family: 'Arial', sans-serif;
-}
-
-.sidebar {
-  width: 20%;
-  padding: 10px;
-  background-color: #f4f4f4;
-  border-right: 1px solid #ddd;
-}
-
-.sidebar-btn {
-  display: block;
+/* 表格容器 */
+.el-table {
+  margin-top: 20px;
   width: 100%;
-  padding: 10px;
-  margin-bottom: 10px;
-  background-color: #1a73e8;
-  border: none;
-  border-radius: 5px;
-  font-size: 16px;
-  color: white;
-  cursor: pointer;
-  text-decoration: none;
-  text-align: center;
 }
 
-.sidebar-btn:hover {
+/* 分页组件样式 */
+.el-pagination {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* 表格按钮样式 */
+.el-button {
+  background-color: #1a73e8;
+  color: white;
+  border-radius: 4px;
+}
+
+.el-button:hover {
   background-color: #003c8f;
 }
 
-.main-content {
-  width: 80%;
-  padding: 10px;
+/* 分页控件样式 */
+.el-pagination .el-button {
+  padding: 5px 15px;
+  font-size: 14px;
 }
 
-.nav-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #333;
-  padding: 15px 30px;
-}
-
-.nav-left {
-  display: flex;
-  gap: 20px;
-}
-
-.nav-left a {
-  text-decoration: none;
-  color: white;
-  font-size: 16px;
-}
-
-.nav-left a:hover {
-  color: #ffeb3b;
-}
-
-.error-message {
-  margin-top: 20px;
-  color: red;
-}
-
-.favorite-history-table {
-  width: 100%;
-  margin-top: 30px;
-  border-collapse: collapse;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.favorite-history-table th,
-.favorite-history-table td {
-  padding: 10px;
-  text-align: left;
-  border-bottom: 1px solid #ddd;
-}
-
-.favorite-history-table th {
-  background-color: #1a73e8;
-  color: white;
-}
-
-.favorite-history-table td {
-  background-color: #f9f9f9;
+/* 搜索框和按钮样式 */
+.el-input {
+  margin-bottom: 10px;
 }
 </style>

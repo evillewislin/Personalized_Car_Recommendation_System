@@ -1,5 +1,3 @@
 CREATE TABLE user ( user_id INT PRIMARY KEY AUTO_INCREMENT, username VARCHAR(50) UNIQUE, password VARCHAR(100),role varchar(25));
 CREATE TABLE admin( admin_id INT PRIMARY KEY AUTO_INCREMENT, adminname VARCHAR(50) UNIQUE, password VARCHAR(100),role varchar(25));
 CREATE TABLE recommendation_history ( id INT PRIMARY KEY AUTO_INCREMENT, user_id INT, car_id INT, score FLOAT, timestamp DATETIME, name varchar(255));
-CREATE  TABLE  user_features(  user_id INT PRIMARY KEY, features JSON);
-CREATE TABLE car_features ( car_id INT PRIMARY KEY, features JSON);

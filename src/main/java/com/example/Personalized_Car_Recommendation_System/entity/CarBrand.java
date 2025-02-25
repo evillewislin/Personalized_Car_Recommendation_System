@@ -16,7 +16,7 @@ public class CarBrand {
 
     // Getters and Setters
     public Integer getBrandId() { return brandId; }
-    public void setBrandIdId(Integer brandId) { this.brandId = brandId; }
+    public void setBrandId(Integer brandId) { this.brandId = brandId; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 }

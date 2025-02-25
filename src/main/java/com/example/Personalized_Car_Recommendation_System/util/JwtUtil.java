@@ -52,6 +52,7 @@ public class JwtUtil {
                     .build()
                     .parseClaimsJws(token)
                     .getBody();
+            logger.info("成功解析token");
             return Integer.parseInt(claims.getSubject());
         } catch (ExpiredJwtException e) {
             logger.error("Token 已过期", e);

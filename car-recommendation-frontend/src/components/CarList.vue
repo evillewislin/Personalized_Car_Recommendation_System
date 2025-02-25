@@ -1,7 +1,12 @@
 <template>
   <div>
     <h2>车型列表</h2>
+    <!-- 添加搜索框 -->
+    <el-input v-model="searchInput" placeholder="请输入搜索关键词" style="width: 300px; margin-right: 10px;"></el-input>
+    <el-button @click="handleSearch">搜索</el-button>
+
     <el-table :data="cars" style="width: 100%">
+      <!-- 表格列定义保持不变 -->
       <el-table-column prop="carId" label="编号"></el-table-column>
       <el-table-column prop="name" label="品牌"></el-table-column>
       <el-table-column prop="fullName" label="全名"></el-table-column>
@@ -42,17 +47,12 @@ import { ElMessage } from 'element-plus';
 
 export default defineComponent({
   name: 'CarList',
-  props: {
-    searchQuery: {
-      type: String,
-      default: ''
-    }
-  },
-  setup(props) {
+  setup() {
     const cars = ref([]);
     const total = ref(0); // 总数据条数
     const pageSize = ref(10); // 每页条数
     const currentPage = ref(1); // 当前页码
+    const searchInput = ref(''); // 搜索框输入值
 
     const fetchCars = async () => {
       try {
@@ -62,7 +62,7 @@ export default defineComponent({
           return;
         }
 
-        // 发送分页请求
+        // 发送分页请求，将搜索关键词传递给后端
         const response = await axios.get('/api/cars/search', {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -70,7 +70,7 @@ export default defineComponent({
           params: {
             page: currentPage.value,
             pageSize: pageSize.value,
-            keyword: props.searchQuery
+            keyword: searchInput.value // 使用搜索框输入值作为关键词
           },
         });
 
@@ -111,11 +111,11 @@ export default defineComponent({
       fetchCars(); // 重新获取数据
     };
 
-    // 监听 searchQuery 变化，变化时重新获取数据并重置页码
-    watch(() => props.searchQuery, () => {
+    // 处理搜索按钮点击事件
+    const handleSearch = () => {
       currentPage.value = 1; // 重置页码为第一页
-      fetchCars();
-    });
+      fetchCars(); // 重新获取数据
+    };
 
     const handleCollect = async (carId, name, score) => {
       const token = localStorage.getItem('token');
@@ -162,7 +162,9 @@ export default defineComponent({
       pageSize,
       currentPage,
       handlePageChange,
-      handleCollect
+      handleCollect,
+      searchInput,
+      handleSearch
     };
   },
 });
@@ -198,5 +200,10 @@ export default defineComponent({
 .el-pagination .el-button {
   padding: 5px 15px;
   font-size: 14px;
+}
+
+/* 搜索框和按钮样式 */
+.el-input {
+  margin-bottom: 10px;
 }
 </style>

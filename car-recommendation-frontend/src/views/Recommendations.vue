@@ -45,8 +45,10 @@ export default defineComponent({
     const currentTab = ref('FavoriteHistory');
 
     const handleBack = () => {
+      // 显示返回提示信息
       ElMessage.info('返回');
-      router.push('/'); // 跳转回根页面
+      // 跳转回根页面
+      router.push('/');
     };
 
     return {
@@ -59,8 +61,6 @@ export default defineComponent({
 
 <style scoped>
 .recommendation-center {
-  --primary-color: #4CAF50;
-  --secondary-color: #607D8B;
   display: flex;
   min-height: 100vh;
   background: #f8fafb;

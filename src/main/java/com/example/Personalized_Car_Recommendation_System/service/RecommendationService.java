@@ -12,10 +12,10 @@ public interface RecommendationService {
 
     CompletableFuture<String> callAI(String message);
 
-    List<Map<String, Object>> getRecommendationsByUserId(int userId);
 
     List<Map<String, Object>> getAlsRecommendations(int userId, List<Map<String, Object>> data);
 
+    Map<String, Object> getRecommendations(int userId, int page, int size, String keyword);
 
-
+    Map<String, Object> getAllRecommendations(int userId);
 }
