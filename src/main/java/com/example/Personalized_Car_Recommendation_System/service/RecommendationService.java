@@ -15,4 +15,5 @@ public interface RecommendationService {
     Map<String, Object> getRecommendations(int userId, int page, int size, String keyword);
 
     Map<String, Object> getAllRecommendations(int userId);
+
 }

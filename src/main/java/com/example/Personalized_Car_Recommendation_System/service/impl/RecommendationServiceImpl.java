@@ -206,7 +206,6 @@ public class RecommendationServiceImpl implements RecommendationService {
 
             // 获取所有用户的推荐历史记录
             List<RecommendationHistory> allHistory = recommendationHistoryRepository.findAll();
-            logger.info("所有用户的推荐历史记录: {}", allHistory);
             if (allHistory.isEmpty()) {
                 logger.info("没有推荐历史记录，返回默认推荐");
                 return getDefaultRecommendations(data);
@@ -244,7 +243,6 @@ public class RecommendationServiceImpl implements RecommendationService {
 
             // 获取所有汽车的 ID
             List<Integer> carIds = extractCarIds(data);
-            logger.info("所有汽车的 ID: {}", carIds);
             if (carIds.isEmpty()) {
                 logger.info("没有有效的汽车 ID，返回默认推荐");
                 return getDefaultRecommendations(data);
@@ -252,34 +250,47 @@ public class RecommendationServiceImpl implements RecommendationService {
 
             // 创建待预测的 (用户 ID, 物品 ID) 元组列表
             JavaRDD<Tuple2<Object, Object>> inputRDD = createInputRDD(sc, userId, carIds);
-            logger.info("预测的 (用户 ID, 物品 ID) 元组列表: {}", inputRDD);
 
             // 使用模型进行预测
             JavaRDD<Rating> userCarRatingsRDD = predictRatings(model, inputRDD);
-            logger.info("模型预测结果: {}", userCarRatingsRDD);
 
             // 将预测结果转换为列表
             List<Rating> userCarRatings = userCarRatingsRDD.collect();
-            logger.info("预测结果列表: {}", userCarRatings);
 
             // 将列表转换为支持修改操作的 ArrayList
             userCarRatings = new ArrayList<>(userCarRatings);
 
             // 根据预测评分对汽车进行排序
             userCarRatings.sort((r1, r2) -> Double.compare(r2.rating(), r1.rating()));
-            logger.info("排序预测结果: {}", userCarRatings);
 
-            // 根据排序后的评分筛选出对应的汽车信息
-            List<Map<String, Object>> recommendedCars = filterRecommendedCars(data, userCarRatings, maxPrice);
-            logger.info("筛选预测结果: {}", recommendedCars);
+            // 协同过滤：找到与目标用户兴趣相似的其他用户
+            List<Integer> similarUserIds = findSimilarUsers(model, userId, allHistory, 5);
+
+            // 获取相似用户的推荐
+            List<Rating> similarUserRatings = getSimilarUserRatings(sc, model, similarUserIds, carIds);
+
+
+            // 合并目标用户和相似用户的推荐评分
+            List<Rating> combinedRatings = combineRatings(userCarRatings, similarUserRatings);
+
+
+            // 获取相似用户历史评分对应的汽车价格范围
+            Map<Integer, Integer> similarUserMaxPrices = getSimilarUserMaxPrices(similarUserIds, allHistory);
+
+            // 根据合并后的评分筛选出对应的汽车信息，同时考虑相似用户的价格范围
+            List<Map<String, Object>> recommendedCars = filterRecommendedCars(data, combinedRatings, maxPrice, similarUserMaxPrices);
 
             if (recommendedCars.isEmpty()) {
                 logger.info("没有推荐的汽车，返回默认推荐");
                 return getDefaultRecommendations(data);
             }
-            logger.info("最终推荐结果: {}", recommendedCars);
 
-            return recommendedCars;
+            // 调用新方法获取前 10 条推荐结果
+            List<Map<String, Object>> top10Recommendations = getTop10Recommendations(recommendedCars);
+
+            logger.info("最终推荐结果（前 10 个）: {}", top10Recommendations);
+
+            return top10Recommendations;
         } catch (Exception e) {
             logger.error("ALS 推荐过程中出现异常: {}", e.getMessage(), e);
             return getDefaultRecommendations(data);
@@ -288,6 +299,119 @@ public class RecommendationServiceImpl implements RecommendationService {
                 sc.stop();
             }
         }
+    }
+
+    // 新增方法，用于获取前 10 条推荐结果
+    private List<Map<String, Object>> getTop10Recommendations(List<Map<String, Object>> recommendedCars) {
+        recommendedCars.sort((a, b) -> {
+            Object scoreObjA = a.get("avgScore");
+            Object scoreObjB = b.get("avgScore");
+
+            // 将 scoreObjA 转换为 float 类型
+            float scoreA = scoreObjA instanceof Integer ? ((Integer) scoreObjA).floatValue() :
+                    scoreObjA instanceof Float ? (Float) scoreObjA : 0f;
+
+            // 将 scoreObjB 转换为 float 类型
+            float scoreB = scoreObjB instanceof Integer ? ((Integer) scoreObjB).floatValue() :
+                    scoreObjB instanceof Float ? (Float) scoreObjB : 0f;
+
+            return Float.compare(scoreB, scoreA);
+        });
+        return recommendedCars.stream()
+                .limit(10)
+                .collect(Collectors.toList());
+    }
+
+    // 找到与目标用户兴趣相似的其他用户
+    private List<Integer> findSimilarUsers(MatrixFactorizationModel model, int targetUserId, List<RecommendationHistory> allHistory, int topN) {
+        // 将 model.userFeatures() 返回的 RDD 转换为 JavaPairRDD
+        JavaPairRDD<Object, double[]> userFeaturesJavaPairRDD = JavaPairRDD.fromJavaRDD(
+                JavaRDD.fromRDD(model.userFeatures(), ClassTag$.MODULE$.apply(Tuple2.class))
+        );
+
+        // 获取目标用户的特征向量
+        List<double[]> targetUserFeaturesList = userFeaturesJavaPairRDD.lookup(targetUserId);
+        if (targetUserFeaturesList.isEmpty()) {
+            logger.warn("未找到目标用户 {} 的特征向量", targetUserId);
+            return Collections.emptyList();
+        }
+        double[] targetUserFeatures = targetUserFeaturesList.get(0);
+
+        // 计算目标用户与其他用户的相似度
+        Map<Integer, Double> userSimilarities = new HashMap<>();
+        for (RecommendationHistory history : allHistory) {
+            int otherUserId = history.getUserId();
+            if (otherUserId != targetUserId) {
+                List<double[]> otherUserFeaturesList = userFeaturesJavaPairRDD.lookup(otherUserId);
+                if (!otherUserFeaturesList.isEmpty()) {
+                    double[] otherUserFeatures = otherUserFeaturesList.get(0);
+                    double similarity = cosineSimilarity(targetUserFeatures, otherUserFeatures);
+                    userSimilarities.put(otherUserId, similarity);
+                }
+            }
+        }
+
+        // 按相似度排序并取前 topN 个用户
+        return userSimilarities.entrySet().stream()
+                .sorted(Map.Entry.<Integer, Double>comparingByValue().reversed())
+                .limit(topN)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+    }
+
+    // 计算余弦相似度
+    private double cosineSimilarity(double[] vectorA, double[] vectorB) {
+        double dotProduct = 0.0;
+        double normA = 0.0;
+        double normB = 0.0;
+        for (int i = 0; i < vectorA.length; i++) {
+            dotProduct += vectorA[i] * vectorB[i];
+            normA += Math.pow(vectorA[i], 2);
+            normB += Math.pow(vectorB[i], 2);
+        }
+        if (normA == 0 || normB == 0) {
+            return 0.0;
+        }
+        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+
+    // 获取相似用户的推荐
+    private List<Rating> getSimilarUserRatings(JavaSparkContext sc, MatrixFactorizationModel model, List<Integer> similarUserIds, List<Integer> carIds) {
+        List<Rating> similarUserRatings = new ArrayList<>();
+        for (int similarUserId : similarUserIds) {
+            JavaRDD<Tuple2<Object, Object>> inputRDD = createInputRDD(sc, similarUserId, carIds);
+            JavaRDD<Rating> ratingsRDD = predictRatings(model, inputRDD);
+            similarUserRatings.addAll(ratingsRDD.collect());
+        }
+        return similarUserRatings;
+    }
+
+    // 合并目标用户和相似用户的推荐评分
+    private List<Rating> combineRatings(List<Rating> targetUserRatings, List<Rating> similarUserRatings) {
+        Map<Integer, Double> combinedRatingsMap = new HashMap<>();
+        for (Rating rating : targetUserRatings) {
+            combinedRatingsMap.put(rating.product(), rating.rating());
+        }
+        for (Rating rating : similarUserRatings)
+        {
+            int carId = rating.product();
+            double existingRating = combinedRatingsMap.getOrDefault(carId, 0.0);
+            // 对相似用户的评分进行加权，这里简单设置权重为 0.5
+            double weight = 0.5;
+            double newRating = existingRating + weight * rating.rating();
+            combinedRatingsMap.put(carId, newRating);
+        }
+
+        List<Rating> combinedRatings = new ArrayList<>();
+        for (Map.Entry<Integer, Double> entry : combinedRatingsMap.entrySet()) {
+            int carId = entry.getKey();
+            double rating = entry.getValue();
+            // 这里假设用户 ID 为 -1 表示合并后的评分
+            combinedRatings.add(new Rating(-1, carId, (float) rating));
+        }
+        // 根据合并后的评分对汽车进行排序
+        combinedRatings.sort((r1, r2) -> Double.compare(r2.rating(), r1.rating()));
+        return combinedRatings;
     }
 
     // 计算均方误差（MSE）的方法
@@ -344,7 +468,6 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     private List<Integer> extractCarIds(List<Map<String, Object>> data) {
-        logger.debug("传入的汽车数据列表: {}", data);
         return data.stream()
                 .map(carMap -> (Integer) carMap.get("carId"))
                 .filter(Objects::nonNull)
@@ -365,7 +488,38 @@ public class RecommendationServiceImpl implements RecommendationService {
         return JavaRDD.fromRDD(predictedRatingsRDD, ratingClassTag);
     }
 
-    private List<Map<String, Object>> filterRecommendedCars(List<Map<String, Object>> data, List<Rating> userRatings, int userMaxPrice) {
+    // 获取相似用户历史评分对应的汽车最高价格
+    private Map<Integer, Integer> getSimilarUserMaxPrices(List<Integer> similarUserIds, List<RecommendationHistory> allHistory) {
+        Map<Integer, Integer> similarUserMaxPrices = new HashMap<>();
+        String carInfoSql = "SELECT car_id, maxprice FROM car_info";
+        List<Map<String, Object>> carInfoList = jdbcTemplate.queryForList(carInfoSql);
+        Map<Integer, Integer> carIdToMaxPrice = new HashMap<>();
+        for (Map<String, Object> carInfo : carInfoList) {
+            Integer carId = (Integer) carInfo.get("car_id");
+            Integer maxPrice = (Integer) carInfo.get("maxprice");
+            if (carId != null && maxPrice != null) {
+                carIdToMaxPrice.put(carId, maxPrice);
+            }
+        }
+
+        for (int similarUserId : similarUserIds) {
+            int userMaxPrice = 0;
+            for (RecommendationHistory history : allHistory) {
+                if (history.getUserId() == similarUserId) {
+                    Integer carId = history.getCarId();
+                    Integer carMaxPrice = carIdToMaxPrice.get(carId);
+                    if (carMaxPrice != null && carMaxPrice > userMaxPrice) {
+                        userMaxPrice = carMaxPrice;
+                    }
+                }
+            }
+            similarUserMaxPrices.put(similarUserId, userMaxPrice);
+        }
+        return similarUserMaxPrices;
+    }
+
+    // 根据合并后的评分筛选出对应的汽车信息，同时考虑相似用户的价格范围
+    private List<Map<String, Object>> filterRecommendedCars(List<Map<String, Object>> data, List<Rating> userRatings, int userMaxPrice, Map<Integer, Integer> similarUserMaxPrices) {
         List<Map<String, Object>> recommendedCars = new ArrayList<>();
 
         // 从 carinfo 表中查询所有汽车信息
@@ -380,7 +534,6 @@ public class RecommendationServiceImpl implements RecommendationService {
         }
 
         for (Rating rating : userRatings) {
-            logger.info("当前预测的汽车 ID: {}", rating.product());
             for (Map<String, Object> carMap : data) {
                 Integer carId = (Integer) carMap.get("carId");
                 if (carId != null) {
@@ -389,9 +542,8 @@ public class RecommendationServiceImpl implements RecommendationService {
                         if (carInfo != null) {
                             Integer minPrice = (Integer) carInfo.get("minprice");
                             Integer maxPrice = (Integer) carInfo.get("maxprice");
-                            if (maxPrice != null && maxPrice <= userMaxPrice) {
+                            if (maxPrice != null && isPriceInRange(maxPrice, userMaxPrice, similarUserMaxPrices)) {
                                 recommendedCars.add(carMap);
-                                logger.info("添加符合条件的汽车，car_id: {}", carId);
                                 break;
                             }
                         }
@@ -399,8 +551,20 @@ public class RecommendationServiceImpl implements RecommendationService {
                 }
             }
         }
-        logger.info("最终推荐的汽车列表: {}", recommendedCars);
         return recommendedCars;
+    }
+
+    // 判断汽车价格是否在目标用户和相似用户的价格范围内
+    private boolean isPriceInRange(int carMaxPrice, int userMaxPrice, Map<Integer, Integer> similarUserMaxPrices) {
+        if (carMaxPrice <= userMaxPrice) {
+            return true;
+        }
+        for (int similarUserMaxPrice : similarUserMaxPrices.values()) {
+            if (carMaxPrice <= similarUserMaxPrice) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // 按热度排序

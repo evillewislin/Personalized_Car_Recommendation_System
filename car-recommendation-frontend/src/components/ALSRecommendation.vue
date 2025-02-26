@@ -11,7 +11,6 @@
     <table v-if="alsResponse.length" class="alsResponse-table">
       <thead>
       <tr>
-        <th>品牌名</th>
         <th>全名</th>
         <th>价格范围</th>
         <th>平均评分</th>
@@ -19,7 +18,6 @@
       </thead>
       <tbody>
       <tr v-for="item in alsResponse" :key="item.fullName">
-        <td>{{ item.name }}</td>
         <td>{{ item.fullName }}</td>
         <td>{{ item.priceRange }}</td>
         <td>{{ item.avgScore }}</td>

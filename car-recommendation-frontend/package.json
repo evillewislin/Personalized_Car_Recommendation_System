@@ -7,8 +7,10 @@
     "build": "vue-cli-service build"
   },
   "dependencies": {
-    "axios": "^0.29.0",
-    "chart.js": "^4.4.7",
+    "axios": "1.7.8",
+    "chart.js": "^4.4.8",
+    "chartjs-adapter-date-fns": "^3.0.0",
+    "date-fns": "^4.1.0",
     "element-plus": "^2.9.4",
     "pinia": "^2.0.11",
     "vue": "^3.5.13",
