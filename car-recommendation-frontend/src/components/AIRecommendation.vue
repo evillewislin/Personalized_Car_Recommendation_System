@@ -1,16 +1,19 @@
 <template>
   <div>
     <!-- 用户输入要求的文本输入框 -->
-    <input v-model="userRequest" type="text" placeholder="请输入你的要求" :disabled="loading" />
-    <!-- 错误提示信息 -->
+    <input v-model="userRequest" class="message-text" type="text" placeholder="请输入你的要求" :disabled="loading" />
+    <!-- 错误提示信息 --><br>
+    <br>
     <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
     <!-- AI 推荐按钮 -->
-    <button @click="fetchAIRecommendations" class="ai-recommend-btn" :disabled="loading">
-      {{ loading? '加载中...' : 'AI智能推荐' }}
+    <button   @click="fetchAIRecommendations" class="el-button el-button--primary" :disabled="loading">
+      <span v-if="!loading">AI智能推荐</span>
+      <span v-else>
+        <span class="loading-spinner"></span> 加载中...
+      </span>
     </button>
     <!-- AI 文本响应显示区域 -->
     <div v-if="!loading && aiResponse.length" class="ai-text-response">
-
       <p>{{ aiResponse }}</p>
     </div>
   </div>
@@ -73,108 +76,101 @@ export default {
 };
 </script>
 
-
 <style scoped>
 /* 提取颜色和尺寸变量 */
 :root {
-  --primary-color: #1a73e8;
-  --secondary-color: #003c8f;
-  --input-padding: 12px;
-  --input-font-size: 16px;
-  --input-border-radius: 25px;
+  --primary-color: #e564ff;
+  --secondary-color: #535bf2;
+  --input-padding: 16px;
+  --input-font-size: 18px;
+  --input-border-radius: 8px;
+  --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --transition-time: 0.3s;
+  --button-depth: 8px;
 }
 
-.recommendations-container {
-  display: flex;
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-  font-family: 'Arial', sans-serif;
-}
 
-.sidebar {
-  width: 20%;
-  padding: 10px;
-  background-color: #f4f4f4;
-  border-right: 1px solid #ddd;
-}
+  .message-text {
+    width: 70%;
+    height: 30px;
+    padding: var(--input-padding);
+    font-size: var(--input-font-size);
+    border: 1px solid #e5e7eb;
+    border-radius: var(--input-border-radius);
+    margin-top: 20px;
+    transition: all var(--transition-time) ease;
+  }
 
-.sidebar-btn {
-  display: block;
-  width: 100%;
-  padding: 10px;
-  margin-bottom: 10px;
-  background-color: var(--primary-color);
-  border: none;
-  border-radius: 5px;
-  font-size: 16px;
-  color: white;
-  cursor: pointer;
-  text-decoration: none;
-  text-align: center;
-}
 
-.sidebar-btn:hover {
-  background-color: var(--secondary-color);
-}
-
-.main-content {
-  width: 80%;
-  padding: 10px;
-}
-
-.nav-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #333;
-  padding: 15px 30px;
-}
-
-.nav-left {
-  display: flex;
-  gap: 20px;
-}
-
-.nav-left a {
-  text-decoration: none;
-  color: white;
-  font-size: 16px;
-}
-
-.nav-left a:hover {
-  color: #ffeb3b;
-}
-
-input {
-  width: 100%;
-  padding: var(--input-padding);
-  font-size: var(--input-font-size);
-  border: 2px solid var(--primary-color);
-  border-radius: var(--input-border-radius);
-  margin-top: 20px;
-}
-
-input:focus {
-  border-color: var(--secondary-color);
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+.message-text:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(100, 108, 255, 0.2);
 }
 
 .error-message {
+  margin-top: 10px;
+  color: #ef4444;
+  font-size: 14px;
+}
+
+.ai-recommend-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-top: 20px;
-  color: red;
+  padding: var(--input-padding) 32px;
+  background-color: var(--primary-color);
+  color: #0a0808;
+  font-size: var(--input-font-size);
+  border-radius: var(--input-border-radius);
+  cursor: pointer;
+  border: 3px solid #e5e7eb;
+  transition: all var(--transition-time) ease;
+  box-shadow: 0 var(--button-depth) 0 var(--secondary-color);
+  transform: translateY(0);
+}
+
+.ai-recommend-btn:hover {
+  background-color: var(--secondary-color);
+  box-shadow: 0 calc(var(--button-depth) - 2px) 0 var(--secondary-color);
+  transform: translateY(2px);
+}
+
+.ai-recommend-btn:active {
+  box-shadow: 0 0 0 var(--secondary-color);
+  transform: translateY(var(--button-depth));
+}
+
+.ai-recommend-btn:disabled {
+  background-color: #d1d5db;
+  cursor: not-allowed;
+  box-shadow: 0 var(--button-depth) 0 #a0a4ab;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .ai-text-response {
   margin-top: 30px;
-  padding: 20px;
-  background-color: #f4f4f4;
-  border-radius: 5px;
+  padding: 24px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: var(--input-border-radius);
   white-space: pre-line;
-}
-
-.loading-message {
-  margin-top: 20px;
-  color: var(--primary-color);
 }
 </style>

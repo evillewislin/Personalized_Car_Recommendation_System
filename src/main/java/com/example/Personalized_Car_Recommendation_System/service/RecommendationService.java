@@ -1,5 +1,9 @@
 package com.example.Personalized_Car_Recommendation_System.service;
 
+import com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -15,4 +19,7 @@ public interface RecommendationService {
     Map<String, Object> getRecommendations(int userId, int page, int size, String keyword);
 
     Map<String, Object> getAllRecommendations(int userId);
+
+    @Cacheable(value = "recommendations", key = "#rank+#iterations+#lambda+#page+#size")
+    Page<CarDetailsDto> generateExplicitRecommendations(int rank, int iterations, double lambda, int page, int size);
 }

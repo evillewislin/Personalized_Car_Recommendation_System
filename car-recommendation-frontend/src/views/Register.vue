@@ -38,6 +38,25 @@
           ></el-input>
         </el-form-item>
 
+        <el-form-item label="年龄">
+          <el-input
+              v-model="registerForm.age"
+              type="number"
+              placeholder="请输入年龄"
+              class="custom-input"
+          ></el-input>
+        </el-form-item>
+
+        <el-form-item label="地区">
+          <el-input
+              v-model="registerForm.region"
+              placeholder="请输入所在市"
+              class="custom-input"
+              clearable
+              :maxlength="10"
+          ></el-input>
+        </el-form-item>
+
         <el-form-item>
           <el-button
               type="primary"
@@ -64,7 +83,7 @@
 import { defineComponent, reactive } from 'vue';
 import axios from 'axios';
 import router from "@/router";
-import {ElMessage} from "element-plus";
+import { ElMessage } from "element-plus";
 
 export default defineComponent({
   name: 'Register',
@@ -72,20 +91,28 @@ export default defineComponent({
     const registerForm = reactive({
       username: '',
       password: '',
-      confirmPassword: ''
+      confirmPassword: '',
+      age: '',
+      region: '' // 改为字符串类型
     });
 
     const handleRegister = async () => {
+
+
       if (registerForm.password !== registerForm.confirmPassword) {
         ElMessage.error('密码和确认密码不匹配');
         return;
       }
+
       try {
         const response = await axios.post('/api/auth/register', {
           username: registerForm.username,
           password: registerForm.password,
-          confirmPassword:registerForm.confirmPassword
+          confirmPassword: registerForm.confirmPassword,
+          age: registerForm.age,
+          region: registerForm.region // 直接传递字符串
         });
+
         if (response.data) {
           ElMessage.success('注册成功，请登录');
           await router.push('/login');
@@ -135,6 +162,15 @@ export default defineComponent({
 
 .custom-input {
   margin-bottom: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #e4e7ed;
+  padding: 12px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+.custom-input:hover {
+  border-color: #1a73e8;
 }
 
 /* 登录按钮样式 */
@@ -162,5 +198,12 @@ export default defineComponent({
 
 .register-link:hover {
   color: #003c8f;
+}
+
+/* 输入框聚焦样式 */
+.custom-input:focus {
+  outline: none;
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.1);
 }
 </style>

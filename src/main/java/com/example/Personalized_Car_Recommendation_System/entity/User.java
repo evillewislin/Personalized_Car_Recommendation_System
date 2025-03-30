@@ -37,6 +37,18 @@ public class User {
     private String role;
 
     /**
+     * 用户年龄
+     */
+    @Column(name = "age")
+    private Integer age;
+
+    /**
+     * 用户所在地区
+     */
+    @Column(name = "region")
+    private String region;
+
+    /**
      * 获取用户 ID
      * @return 用户 ID
      */
@@ -98,5 +110,37 @@ public class User {
      */
     public void setRole(String role) {
         this.role = role != null ? role : "user";
+    }
+
+    /**
+     * 获取用户年龄
+     * @return 用户年龄
+     */
+    public Integer getAge() {
+        return age;
+    }
+
+    /**
+     * 设置用户年龄
+     * @param age 用户年龄
+     */
+    public void setAge(Integer age) {
+        this.age = age;
+    }
+
+    /**
+     * 获取用户所在地区
+     * @return 用户所在地区
+     */
+    public String getRegion() {
+        return region;
+    }
+
+    /**
+     * 设置用户所在地区
+     * @param region 用户所在地区
+     */
+    public void setRegion(String region) {
+        this.region = region;
     }
 }

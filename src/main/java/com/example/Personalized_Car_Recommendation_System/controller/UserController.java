@@ -3,6 +3,7 @@ package com.example.Personalized_Car_Recommendation_System.controller;
 import com.example.Personalized_Car_Recommendation_System.entity.User;
 import com.example.Personalized_Car_Recommendation_System.service.UserService;
 import com.example.Personalized_Car_Recommendation_System.util.JwtUtil;
+import com.example.Personalized_Car_Recommendation_System.util.ValidationUtils;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,12 +20,13 @@ import java.util.Map;
 @RequestMapping("/api/users")
 public class UserController {
 
+    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
+
     @Autowired
     private UserService userService;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
-    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
     @GetMapping
     public List<User> getAllUsers() {
@@ -40,8 +42,8 @@ public class UserController {
     public ResponseEntity<?> updateUser(@PathVariable Integer userId,
                                         @RequestHeader("Authorization") String authorizationHeader,
                                         @RequestBody Map<String, Object> request) {
-        String token = authorizationHeader.replace("Bearer ", "");
         try {
+            String token = authorizationHeader.replace("Bearer ", "");
             Integer tokenUserId = JwtUtil.getUserIdFromToken(token);
             if (!userId.equals(tokenUserId)) {
                 logger.warn("Path User ID 和 Token User ID 不一致: Path User ID = {}, Token User ID = {}", userId, tokenUserId);
@@ -49,13 +51,15 @@ public class UserController {
             }
 
             String username = (String) request.get("username");
-            if (username == null || username.isEmpty()) {
-                return new ResponseEntity<>("用户名不能为空", HttpStatus.BAD_REQUEST);
-            }
-
             String newPassword = (String) request.get("newPassword");
+            String ageStr = (String) request.get("age");
+            String region = (String) request.get("region");
 
-            User updatedUser = userService.updateUserInfo(userId, username, newPassword, passwordEncoder);
+            // 数据验证
+            ValidationUtils.validateUsername(username);
+            Integer age = ValidationUtils.parseAge(ageStr);
+
+            User updatedUser = userService.updateUserInfo(userId, username, newPassword, age, region, passwordEncoder);
             if (updatedUser != null) {
                 return new ResponseEntity<>(updatedUser, HttpStatus.OK);
             } else {
@@ -69,6 +73,7 @@ public class UserController {
             return new ResponseEntity<>("更新用户信息失败，请稍后重试", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
     @PostMapping
     public User addUser(@Valid @RequestBody User user) {
         user.setPassword(passwordEncoder.encode(user.getPassword()));

@@ -1,6 +1,8 @@
 package com.example.Personalized_Car_Recommendation_System.service.impl;
 
+import com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.dto.CarRecommendationDto;
+import com.example.Personalized_Car_Recommendation_System.repository.CarRepository;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -20,6 +22,10 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable; // 修正导入
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -403,23 +409,37 @@ public class RecommendationServiceImpl implements RecommendationService {
         return recommendedCars;
     }
 
-    // 按热度排序
+    // 按热度排序，处理空指针
     private List<Map<String, Object>> sortByPopularity(List<Map<String, Object>> cars) {
         return cars.stream()
                 .sorted((a, b) -> {
-                    Integer popularityA = (Integer) a.get("popularity");
-                    Integer popularityB = (Integer) b.get("popularity");
-
-                    if (popularityA == null && popularityB == null) {
-                        return 0;
-                    } else if (popularityA == null) {
-                        return 1; // 将 null 值放到后面
-                    } else if (popularityB == null) {
-                        return -1; // 将 null 值放到后面
-                    }
+                    Integer popularityA = a.get("popularity") != null ? (Integer) a.get("popularity") : 0;
+                    Integer popularityB = b.get("popularity") != null ? (Integer) b.get("popularity") : 0;
                     return popularityB.compareTo(popularityA);
                 })
                 .collect(Collectors.toList());
+    }
+
+    @Autowired
+    private CarRepository carRepository;
+
+
+    @Override
+    @Cacheable(value = "recommendations", key = "#rank+#iterations+#lambda+#page+#size")
+    public Page<CarDetailsDto> generateExplicitRecommendations(int rank, int iterations, double lambda, int page, int size) {
+        // 直接获取 CarDetailsDto 列表
+        List<CarDetailsDto> dtos = carRepository.findAll();
+
+        // 模拟推荐算法（示例：按价格降序）
+        dtos = dtos.stream()
+                .sorted(Comparator.comparingInt(CarDetailsDto::getMaxPrice).reversed())
+                .collect(Collectors.toList());
+
+        // 分页处理
+        int start = (page - 1) * size;
+        int end = Math.min(start + size, dtos.size());
+        List<CarDetailsDto> subList = dtos.subList(start, end);
+        return new PageImpl<>(subList, PageRequest.of(page - 1, size), dtos.size());
     }
 
     // 新用户默认推荐逻辑

@@ -56,7 +56,7 @@ export default defineComponent({
 
 <style scoped>
 .user-center {
-  --primary-color: #4CAF50;
+  --primary-color: #4cafac;
   --secondary-color: #607D8B;
   display: flex;
   min-height: 100vh;

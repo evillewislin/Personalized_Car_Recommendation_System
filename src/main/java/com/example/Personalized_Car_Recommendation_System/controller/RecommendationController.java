@@ -1,9 +1,11 @@
 package com.example.Personalized_Car_Recommendation_System.controller;
 
+import com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.service.RecommendationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.ChatClient;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -114,7 +116,18 @@ public class RecommendationController {
             return handleInternalServerError(e, "Error getting ALS recommendations");
         }
     }
-
+    @PostMapping("/Ex_cars")
+    public ResponseEntity<Page<CarDetailsDto>> getRecommendations(
+            @RequestBody Map<String, Object> params,
+            @RequestParam int page,
+            @RequestParam int size
+    ) {
+        int rank = ((Number) params.get("rank")).intValue();
+        int iterations = ((Number) params.get("iterations")).intValue();
+        double lambda = ((Number) params.get("lambda")).doubleValue();
+        Page<CarDetailsDto> recommendations = recommendationService.generateExplicitRecommendations(rank, iterations, lambda, page, size);
+        return new ResponseEntity<>(recommendations, HttpStatus.OK);
+    }
     /**
      * 处理令牌解析错误
      * @param e 异常信息

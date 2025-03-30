@@ -2,6 +2,9 @@ package com.example.Personalized_Car_Recommendation_System.controller;
 
 import com.example.Personalized_Car_Recommendation_System.entity.User;
 import com.example.Personalized_Car_Recommendation_System.service.AuthService;
+import com.example.Personalized_Car_Recommendation_System.util.ValidationUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,37 +16,42 @@ import java.util.Map;
 @RequestMapping("/api/auth")
 public class AuthController {
 
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
+
     @Autowired
     private AuthService authService;
 
     // 用户注册接口
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody Map<String, String> userData) {
-        String username = userData.get("username");
-        String password = userData.get("password");
-        String confirmPassword = userData.get("confirmPassword");
-        String role = userData.getOrDefault("role", "user");
-
-        // 检查用户名和密码是否为空
-        if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("用户名和密码不能为空");
-        }
-
-        // 校验密码和确认密码是否匹配
-        if (!password.equals(confirmPassword)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("密码和确认密码不匹配");
-        }
-
-        // 创建 User 对象
-        User user = new User();
-        user.setUsername(username);
-        user.setPassword(password);
-        user.setRole(role);
-
         try {
+            String username = userData.get("username");
+            String password = userData.get("password");
+            String confirmPassword = userData.get("confirmPassword");
+            String role = userData.getOrDefault("role", "user");
+            String ageStr = userData.get("age");
+            String region = userData.get("region");
+
+            // 数据验证
+            ValidationUtils.validateRegistration(username, password, confirmPassword, ageStr);
+
+            Integer age = ValidationUtils.parseAge(ageStr);
+
+            // 创建 User 对象
+            User user = new User();
+            user.setUsername(username);
+            user.setPassword(password);
+            user.setRole(role);
+            user.setAge(age);
+            user.setRegion(region);
+
             authService.register(user);
             return ResponseEntity.ok("注册成功，请登录");
+        } catch (IllegalArgumentException e) {
+            logger.error("用户注册参数错误: ", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         } catch (RuntimeException e) {
+            logger.error("用户注册失败: ", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }

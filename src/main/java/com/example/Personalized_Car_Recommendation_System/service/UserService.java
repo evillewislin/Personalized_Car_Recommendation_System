@@ -13,5 +13,6 @@ public interface UserService {
     void deleteUser(Integer id);
     List<User> searchUsers(String keyword);
     User updateUsername(Integer userId, String username);
-    User updateUserInfo(Integer userId, String username, String newPassword, PasswordEncoder passwordEncoder);
+    User updateUserInfo(Integer userId, String username, String newPassword, Integer age, String region, PasswordEncoder passwordEncoder);
+
 }

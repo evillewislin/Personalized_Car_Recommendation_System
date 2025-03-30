@@ -48,6 +48,7 @@ public class UserServiceImpl implements UserService {
                 .filter(user -> user.getUsername().contains(keyword))
                 .collect(Collectors.toList());
     }
+
     @Override
     public User updateUsername(Integer userId, String username) {
         User user = userRepository.findById(userId).orElse(null);
@@ -57,16 +58,27 @@ public class UserServiceImpl implements UserService {
         }
         return null;
     }
-    // UserService.java
-    public User updateUserInfo(Integer userId, String username, String newPassword, PasswordEncoder passwordEncoder) {
-        User user = userRepository.findById(userId).orElse(null);
-        if (user == null) {
-            return null;
+
+    @Override
+    public User updateUserInfo(Integer userId, String username, String newPassword, Integer age, String region, PasswordEncoder passwordEncoder) {
+        try {
+            User user = userRepository.findById(userId).orElse(null);
+            if (user == null) {
+                return null;
+            }
+            user.setUsername(username);
+            if (newPassword != null && !newPassword.isEmpty()) {
+                user.setPassword(passwordEncoder.encode(newPassword));
+            }
+            if (age != null) {
+                user.setAge(age);
+            }
+            if (region != null) {
+                user.setRegion(region);
+            }
+            return userRepository.save(user);
+        } catch (Exception e) {
+            throw new RuntimeException("更新用户信息失败", e);
         }
-        user.setUsername(username);
-        if (newPassword != null && !newPassword.isEmpty()) {
-            user.setPassword(passwordEncoder.encode(newPassword));
-        }
-        return userRepository.save(user);
     }
 }
