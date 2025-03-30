@@ -1,4 +1,7 @@
 module.exports = {
+    transpileDependencies: [
+        'chartjs-adapter-date-fns'
+    ],
     devServer: {
         proxy: {
             '/api': {
