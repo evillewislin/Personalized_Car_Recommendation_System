@@ -21,5 +21,5 @@ public interface RecommendationService {
     Map<String, Object> getAllRecommendations(int userId);
 
     @Cacheable(value = "recommendations", key = "#rank+#iterations+#lambda+#page+#size")
-    Page<CarDetailsDto> generateExplicitRecommendations(int rank, int iterations, double lambda, int page, int size);
+    Page<CarDetailsDto> generateExplicitRecommendations(int rank, int iterations, double lambda, int maxPrice,int page, int size);
 }

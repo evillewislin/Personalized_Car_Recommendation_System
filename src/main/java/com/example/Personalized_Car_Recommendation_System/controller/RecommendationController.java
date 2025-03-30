@@ -2,6 +2,8 @@ package com.example.Personalized_Car_Recommendation_System.controller;
 
 import com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.service.RecommendationService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.ChatClient;
@@ -117,17 +119,29 @@ public class RecommendationController {
         }
     }
     @PostMapping("/Ex_cars")
-    public ResponseEntity<Page<CarDetailsDto>> getRecommendations(
-            @RequestBody Map<String, Object> params,
-            @RequestParam int page,
-            @RequestParam int size
+    public ResponseEntity<Page<CarDetailsDto>> getExplicitRecommendations(
+            @Valid @RequestBody ExplicitRecommendationRequest request,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size
     ) {
-        int rank = ((Number) params.get("rank")).intValue();
-        int iterations = ((Number) params.get("iterations")).intValue();
-        double lambda = ((Number) params.get("lambda")).doubleValue();
-        Page<CarDetailsDto> recommendations = recommendationService.generateExplicitRecommendations(rank, iterations, lambda, page, size);
-        return new ResponseEntity<>(recommendations, HttpStatus.OK);
+        try {
+            int maxPrice = request.getMaxPrice();
+            Page<CarDetailsDto> recommendations = recommendationService.generateExplicitRecommendations(
+                    request.getRank(),
+                    request.getIterations(),
+                    request.getLambda(),
+                    maxPrice,
+                    page,
+                    size
+
+            );
+            return new ResponseEntity<>(recommendations, HttpStatus.OK);
+        } catch (Exception e) {
+            log.error("处理显式推荐请求时出错: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
     }
+
     /**
      * 处理令牌解析错误
      * @param e 异常信息
@@ -147,5 +161,45 @@ public class RecommendationController {
     private ResponseEntity<List<Map<String, Object>>> handleInternalServerError(Exception e, String errorMessage) {
         log.error("{}: {}", errorMessage, e.getMessage(), e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+    }
+
+    // 显式推荐请求对象
+    static class ExplicitRecommendationRequest {
+        private int rank;
+        private int iterations;
+        private double lambda;
+        private int maxPrice;
+
+        public int getRank() {
+            return rank;
+        }
+
+        public void setRank(int rank) {
+            this.rank = rank;
+        }
+
+        public int getIterations() {
+            return iterations;
+        }
+
+        public void setIterations(int iterations) {
+            this.iterations = iterations;
+        }
+
+        public double getLambda() {
+            return lambda;
+        }
+
+        public void setLambda(double lambda) {
+            this.lambda = lambda;
+        }
+
+        public int getMaxPrice() {
+            return maxPrice;
+        }
+
+        public void setMaxPrice(int maxPrice) {
+            this.maxPrice = maxPrice;
+        }
     }
 }

@@ -10,7 +10,7 @@ public class CarDetailsDto {
 
 
     // 构造函数
-    public CarDetailsDto(Integer carId,String name, String fullName, Integer minPrice, Integer maxPrice) {
+    public CarDetailsDto(Integer carId,String name, String fullName, Integer minPrice, Integer maxPrice)     {
         this.carId = carId;
         this.name = name;
         this.fullName = fullName;

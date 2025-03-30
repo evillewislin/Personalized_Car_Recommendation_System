@@ -2,6 +2,7 @@ package com.example.Personalized_Car_Recommendation_System.service.impl;
 
 import com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.dto.CarRecommendationDto;
+import com.example.Personalized_Car_Recommendation_System.entity.CarInfo;
 import com.example.Personalized_Car_Recommendation_System.repository.CarRepository;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -22,7 +23,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable; // 修正导入
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -73,6 +74,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     private final ChatClient chatClient;
     private final JdbcTemplate jdbcTemplate;
     private final RecommendationHistoryRepository recommendationHistoryRepository;
+    private final CarRepository carRepository;
 
     @Value("${hadoop.home.dir}")
     private String hadoopHomeDir;
@@ -83,10 +85,12 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     @Autowired
     public RecommendationServiceImpl(ChatClient chatClient, JdbcTemplate jdbcTemplate,
-                                     RecommendationHistoryRepository recommendationHistoryRepository) {
+                                     RecommendationHistoryRepository recommendationHistoryRepository,
+                                     CarRepository carRepository) {
         this.chatClient = chatClient;
         this.jdbcTemplate = jdbcTemplate;
         this.recommendationHistoryRepository = recommendationHistoryRepository;
+        this.carRepository = carRepository;
     }
 
     /**
@@ -150,7 +154,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             List<CarRecommendationDto> carRecommendations = new ArrayList<>();
             for (Map<String, Object> row : resultList) {
                 Integer carId = (Integer) row.get("car_id");
-                String brandName = (String) row.get("name"); // 修正为 "name"
+                String brandName = (String) row.get("name");
                 String fullName = (String) row.get("fullName");
                 String priceRange = (String) row.get("priceRange");
                 Float avgScore = ((Number) row.get("avgScore")).floatValue();
@@ -189,7 +193,7 @@ public class RecommendationServiceImpl implements RecommendationService {
 
             Map<String, Object> response = new HashMap<>();
             response.put("data", carRecommendations);
-            response.put("total", total); // 使用COUNT_SQL查询的总数
+            response.put("total", total);
             return response;
         } catch (Exception e) {
             logger.error("查询全部推荐汽车列表时出错: {}", e.getMessage(), e);
@@ -420,26 +424,83 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .collect(Collectors.toList());
     }
 
-    @Autowired
-    private CarRepository carRepository;
-
-
     @Override
-    @Cacheable(value = "recommendations", key = "#rank+#iterations+#lambda+#page+#size")
-    public Page<CarDetailsDto> generateExplicitRecommendations(int rank, int iterations, double lambda, int page, int size) {
-        // 直接获取 CarDetailsDto 列表
-        List<CarDetailsDto> dtos = carRepository.findAll();
+    @Cacheable(value = "recommendations", key = "#rank+#iterations+#lambda+#maxPrice+#page+#size")
+    public Page<CarDetailsDto> generateExplicitRecommendations(
+            int rank,
+            int iterations,
+            double lambda,
+            int maxPrice,
+            int page,
+            int size) {
+        try {
+            // 分页参数校验
+            if (page < 1 || size < 1) {
+                logger.error("无效的分页参数: page={}, size={}", page, size);
+                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
+            }
 
-        // 模拟推荐算法（示例：按价格降序）
-        dtos = dtos.stream()
-                .sorted(Comparator.comparingInt(CarDetailsDto::getMaxPrice).reversed())
-                .collect(Collectors.toList());
+            // 获取原始数据
+            List<CarInfo> carInfos = carRepository.findAll();
+            if (carInfos.isEmpty()) {
+                logger.warn("没有找到任何汽车信息");
+                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
+            }
 
-        // 分页处理
-        int start = (page - 1) * size;
-        int end = Math.min(start + size, dtos.size());
-        List<CarDetailsDto> subList = dtos.subList(start, end);
-        return new PageImpl<>(subList, PageRequest.of(page - 1, size), dtos.size());
+            // 价格过滤
+            List<CarDetailsDto> dtos = carInfos.stream()
+                    .filter(carInfo ->
+                            carInfo.getMaxPrice() != null &&
+                                    carInfo.getMaxPrice() <= maxPrice
+                    )
+                    .map(carInfo -> {
+                        String brandName = Optional.ofNullable(carInfo.getBrandId())
+                                .flatMap(brandId -> Optional.ofNullable(carRepository.getBrandNameByBrandId(brandId)))
+                                .orElse("未知品牌");
+                        return new CarDetailsDto(
+                                carInfo.getId(),
+                                brandName,
+                                carInfo.getFullName(),
+                                carInfo.getMinPrice(),
+                                carInfo.getMaxPrice()
+                        );
+                    })
+                    .collect(Collectors.toList());
+
+            // 排序
+            dtos = dtos.stream()
+                    .sorted((dto1, dto2) -> {
+                        Integer price1 = dto1.getMaxPrice() != null ? dto1.getMaxPrice() : 0;
+                        Integer price2 = dto2.getMaxPrice() != null ? dto2.getMaxPrice() : 0;
+                        return price2.compareTo(price1);
+                    })
+                    .collect(Collectors.toList());
+
+            // 分页参数校验
+            int totalElements = dtos.size();
+            int totalPages = (int) Math.ceil((double) totalElements / size);
+
+            // 页码矫正
+            if (page > totalPages) {
+                logger.warn("请求的页码超出范围: page={}, totalPages={}，自动调整为最后一页", page, totalPages);
+                page = totalPages;
+            }
+
+            // 计算分页索引
+            int start = (page - 1) * size;
+            int end = Math.min(start + size, totalElements);
+            if (start >= totalElements) {
+                logger.warn("起始索引超出数据范围: start={}, totalElements={}", start, totalElements);
+                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), totalElements);
+            }
+
+            // 获取分页数据
+            List<CarDetailsDto> subList = dtos.subList(start, end);
+            return new PageImpl<>(subList, PageRequest.of(page - 1, size), totalElements);
+        } catch (Exception e) {
+            logger.error("显式推荐生成失败", e);
+            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
+        }
     }
 
     // 新用户默认推荐逻辑
