@@ -238,10 +238,11 @@ public class RecommendationServiceImpl implements RecommendationService {
 
             // 将推荐历史记录转换为 Spark 的 Rating 对象
             JavaRDD<Rating> ratingsRDD = convertToRatingsRDD(sc, allHistory);
-            if (ratingsRDD.isEmpty()) {
-                logger.info("转换后的 Ratings RDD 为空，返回默认推荐");
-                return getDefaultRecommendations(data);
-            }
+            // 检查 carId 的分布
+            Map<Integer, Long> carIdCounts = ratingsRDD.mapToPair(r -> new Tuple2<>(r.product(), 1L))
+                    .reduceByKey(Long::sum)
+                    .collectAsMap();
+            logger.info("CarID 分布: {}", carIdCounts);
 
             // 划分训练集和测试集，这里使用 80% 作为训练集，20% 作为测试集
             JavaRDD<Rating>[] splits = ratingsRDD.randomSplit(new double[]{0.8, 0.2}, 12345L);
@@ -336,7 +337,35 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private JavaSparkContext createSparkContext() {
         System.setProperty("hadoop.home.dir", hadoopHomeDir);
-        SparkConf conf = new SparkConf().setAppName("CarRecommendationALS").setMaster("local");
+
+        // 核心修复点：扩展模块开放配置
+        String jvmOptions = String.join(" ",
+                "--add-opens=java.base/java.util=ALL-UNNAMED",
+                "--add-opens=java.base/java.lang=ALL-UNNAMED",
+                "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+                "--add-opens=java.base/java.io=ALL-UNNAMED",
+                "--add-opens=java.base/java.net=ALL-UNNAMED",
+                "--add-opens=java.base/java.nio=ALL-UNNAMED",
+                "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+                "-Xss4m"
+        );
+
+        SparkConf conf = new SparkConf()
+                .setAppName("CarRecommendationALS")
+                .setMaster("local[*]")
+                .set("spark.driver.extraJavaOptions", jvmOptions)
+                .set("spark.executor.extraJavaOptions", jvmOptions)
+                .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+                .set("spark.kryo.registrationRequired", "false")
+                .registerKryoClasses(new Class<?>[] {
+                        Rating.class,
+                        Tuple2.class,
+                        CarInfo.class,
+                        RecommendationHistory.class,
+                        CarRecommendationDto.class,
+                        ImCarDetailsDto.class
+                });
+
         return new JavaSparkContext(conf);
     }
 
@@ -355,11 +384,12 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     private List<Integer> extractCarIds(List<Map<String, Object>> data) {
-        logger.debug("传入的汽车数据列表: {}", data);
+        // 只取前 1000 个汽车 ID，避免数据量过大
         return data.stream()
-               .map(carMap -> (Integer) carMap.get("carId"))
-               .filter(Objects::nonNull)
-               .collect(Collectors.toList());
+                .limit(1000)
+                .map(carMap -> (Integer) carMap.get("carId"))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
     
 
@@ -378,41 +408,39 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     private List<Map<String, Object>> filterRecommendedCars(List<Map<String, Object>> data, List<Rating> userRatings, int userMaxPrice) {
-        List<Map<String, Object>> recommendedCars = new ArrayList<>();
+        // 将 data 转换为以 carId 为键的 Map
+        Map<Integer, Map<String, Object>> carMap = data.stream()
+                .filter(car -> car.get("carId") != null)
+                .collect(Collectors.toMap(
+                        car -> (Integer) car.get("carId"),
+                        Function.identity()
+                ));
 
-        // 从 carinfo 表中查询所有汽车信息
-        String carInfoSql = "SELECT car_id, minprice, maxprice FROM car_info";
+        // 从数据库查询汽车价格信息（优化为批量查询）
+        List<Integer> carIds = userRatings.stream()
+                .map(Rating::product)
+                .toList();
+        String carInfoSql = "SELECT car_id, minprice, maxprice FROM car_info WHERE car_id IN (" +
+                carIds.stream().map(String::valueOf).collect(Collectors.joining(",")) + ")";
         List<Map<String, Object>> carInfoList = jdbcTemplate.queryForList(carInfoSql);
 
-        // 将 carinfo 表的数据转换为以 car_id 为键的 Map，方便查找
-        Map<Integer, Map<String, Object>> carInfoMap = new HashMap<>();
-        for (Map<String, Object> carInfo : carInfoList) {
-            Integer carId = (Integer) carInfo.get("car_id");
-            carInfoMap.put(carId, carInfo);
-        }
-
-        for (Rating rating : userRatings) {
-            logger.info("当前预测的汽车 ID: {}", rating.product());
-            for (Map<String, Object> carMap : data) {
-                Integer carId = (Integer) carMap.get("carId");
-                if (carId != null) {
-                    if (carId == rating.product()) {
-                        Map<String, Object> carInfo = carInfoMap.get(carId);
-                        if (carInfo != null) {
-                            Integer minPrice = (Integer) carInfo.get("minprice");
-                            Integer maxPrice = (Integer) carInfo.get("maxprice");
-                            if (maxPrice != null && maxPrice <= userMaxPrice) {
-                                recommendedCars.add(carMap);
-                                logger.info("添加符合条件的汽车，car_id: {}", carId);
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        logger.info("最终推荐的汽车列表: {}", recommendedCars);
-        return recommendedCars;
+        // 筛选符合条件的汽车
+        return userRatings.stream()
+                .sorted((r1, r2) -> Double.compare(r2.rating(), r1.rating())) // 按评分降序
+                .map(Rating::product)
+                .distinct()
+                .filter(carId -> {
+                    Map<String, Object> carInfo = carInfoList.stream()
+                            .filter(info -> carId.equals(info.get("car_id")))
+                            .findFirst()
+                            .orElse(null);
+                    return carInfo != null &&
+                            carInfo.get("maxprice") != null &&
+                            (Integer) carInfo.get("maxprice") <= userMaxPrice;
+                })
+                .map(carMap::get)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
     // 按热度排序，处理空指针

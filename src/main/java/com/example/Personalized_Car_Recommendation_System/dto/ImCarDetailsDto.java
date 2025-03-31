@@ -14,7 +14,7 @@ public class ImCarDetailsDto {
 
 
     // 构造函数
-    public ImCarDetailsDto(Integer carId,Integer userId,String name, String fullName, Integer minPrice, Integer maxPrice,double score,Integer interactions)     {
+    public ImCarDetailsDto(Integer carId,Integer userId,String name, String fullName, Integer minPrice, Integer maxPrice,Float score,Integer interactions)     {
         this.carId = carId;
         this.userId = userId;
         this.name = name;
