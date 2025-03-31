@@ -35,7 +35,7 @@ public class CollectController {
             Integer carId = (Integer) request.get("carId");
             logger.info("Received Car ID: {}", carId);
             String name = (String) request.get("name");
-            Integer score = (Integer) request.get("score");
+            Float score = (Float) request.get("score");
 
             RecommendationHistory result = collectService.collectCar(carId, userId, name, score);
             if (result != null) {

@@ -39,11 +39,11 @@
 
       <el-form-item label="价格预算">
         <el-input-number
-            v-model.number="params.maxPrice"
-            :min="0"
-            :step="10000"
-            suffix="万元"
-            size="small"
+          v-model.number="params.maxPrice"
+          :min="0"
+          :step="1"
+          suffix="万元"
+          size="small"
         />
       </el-form-item>
     </el-form>
@@ -97,7 +97,7 @@ export default {
       rank: 10,
       iterations: 15,
       lambda: 0.1,
-      maxPrice: 500000 // 默认50万元
+      maxPrice: 500000
     });
 
     const recommendations = ref({
@@ -112,7 +112,6 @@ export default {
     const nextPageLoading = ref(false);
     const hasNextPage = ref(false);
 
-    // 加载条配置
     const loadingTarget = ref(null);
     const loadingText = ref('正在生成推荐...');
     const loadingSpinner = ref('el-icon-loading');
@@ -126,12 +125,13 @@ export default {
           rank: parseInt(params.rank),
           iterations: parseInt(params.iterations),
           lambda: parseFloat(params.lambda),
-          maxPrice: parseInt(params.maxPrice)
+          maxPrice: parseInt(params.maxPrice) 
         };
 
         const response = await axios.post('/api/ai/Im_cars', requestData, {
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}` // 添加 token
           },
           params: {
             page: 1,
@@ -164,12 +164,13 @@ export default {
           rank: parseInt(params.rank),
           iterations: parseInt(params.iterations),
           lambda: parseFloat(params.lambda),
-          maxPrice: parseInt(params.maxPrice)
+          maxPrice: parseInt(params.maxPrice) 
         };
 
         const response = await axios.post('/api/ai/Im_cars', requestData, {
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}` // 添加 token
           },
           params: {
             page: recommendations.value.page,
@@ -184,7 +185,7 @@ export default {
         recommendations.value.total = response.data.total;
         recommendations.value.totalPages = response.data.totalPages;
         recommendations.value.page = response.data.page + 1;
-        hasNextPage.value = recommendations.value.page <= recommendations.value.totalPages;
+        hasNextPage.value = recommendations.value.page < recommendations.value.totalPages;
       } catch (err) {
         error.value = err.response?.data?.message || '推荐失败，请重试';
         if (err.response?.status === 400) {

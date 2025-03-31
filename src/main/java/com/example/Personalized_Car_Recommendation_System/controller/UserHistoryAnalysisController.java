@@ -1,6 +1,4 @@
 package com.example.Personalized_Car_Recommendation_System.controller;
-
-import com.example.Personalized_Car_Recommendation_System.entity.RecommendationHistory;
 import com.example.Personalized_Car_Recommendation_System.service.UserHistoryAnalysisService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;

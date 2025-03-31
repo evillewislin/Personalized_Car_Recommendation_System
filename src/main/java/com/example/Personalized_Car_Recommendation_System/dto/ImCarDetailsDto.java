@@ -7,14 +7,14 @@ public class ImCarDetailsDto {
     private String fullName;
     private Integer minPrice;
     private Integer maxPrice;
-    private Integer score;
+    private Float score;
     private Integer interactions;
     
 
 
 
     // 构造函数
-    public ImCarDetailsDto(Integer carId,Integer userId,String name, String fullName, Integer minPrice, Integer maxPrice,Integer score,Integer interactions)     {
+    public ImCarDetailsDto(Integer carId,Integer userId,String name, String fullName, Integer minPrice, Integer maxPrice,double score,Integer interactions)     {
         this.carId = carId;
         this.userId = userId;
         this.name = name;
@@ -39,8 +39,8 @@ public class ImCarDetailsDto {
     public void setMinPrice(Integer minPrice) { this.minPrice = minPrice; }
     public Integer getMaxPrice() { return maxPrice; }
     public void setMaxPrice(Integer maxPrice) { this.maxPrice = maxPrice; }
-    public Integer getScore() { return score; }
-    public void setScore(Integer score) { this.score = score; }
+    public Float getScore() { return score; }
+    public void setScore(Float score) { this.score = score; }
     public Integer getInteractions() { return interactions; }
     public void setInteractions(Integer interactions) { this.interactions = interactions; }
 }

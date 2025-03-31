@@ -15,13 +15,13 @@ public class CollectServiceImpl implements CollectService {
     private CollectRepository collectRepository;
 
     @Override
-    public RecommendationHistory collectCar(Integer carId, Integer userId, String name, Integer score) {
+    public RecommendationHistory collectCar(Integer carId, Integer userId, String name, Float score) {
         System.out.println("Car ID to save: " + carId);
         RecommendationHistory recommendationHistory = new RecommendationHistory();
         recommendationHistory.setUserId(userId);
         recommendationHistory.setCarId(carId);
         recommendationHistory.setCarName(name);
-        recommendationHistory.setScore(score.floatValue());
+        recommendationHistory.setScore(score);
         recommendationHistory.setTimestamp(new Date());
         return collectRepository.save(recommendationHistory);
     }

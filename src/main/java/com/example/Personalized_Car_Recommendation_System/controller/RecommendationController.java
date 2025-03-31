@@ -209,9 +209,11 @@ public class RecommendationController {
     public ResponseEntity<Page<ImCarDetailsDto>> getImplicitRecommendations(
             @Valid @RequestBody ImplicitRecommendationRequest  request,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestHeader("Authorization") String token
     ) {
         try {
+            int userId = recommendationService.getUserIdFromToken(token);
             int maxPrice = request.getMaxPrice();
             Page<ImCarDetailsDto> imrecommendations = recommendationService.generateImplicitRecommendations(
                     request.getRank(),
@@ -219,7 +221,8 @@ public class RecommendationController {
                     request.getLambda(),
                     maxPrice,
                     page,
-                    size
+                    size,
+                    userId 
 
             );
             return new ResponseEntity<>(imrecommendations, HttpStatus.OK);

@@ -1,8 +1,10 @@
 package com.example.Personalized_Car_Recommendation_System.service.impl;
 
 import com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto;
+import com.example.Personalized_Car_Recommendation_System.dto.ImCarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.dto.CarRecommendationDto;
 import com.example.Personalized_Car_Recommendation_System.entity.CarInfo;
+import com.example.Personalized_Car_Recommendation_System.entity.User;
 import com.example.Personalized_Car_Recommendation_System.repository.CarRepository;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -15,6 +17,10 @@ import com.example.Personalized_Car_Recommendation_System.entity.RecommendationH
 import com.example.Personalized_Car_Recommendation_System.repository.RecommendationHistoryRepository;
 import com.example.Personalized_Car_Recommendation_System.service.RecommendationService;
 import com.example.Personalized_Car_Recommendation_System.util.JwtUtil;
+
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import jakarta.validation.Valid;
+
 import org.apache.spark.rdd.RDD;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,11 +31,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
 import scala.Tuple2;
 import scala.reflect.ClassTag;
 import scala.reflect.ClassTag$;
@@ -37,6 +48,7 @@ import scala.reflect.ClassTag$;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -104,6 +116,8 @@ public class RecommendationServiceImpl implements RecommendationService {
             logger.error("Token 为空，无法解析");
             throw new IllegalArgumentException("Token 为空，无法解析");
         }
+        // 去除可能存在的空格和多余字符
+        token = token.trim().replace("Bearer ", ""); 
         logger.info("开始解析 Token: {}", token);
         try {
             Integer userId = JwtUtil.getUserIdFromToken(token);
@@ -306,8 +320,8 @@ public class RecommendationServiceImpl implements RecommendationService {
         JavaRDD<Rating> predictions = predictRatings(model, userProducts);
 
         JavaRDD<Tuple2<Double, Double>> ratesAndPreds = testData.mapToPair(rating -> new Tuple2<>(new Tuple2<>(rating.user(), rating.product()), rating.rating()))
-                .join(predictions.mapToPair(rating -> new Tuple2<>(new Tuple2<>(rating.user(), rating.product()), rating.rating())))
-                .values();
+               .join(predictions.mapToPair(rating -> new Tuple2<>(new Tuple2<>(rating.user(), rating.product()), rating.rating())))
+               .values();
 
         double mse = ratesAndPreds.mapToDouble(pair -> {
             double err = pair._1() - pair._2();
@@ -327,22 +341,9 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     private JavaRDD<Rating> convertToRatingsRDD(JavaSparkContext sc, List<RecommendationHistory> allHistory) {
-        Date now = new Date();
         return sc.parallelize(allHistory.stream()
-                .map(history -> {
-                    // 计算时间间隔（天）
-                    long diffInMillies = Math.abs(now.getTime() - history.getTimestamp().getTime());
-                    long diffInDays = TimeUnit.DAYS.convert(diffInMillies, TimeUnit.MILLISECONDS);
-
-                    // 定义时间衰减因子（例如，每天衰减 0.99）
-                    double decayFactor = Math.pow(0.99, diffInDays);
-
-                    // 调整评分
-                    float adjustedScore = (float) (history.getScore() * decayFactor);
-
-                    return new Rating(history.getUserId(), history.getCarId(), adjustedScore);
-                })
-                .collect(Collectors.toList()));
+               .map(history -> new Rating(history.getUserId(), history.getCarId(), history.getScore()))
+               .collect(Collectors.toList()));
     }
 
     private MatrixFactorizationModel trainALSModel(JavaRDD<Rating> ratingsRDD) {
@@ -356,15 +357,16 @@ public class RecommendationServiceImpl implements RecommendationService {
     private List<Integer> extractCarIds(List<Map<String, Object>> data) {
         logger.debug("传入的汽车数据列表: {}", data);
         return data.stream()
-                .map(carMap -> (Integer) carMap.get("carId"))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
+               .map(carMap -> (Integer) carMap.get("carId"))
+               .filter(Objects::nonNull)
+               .collect(Collectors.toList());
     }
+    
 
     private JavaRDD<Tuple2<Object, Object>> createInputRDD(JavaSparkContext sc, int userId, List<Integer> carIds) {
         List<Tuple2<Integer, Integer>> userCarPairs = carIds.stream()
-                .map(singleCarId -> new Tuple2<>(userId, singleCarId))
-                .collect(Collectors.toList());
+               .map(singleCarId -> new Tuple2<>(userId, singleCarId))
+               .collect(Collectors.toList());
         JavaPairRDD<Integer, Integer> userCarPairsRDD = sc.parallelizePairs(userCarPairs);
         return userCarPairsRDD.map(pair -> new Tuple2<>(pair._1(), pair._2()));
     }
@@ -423,7 +425,16 @@ public class RecommendationServiceImpl implements RecommendationService {
                 })
                 .collect(Collectors.toList());
     }
-
+    /**
+     * 生成显式推荐
+     * @param rank 隐式推荐的秩
+     * @param iterations 迭代次数
+     * @param lambda 正则化参数
+     * @param maxPrice 用户输入的最高价格
+     * @param page 页码
+     * @param size 每页数量
+     * @return 显式推荐结果
+     */
     @Override
     @Cacheable(value = "recommendations", key = "#rank+#iterations+#lambda+#maxPrice+#page+#size")
     public Page<CarDetailsDto> generateExplicitRecommendations(
@@ -502,157 +513,174 @@ public class RecommendationServiceImpl implements RecommendationService {
             return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
         }
     }
-
-
+ /**
+     * 生成隐式推荐
+     * @param rank 隐式推荐的秩
+     * @param iterations 迭代次数
+     * @param lambda 正则化参数
+     * @param maxPrice 用户输入的最高价格
+     * @param page 页码
+     * @param size 每页数量
+     * @param userId 用户ID
+     * @return 隐式推荐结果
+     */
     @Override
-@Cacheable(value = "implicitRecommendations", key = "#rank+#iterations+#lambda+#maxPrice+#pageable")
-public Page<ImCarDetailsDto> generateImplicitRecommendations(
-        int rank,
-        int iterations,
-        double lambda,
-        int maxPrice,
-        Pageable pageable) {
-    
-    try {
-        // 1. 获取所有用户的交互数据（如浏览、点击等隐式反馈）
-        List<RecommendationHistory> implicitInteractions = recommendationHistoryRepository.findAll();
-        
-        // 2. 过滤掉显式评分数据（只保留隐式反馈）
-        List<RecommendationHistory> implicitData = implicitInteractions.stream()
-                .filter(history -> history.getScore() == null) // 假设隐式反馈没有评分
-                .collect(Collectors.toList());
-        
-        if (implicitData.isEmpty()) {
-            logger.warn("没有找到隐式反馈数据，返回默认推荐");
-            return getDefaultImplicitRecommendations(maxPrice, pageable);
-        }
-        
-        // 3. 使用Spark ALS训练隐式反馈模型
-        JavaSparkContext sc = createSparkContext();
+    @Cacheable(value = "implicitRecommendations", key = "#rank+#iterations+#lambda+#maxPrice+#page+#size+#userId")
+   
+    public Page<ImCarDetailsDto> generateImplicitRecommendations(
+            int rank,
+            int iterations,
+            double lambda,
+            int maxPrice,
+            int page,
+            int size,
+            int userId
+    ) {
+        JavaSparkContext sc = null;
         try {
-            // 转换数据为ALS需要的格式
-            JavaRDD<Rating> ratingsRDD = convertImplicitToRatingsRDD(sc, implicitData);
-            
-            // 训练隐式反馈ALS模型
-            MatrixFactorizationModel model = ALS.trainImplicit(
-                    ratingsRDD.rdd(),
-                    rank,
-                    iterations,
-                    lambda,
-                    1.0 // 隐式反馈特有的置信度参数
-            );
-            
-            // 4. 为所有用户生成推荐
-            List<CarInfo> allCars = carRepository.findAll();
-            List<CarDetailsDto> recommendedCars = generateRecommendationsFromModel(
-                    model, 
-                    allCars, 
-                    maxPrice
-            );
-            
-            // 5. 分页处理
-            return paginateResults(recommendedCars, pageable);
-            
+            // 分页参数校验
+            if (page < 1 || size < 1) {
+                logger.error("无效的分页参数: page={}, size={}", page, size);
+                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
+            }
+
+            sc = createSparkContext();
+
+            // 获取所有用户的推荐历史记录
+            List<RecommendationHistory> allHistory = recommendationHistoryRepository.findAll();
+            if (allHistory.isEmpty()) {
+                logger.info("没有推荐历史记录，返回空推荐结果");
+                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
+            }
+            logger.info("成功获取所有用户的推荐历史记录，记录数量: {}", allHistory.size());
+
+            // 将推荐历史记录转换为 Spark 的 Rating 对象
+            JavaRDD<Rating> ratingsRDD = convertToRatingsRDD(sc, allHistory);
+            if (ratingsRDD.isEmpty()) {
+                logger.info("转换后的 Ratings RDD 为空，返回空推荐结果");
+                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
+            }
+            logger.info("成功将推荐历史记录转换为 Ratings RDD，RDD 数量: {}", ratingsRDD.count());
+
+            // 划分训练集和测试集，这里使用 80% 作为训练集，20% 作为测试集
+            JavaRDD<Rating>[] splits = ratingsRDD.randomSplit(new double[]{0.8, 0.2}, 12345L);
+            JavaRDD<Rating> training = splits[0];
+            JavaRDD<Rating> test = splits[1];
+            logger.info("训练集数量: {}, 测试集数量: {}", training.count(), test.count());
+
+            // 训练 ALS 模型
+            MatrixFactorizationModel model = ALS.train(training.rdd(), rank, iterations, lambda);
+            if (model == null) {
+                logger.info("无法训练 ALS 模型，返回空推荐结果");
+                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
+            }
+            logger.info("成功训练 ALS 模型");
+
+            // 模型性能检查：计算均方误差（MSE）
+            double mse = calculateMSE(model, test);
+            logger.info("模型的均方误差 (MSE): {}", mse);
+
+            // 可以设置一个 MSE 阈值，如果 MSE 过高，认为模型性能不佳，返回空推荐结果
+            double mseThreshold = 1.0;
+            if (mse > mseThreshold) {
+                logger.info("模型性能不佳，MSE 超过阈值，返回空推荐结果");
+                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
+            }
+
+            // 获取所有汽车的 ID
+            List<CarInfo> carInfos = carRepository.findAll();
+            List<Integer> carIds = carInfos.stream()
+                   .map(CarInfo::getId)
+                   .collect(Collectors.toList());
+            if (carIds.isEmpty()) {
+                logger.info("没有有效的汽车 ID，返回空推荐结果");
+                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
+            }
+            logger.info("成功获取所有汽车的 ID，ID 数量: {}", carIds.size());
+
+            // 创建待预测的 (用户 ID, 物品 ID) 元组列表
+            JavaRDD<Tuple2<Object, Object>> inputRDD = createInputRDD(sc, userId, carIds);
+            logger.info("成功创建待预测的 (用户 ID, 物品 ID) 元组列表，列表数量: {}", inputRDD.count());
+
+            // 使用模型进行预测
+            JavaRDD<Rating> userCarRatingsRDD = predictRatings(model, inputRDD);
+            logger.info("成功使用模型进行预测，预测结果数量: {}", userCarRatingsRDD.count());
+
+            // 将预测结果转换为列表
+            List<Rating> userCarRatings = userCarRatingsRDD.collect();
+            logger.info("成功将预测结果转换为列表，列表数量: {}", userCarRatings.size());
+
+            // 根据预测评分对汽车进行排序
+            userCarRatings.sort((r1, r2) -> Double.compare(r2.rating(), r1.rating()));
+            logger.info("成功根据预测评分对汽车进行排序");
+
+            // 根据排序后的评分筛选出对应的汽车信息
+            List<ImCarDetailsDto> recommendedCars = filterImplicitRecommendedCars(carInfos, userCarRatings, userId, maxPrice);
+            logger.info("成功筛选出对应的汽车信息，推荐汽车数量: {}", recommendedCars.size());
+
+            // 分页处理
+            int totalElements = recommendedCars.size();
+            int totalPages = (int) Math.ceil((double) totalElements / size);
+
+            // 页码矫正
+            if (page > totalPages) {
+                logger.warn("请求的页码超出范围: page={}, totalPages={}，自动调整为最后一页", page, totalPages);
+                page = totalPages;
+            }
+
+            // 计算分页索引
+            int start = (page - 1) * size;
+            int end = Math.min(start + size, totalElements);
+            if (start >= totalElements) {
+                logger.warn("起始索引超出数据范围: start={}, totalElements={}", start, totalElements);
+                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), totalElements);
+            }
+
+            // 获取分页数据
+            List<ImCarDetailsDto> subList = recommendedCars.subList(start, end);
+            return new PageImpl<>(subList, PageRequest.of(page - 1, size), totalElements);
+
+        } catch (Exception e) {
+            logger.error("隐式推荐生成失败", e);
+            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
         } finally {
-            sc.stop();
+            if (sc != null) {
+                sc.stop();
+            }
         }
-        
-    } catch (Exception e) {
-        logger.error("隐式推荐生成失败", e);
-        return getDefaultImplicitRecommendations(maxPrice, pageable);
     }
-}
 
-// 辅助方法：转换隐式反馈数据为Rating RDD
-private JavaRDD<Rating> convertImplicitToRatingsRDD(JavaSparkContext sc, List<RecommendationHistory> implicitData) {
-    return sc.parallelize(implicitData.stream()
-            .map(history -> {
-                // 隐式反馈的"评分"可以用交互次数或其他指标表示
-                double rating = calculateImplicitRating(history);
-                return new Rating(history.getUserId(), history.getCarId(), rating);
-            })
-            .collect(Collectors.toList()));
-}
+    private List<ImCarDetailsDto> filterImplicitRecommendedCars(List<CarInfo> carInfos, List<Rating> userRatings, int userId, int userMaxPrice) {
+        List<ImCarDetailsDto> recommendedCars = new ArrayList<>();
+        Map<Integer, CarInfo> carInfoMap = carInfos.stream()
+               .collect(Collectors.toMap(CarInfo::getId, Function.identity()));
 
-// 辅助方法：计算隐式反馈的权重
-private double calculateImplicitRating(RecommendationHistory history) {
-    // 可以根据业务需求设计权重计算逻辑
-    // 示例：浏览1次=1分，点击2分，收藏5分等
-    return 1.0; // 简化处理，默认每项交互为1分
-}
+        for (Rating rating : userRatings) {
+            Integer carId = rating.product();
+            CarInfo carInfo = carInfoMap.get(carId);
+            if (carInfo != null && carInfo.getMaxPrice() != null && carInfo.getMaxPrice() <= userMaxPrice) {
+                // 获取品牌名称
+                String brandName = Optional.ofNullable(carInfo.getBrandId())
+                       .flatMap(brandId -> Optional.ofNullable(carRepository.getBrandNameByBrandId(brandId)))
+                       .orElse("未知品牌");
 
-// 辅助方法：从模型生成推荐
-private List<ImCarDetailsDto> generateRecommendationsFromModel(
-        MatrixFactorizationModel model, 
-        List<CarInfo> allCars,
-        int maxPrice) {
-    
-    // 1. 获取所有用户ID（去重）
-    Set<Integer> userIds = allCars.stream()
-            .map(CarInfo::getUserId)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toSet());
-    
-    // 2. 为每个用户生成推荐
-    List<ImCarDetailsDto> recommendations = new ArrayList<>();
-    for (Integer userId : userIds) {
-        // 为每个用户预测对所有汽车的评分
-        Rating[] userRecommendations = model.recommendProducts(userId, allCars.size());
-        
-        // 转换并过滤结果
-        Arrays.stream(userRecommendations)
-                .forEach(rating -> {
-                    Optional<CarInfo> carInfoOpt = allCars.stream()
-                            .filter(car -> car.getId().equals(rating.product()))
-                            .findFirst();
-                    
-                    carInfoOpt.ifPresent(carInfo -> {
-                        if (carInfo.getMaxPrice() != null && 
-                            carInfo.getMaxPrice() <= maxPrice) {
-                            recommendations.add(convertToDto(carInfo, rating.rating()));
-                        }
-                    });
-                });
+                recommendedCars.add(new ImCarDetailsDto(
+                        carId,
+                        userId,
+                        brandName,
+                        carInfo.getFullName(),
+                        carInfo.getMinPrice(),
+                        carInfo.getMaxPrice(),
+                        (float) rating.rating(),
+                        0
+                ));
+            }
+        }
+        return recommendedCars;
     }
-    
-    // 3. 按预测评分排序
-    return recommendations.stream()
-            .sorted(Comparator.comparingDouble(ImCarDetailsDto::getScore).reversed())
-            .collect(Collectors.toList());
-}
-
-// 辅助方法：CarInfo转DTO
-private ImCarDetailsDto convertToDto(CarInfo carInfo, double score) {
-    String brandName = carRepository.getBrandNameByBrandId(carInfo.getBrandId());
-    return new ImCarDetailsDto(
-            carInfo.getId(),
-            brandName != null ? brandName : "未知品牌",
-            carInfo.getFullName(),
-            carInfo.getMinPrice(),
-            carInfo.getMaxPrice(),
-            score // 添加预测评分
-    );
-}
-
-// 辅助方法：分页处理
-private Page<ImCarDetailsDto> paginateResults(List<ImCarDetailsDto> allResults, Pageable pageable) {
-    int totalSize = allResults.size();
-    int start = (int) pageable.getOffset();
-    int end = Math.min(start + pageable.getPageSize(), totalSize);
-    
-    if (start > totalSize) {
-        return new PageImpl<>(Collections.emptyList(), pageable, totalSize);
-    }
-    
-    return new PageImpl<>(
-            allResults.subList(start, end),
-            pageable,
-            totalSize
-    );
-}
 
     // 新用户默认推荐逻辑
     private List<Map<String, Object>> getDefaultRecommendations(List<Map<String, Object>> data) {
         return sortByPopularity(data);
     }
-}
+}    
