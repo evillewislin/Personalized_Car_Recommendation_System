@@ -1,13 +1,19 @@
 package com.example.Personalized_Car_Recommendation_System.controller;
 
 import com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto;
+import com.example.Personalized_Car_Recommendation_System.dto.ImCarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.service.RecommendationService;
+import com.example.Personalized_Car_Recommendation_System.service.impl.ImplicitRecommendationRequest;
+
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.ChatClient;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -118,6 +124,15 @@ public class RecommendationController {
             return handleInternalServerError(e, "Error getting ALS recommendations");
         }
     }
+
+
+    /**
+     * 显式推荐接口
+     * @param request 显式推荐请求参数
+     * @param page 页码
+     * @param size 每页数量
+     * @return 显式推荐结果
+     */
     @PostMapping("/Ex_cars")
     public ResponseEntity<Page<CarDetailsDto>> getExplicitRecommendations(
             @Valid @RequestBody ExplicitRecommendationRequest request,
@@ -141,7 +156,117 @@ public class RecommendationController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
+    // 显式推荐请求对象
+        static class ExplicitRecommendationRequest {
+            private int rank;
+            private int iterations;
+            private double lambda;
+            private int maxPrice;
 
+            public int getRank() {
+                return rank;
+            }
+
+            public void setRank(int rank) {
+                this.rank = rank;
+            }
+
+            public int getIterations() {
+                return iterations;
+            }
+
+            public void setIterations(int iterations) {
+                this.iterations = iterations;
+            }
+
+            public double getLambda() {
+                return lambda;
+            }
+
+            public void setLambda(double lambda) {
+                this.lambda = lambda;
+            }
+
+            public int getMaxPrice() {
+                return maxPrice;
+            }
+
+            public void setMaxPrice(int maxPrice) {
+                this.maxPrice = maxPrice;
+            }
+        }
+
+
+
+    /**
+     * 隐式推荐接口
+     * @param request 隐式推荐请求参数
+     * @param page 页码
+     * @param size 每页数量
+     * @return 隐式推荐结果
+     */
+    @PostMapping("/Im_cars")
+    public ResponseEntity<Page<ImCarDetailsDto>> getImplicitRecommendations(
+            @Valid @RequestBody ImplicitRecommendationRequest  request,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        try {
+            int maxPrice = request.getMaxPrice();
+            Page<ImCarDetailsDto> imrecommendations = recommendationService.generateImplicitRecommendations(
+                    request.getRank(),
+                    request.getIterations(),
+                    request.getLambda(),
+                    maxPrice,
+                    page,
+                    size
+
+            );
+            return new ResponseEntity<>(imrecommendations, HttpStatus.OK);
+        } catch (Exception e) {
+            log.error("处理显式推荐请求时出错: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+    // 显式推荐请求对象
+        static class ImplicitRecommendationRequest  {
+            private int rank;
+            private int iterations;
+            private double lambda;
+            private int maxPrice;
+
+            public int getRank() {
+                return rank;
+            }
+
+            public void setRank(int rank) {
+                this.rank = rank;
+            }
+
+            public int getIterations() {
+                return iterations;
+            }
+
+            public void setIterations(int iterations) {
+                this.iterations = iterations;
+            }
+
+            public double getLambda() {
+                return lambda;
+            }
+
+            public void setLambda(double lambda) {
+                this.lambda = lambda;
+            }
+
+            public int getMaxPrice() {
+                return maxPrice;
+            }
+
+            public void setMaxPrice(int maxPrice) {
+                this.maxPrice = maxPrice;
+            }
+        }
     /**
      * 处理令牌解析错误
      * @param e 异常信息
@@ -163,43 +288,5 @@ public class RecommendationController {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
     }
 
-    // 显式推荐请求对象
-    static class ExplicitRecommendationRequest {
-        private int rank;
-        private int iterations;
-        private double lambda;
-        private int maxPrice;
-
-        public int getRank() {
-            return rank;
-        }
-
-        public void setRank(int rank) {
-            this.rank = rank;
-        }
-
-        public int getIterations() {
-            return iterations;
-        }
-
-        public void setIterations(int iterations) {
-            this.iterations = iterations;
-        }
-
-        public double getLambda() {
-            return lambda;
-        }
-
-        public void setLambda(double lambda) {
-            this.lambda = lambda;
-        }
-
-        public int getMaxPrice() {
-            return maxPrice;
-        }
-
-        public void setMaxPrice(int maxPrice) {
-            this.maxPrice = maxPrice;
-        }
-    }
+    
 }

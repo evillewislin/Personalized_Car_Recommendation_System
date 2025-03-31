@@ -503,6 +503,154 @@ public class RecommendationServiceImpl implements RecommendationService {
         }
     }
 
+
+    @Override
+@Cacheable(value = "implicitRecommendations", key = "#rank+#iterations+#lambda+#maxPrice+#pageable")
+public Page<ImCarDetailsDto> generateImplicitRecommendations(
+        int rank,
+        int iterations,
+        double lambda,
+        int maxPrice,
+        Pageable pageable) {
+    
+    try {
+        // 1. 获取所有用户的交互数据（如浏览、点击等隐式反馈）
+        List<RecommendationHistory> implicitInteractions = recommendationHistoryRepository.findAll();
+        
+        // 2. 过滤掉显式评分数据（只保留隐式反馈）
+        List<RecommendationHistory> implicitData = implicitInteractions.stream()
+                .filter(history -> history.getScore() == null) // 假设隐式反馈没有评分
+                .collect(Collectors.toList());
+        
+        if (implicitData.isEmpty()) {
+            logger.warn("没有找到隐式反馈数据，返回默认推荐");
+            return getDefaultImplicitRecommendations(maxPrice, pageable);
+        }
+        
+        // 3. 使用Spark ALS训练隐式反馈模型
+        JavaSparkContext sc = createSparkContext();
+        try {
+            // 转换数据为ALS需要的格式
+            JavaRDD<Rating> ratingsRDD = convertImplicitToRatingsRDD(sc, implicitData);
+            
+            // 训练隐式反馈ALS模型
+            MatrixFactorizationModel model = ALS.trainImplicit(
+                    ratingsRDD.rdd(),
+                    rank,
+                    iterations,
+                    lambda,
+                    1.0 // 隐式反馈特有的置信度参数
+            );
+            
+            // 4. 为所有用户生成推荐
+            List<CarInfo> allCars = carRepository.findAll();
+            List<CarDetailsDto> recommendedCars = generateRecommendationsFromModel(
+                    model, 
+                    allCars, 
+                    maxPrice
+            );
+            
+            // 5. 分页处理
+            return paginateResults(recommendedCars, pageable);
+            
+        } finally {
+            sc.stop();
+        }
+        
+    } catch (Exception e) {
+        logger.error("隐式推荐生成失败", e);
+        return getDefaultImplicitRecommendations(maxPrice, pageable);
+    }
+}
+
+// 辅助方法：转换隐式反馈数据为Rating RDD
+private JavaRDD<Rating> convertImplicitToRatingsRDD(JavaSparkContext sc, List<RecommendationHistory> implicitData) {
+    return sc.parallelize(implicitData.stream()
+            .map(history -> {
+                // 隐式反馈的"评分"可以用交互次数或其他指标表示
+                double rating = calculateImplicitRating(history);
+                return new Rating(history.getUserId(), history.getCarId(), rating);
+            })
+            .collect(Collectors.toList()));
+}
+
+// 辅助方法：计算隐式反馈的权重
+private double calculateImplicitRating(RecommendationHistory history) {
+    // 可以根据业务需求设计权重计算逻辑
+    // 示例：浏览1次=1分，点击2分，收藏5分等
+    return 1.0; // 简化处理，默认每项交互为1分
+}
+
+// 辅助方法：从模型生成推荐
+private List<ImCarDetailsDto> generateRecommendationsFromModel(
+        MatrixFactorizationModel model, 
+        List<CarInfo> allCars,
+        int maxPrice) {
+    
+    // 1. 获取所有用户ID（去重）
+    Set<Integer> userIds = allCars.stream()
+            .map(CarInfo::getUserId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+    
+    // 2. 为每个用户生成推荐
+    List<ImCarDetailsDto> recommendations = new ArrayList<>();
+    for (Integer userId : userIds) {
+        // 为每个用户预测对所有汽车的评分
+        Rating[] userRecommendations = model.recommendProducts(userId, allCars.size());
+        
+        // 转换并过滤结果
+        Arrays.stream(userRecommendations)
+                .forEach(rating -> {
+                    Optional<CarInfo> carInfoOpt = allCars.stream()
+                            .filter(car -> car.getId().equals(rating.product()))
+                            .findFirst();
+                    
+                    carInfoOpt.ifPresent(carInfo -> {
+                        if (carInfo.getMaxPrice() != null && 
+                            carInfo.getMaxPrice() <= maxPrice) {
+                            recommendations.add(convertToDto(carInfo, rating.rating()));
+                        }
+                    });
+                });
+    }
+    
+    // 3. 按预测评分排序
+    return recommendations.stream()
+            .sorted(Comparator.comparingDouble(ImCarDetailsDto::getScore).reversed())
+            .collect(Collectors.toList());
+}
+
+// 辅助方法：CarInfo转DTO
+private ImCarDetailsDto convertToDto(CarInfo carInfo, double score) {
+    String brandName = carRepository.getBrandNameByBrandId(carInfo.getBrandId());
+    return new ImCarDetailsDto(
+            carInfo.getId(),
+            brandName != null ? brandName : "未知品牌",
+            carInfo.getFullName(),
+            carInfo.getMinPrice(),
+            carInfo.getMaxPrice(),
+            score // 添加预测评分
+    );
+}
+
+// 辅助方法：分页处理
+private Page<ImCarDetailsDto> paginateResults(List<ImCarDetailsDto> allResults, Pageable pageable) {
+    int totalSize = allResults.size();
+    int start = (int) pageable.getOffset();
+    int end = Math.min(start + pageable.getPageSize(), totalSize);
+    
+    if (start > totalSize) {
+        return new PageImpl<>(Collections.emptyList(), pageable, totalSize);
+    }
+    
+    return new PageImpl<>(
+            allResults.subList(start, end),
+            pageable,
+            totalSize
+    );
+}
+
     // 新用户默认推荐逻辑
     private List<Map<String, Object>> getDefaultRecommendations(List<Map<String, Object>> data) {
         return sortByPopularity(data);
