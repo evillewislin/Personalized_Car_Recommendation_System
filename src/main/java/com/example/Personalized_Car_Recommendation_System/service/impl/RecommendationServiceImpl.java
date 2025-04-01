@@ -604,7 +604,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         return userCarRatings;
     }
 
-
+    // 计算用户相似度（这里使用简单的余弦相似度）
     private Map<Integer, Double> calculateUserSimilarities(int targetUserId, Map<Integer, Map<Integer, Double>> userCarRatings) {
         Map<Integer, Double> userSimilarities = new HashMap<>();
         Map<Integer, Double> targetUserRatings = userCarRatings.get(targetUserId);
@@ -690,24 +690,29 @@ public class RecommendationServiceImpl implements RecommendationService {
         for (CarInfo carInfo : carInfos) {
             if (carInfo.getMaxPrice() != null && carInfo.getMaxPrice() <= maxPrice) {
                 int carId = carInfo.getId();
-                double predictedRating = predictedRatings.getOrDefault(carId, 0.0);
+                // 这里去掉了预测评分相关的逻辑，因为新的 ImCarDetailsDto 构造函数不包含预测评分
 
                 Optional<CarBrand> carBrandOptional = carBrandRepository.findById(carInfo.getBrandId());
                 String brandName = carBrandOptional.map(CarBrand::getName).orElse("未知品牌");
-                String priceRange = carInfo.getMinPrice() + " - " + carInfo.getMaxPrice();
 
                 recommendedCars.add(new ImCarDetailsDto(
                         carId,
                         brandName,
                         carInfo.getFullName(),
-                        priceRange,
-                        predictedRating
+                        carInfo.getMinPrice(),
+                        carInfo.getMaxPrice()
                 ));
             }
         }
 
-        // 按评分降序排序
-        recommendedCars.sort((c1, c2) -> Double.compare(c2.getPredictedRating(), c1.getPredictedRating()));
+        // 由于新的 ImCarDetailsDto 没有预测评分，这里的排序逻辑需要调整或移除
+        // 如果需要排序，可以根据其他字段进行排序，例如价格
+        recommendedCars.sort((c1, c2) -> {
+            if (c1.getMaxPrice() != null && c2.getMaxPrice() != null) {
+                return c2.getMaxPrice().compareTo(c1.getMaxPrice());
+            }
+            return 0;
+        });
 
         logger.info("生成 {} 条符合条件的推荐", recommendedCars.size());
         return recommendedCars;

@@ -61,10 +61,10 @@
       >
         <el-table-column prop="brandName" label="品牌" width="120" />
         <el-table-column prop="fullName" label="车型" />
-        <el-table-column prop="priceRange" label="价格区间" width="180" />
-        <el-table-column prop="predictedRating" label="预测评分" width="120">
+        <el-table-column prop="priceRange" label="价格区间" width="180" >
           <template #default="{row}">
-            {{ row.predictedRating.toFixed(2) }}
+            <!-- 添加空值检查 -->
+            {{ row.predictedRating ? row.predictedRating.toFixed(2) : 'N/A' }}
           </template>
         </el-table-column>
       </el-table>

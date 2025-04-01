@@ -6,15 +6,15 @@ public class ImCarDetailsDto implements Serializable {
     private Integer carId;
     private String brandName;
     private String fullName;
-    private String priceRange;
-    private double predictedRating;
+    private Integer minPrice;
+    private Integer maxPrice;
 
-    public ImCarDetailsDto(Integer carId, String brandName, String fullName, String priceRange, double predictedRating) {
+    public ImCarDetailsDto(Integer carId, String brandName, String fullName,  Integer minPrice, Integer maxPrice) {
         this.carId = carId;
         this.brandName = brandName;
         this.fullName = fullName;
-        this.priceRange = priceRange;
-        this.predictedRating = predictedRating;
+        this.minPrice = minPrice;
+        this.maxPrice = maxPrice;
     }
 
     // Getters and Setters
@@ -42,21 +42,10 @@ public class ImCarDetailsDto implements Serializable {
         this.fullName = fullName;
     }
 
-    public String getPriceRange() {
-        return priceRange;
-    }
-
-    public void setPriceRange(String priceRange) {
-        this.priceRange = priceRange;
-    }
-
-    public double getPredictedRating() {
-        return predictedRating;
-    }
-
-    public void setPredictedRating(double predictedRating) {
-        this.predictedRating = predictedRating;
-    }
+    public Integer getMinPrice() { return minPrice; }
+    public void setMinPrice(Integer minPrice) { this.minPrice = minPrice; }
+    public Integer getMaxPrice() { return maxPrice; }
+    public void setMaxPrice(Integer maxPrice) { this.maxPrice = maxPrice; }
 
 
 }
