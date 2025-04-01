@@ -12,12 +12,12 @@
 
         @Query("SELECT rh.timestamp, cb.name, rh.score FROM RecommendationHistory rh " +
                 "JOIN CarInfo ci ON rh.carId = ci.id " +
-                "JOIN CarBrand cb ON ci.brandId = cb.id")
+                "JOIN CarBrand cb ON ci.brandId = cb.brandId")
         List<Object[]> getAnalysisData();
 
         @Query("SELECT rh.timestamp, cb.name, rh.score FROM RecommendationHistory rh " +
                 "JOIN CarInfo ci ON rh.carId = ci.id " +
-                "JOIN CarBrand cb ON ci.brandId = cb.id " +
+                "JOIN CarBrand cb ON ci.brandId = cb.brandId " +
                 "WHERE rh.userId = :userId")
         List<Object[]> getAnalysisDataByUserId(Integer userId);
     }

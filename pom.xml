@@ -56,10 +56,6 @@
 	</properties>
 
 	<dependencies>
-		<dependency>
-			<groupId>com.fasterxml.jackson.core</groupId>
-			<artifactId>jackson-databind</artifactId>
-		</dependency>
 		<!-- Servlet API -->
 		<dependency>
 			<groupId>javax.servlet</groupId>
@@ -72,7 +68,7 @@
 		<dependency>
 			<groupId>org.apache.spark</groupId>
 			<artifactId>spark-core_2.12</artifactId>
-			<version>3.3.2</version>
+			<version>3.5.4</version>
 			<exclusions>
 				<exclusion>
 					<groupId>org.slf4j</groupId>
@@ -83,7 +79,7 @@
 		<dependency>
 			<groupId>org.apache.spark</groupId>
 			<artifactId>spark-mllib_2.12</artifactId>
-			<version>3.3.2</version>
+			<version>3.5.4</version>
 			<exclusions>
 				<exclusion>
 					<groupId>org.slf4j</groupId>
@@ -130,6 +126,7 @@
 			<artifactId>hibernate-validator</artifactId>
 			<version>${hibernate-validator.version}</version>
 		</dependency>
+
 		<dependency>
 			<groupId>org.hibernate.orm</groupId>
 			<artifactId>hibernate-core</artifactId>
@@ -316,16 +313,6 @@
 						--add-opens java.base/java.util=ALL-UNNAMED
 						--add-opens java.base/java.lang=ALL-UNNAMED
 					</argLine>
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-				<configuration>
-					<jvmArguments>
-						--add-opens java.base/java.util=ALL-UNNAMED
-						--add-opens java.base/java.lang=ALL-UNNAMED
-					</jvmArguments>
 				</configuration>
 			</plugin>
 		</plugins>

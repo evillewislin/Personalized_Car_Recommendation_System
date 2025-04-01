@@ -34,4 +34,5 @@ public interface CarInfoRepository extends JpaRepository<CarInfo, Integer> {
             "JOIN CarBrand cb ON ci.brandId = cb.brandId " +
             "WHERE ci.maxPrice <= :maxPrice")
     List<CarAnalysisDataDto> getCarAnalysisDataByMaxPrice(@Param("maxPrice") Integer maxPrice);
-}
+
+    }

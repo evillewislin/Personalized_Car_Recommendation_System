@@ -1,46 +1,62 @@
 package com.example.Personalized_Car_Recommendation_System.dto;
 
-public class ImCarDetailsDto {
+import java.io.Serializable;
+
+public class ImCarDetailsDto implements Serializable {
     private Integer carId;
-    private Integer userId;
-    private String name;
+    private String brandName;
     private String fullName;
-    private Integer minPrice;
-    private Integer maxPrice;
-    private Float score;
-    private Integer interactions;
-    
+    private String priceRange;
+    private double predictedRating;
 
-
-
-    // 构造函数
-    public ImCarDetailsDto(Integer carId,Integer userId,String name, String fullName, Integer minPrice, Integer maxPrice,Float score,Integer interactions)     {
+    public ImCarDetailsDto(Integer carId, String brandName, String fullName, String priceRange, double predictedRating) {
         this.carId = carId;
-        this.userId = userId;
-        this.name = name;
+        this.brandName = brandName;
         this.fullName = fullName;
-        this.minPrice = minPrice;
-        this.maxPrice = maxPrice;
-        this.score = score;
-        this.interactions = 0; // 默认值为0
-
+        this.priceRange = priceRange;
+        this.predictedRating = predictedRating;
     }
 
     // Getters and Setters
-    public Integer getCarId() { return carId; }
-    public void setCarId(Integer carId) { this.carId = carId; }
-    public Integer getUserId() { return userId; }
-    public void setUserId(Integer userId) { this.userId = userId; }
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-    public String getFullName() { return fullName; }
-    public void setFullName(String fullName) { this.fullName = fullName; }
-    public Integer getMinPrice() { return minPrice; }
-    public void setMinPrice(Integer minPrice) { this.minPrice = minPrice; }
-    public Integer getMaxPrice() { return maxPrice; }
-    public void setMaxPrice(Integer maxPrice) { this.maxPrice = maxPrice; }
-    public Float getScore() { return score; }
-    public void setScore(Float score) { this.score = score; }
-    public Integer getInteractions() { return interactions; }
-    public void setInteractions(Integer interactions) { this.interactions = interactions; }
+    public Integer getCarId() {
+        return carId;
+    }
+
+    public void setCarId(Integer carId) {
+        this.carId = carId;
+    }
+
+    public String getBrandName() {
+        return brandName;
+    }
+
+    public void setBrandName(String brandName) {
+        this.brandName = brandName;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
+    public String getPriceRange() {
+        return priceRange;
+    }
+
+    public void setPriceRange(String priceRange) {
+        this.priceRange = priceRange;
+    }
+
+    public double getPredictedRating() {
+        return predictedRating;
+    }
+
+    public void setPredictedRating(double predictedRating) {
+        this.predictedRating = predictedRating;
+    }
+
+
 }

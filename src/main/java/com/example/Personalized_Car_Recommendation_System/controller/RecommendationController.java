@@ -192,17 +192,14 @@ public class RecommendationController {
         }
 
 
-
     /**
      * 隐式推荐接口
      * @param request 隐式推荐请求参数
-     * @param page 页码
-     * @param size 每页数量
      * @return 隐式推荐结果
      */
     @PostMapping("/Im_cars")
     public ResponseEntity<Page<ImCarDetailsDto>> getImplicitRecommendations(
-            @Valid @RequestBody ImplicitRecommendationRequest  request,
+            @Valid @RequestBody ImplicitRecommendationRequest request,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestHeader("Authorization") String token
@@ -217,54 +214,55 @@ public class RecommendationController {
                     maxPrice,
                     page,
                     size,
-                    userId 
-
+                    userId
             );
             return new ResponseEntity<>(imrecommendations, HttpStatus.OK);
         } catch (Exception e) {
-            log.error("处理显式推荐请求时出错: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
-    // 显式推荐请求对象
-        static class ImplicitRecommendationRequest  {
-            private int rank;
-            private int iterations;
-            private double lambda;
-            private int maxPrice;
 
-            public int getRank() {
-                return rank;
-            }
+    // 隐式推荐请求对象
+    static class ImplicitRecommendationRequest {
+        private int rank;
+        private int iterations;
+        private double lambda;
+        private int maxPrice;
 
-            public void setRank(int rank) {
-                this.rank = rank;
-            }
-
-            public int getIterations() {
-                return iterations;
-            }
-
-            public void setIterations(int iterations) {
-                this.iterations = iterations;
-            }
-
-            public double getLambda() {
-                return lambda;
-            }
-
-            public void setLambda(double lambda) {
-                this.lambda = lambda;
-            }
-
-            public int getMaxPrice() {
-                return maxPrice;
-            }
-
-            public void setMaxPrice(int maxPrice) {
-                this.maxPrice = maxPrice;
-            }
+        public int getRank() {
+            return rank;
         }
+
+        public void setRank(int rank) {
+            this.rank = rank;
+        }
+
+        public int getIterations() {
+            return iterations;
+        }
+
+        public void setIterations(int iterations) {
+            this.iterations = iterations;
+        }
+
+        public double getLambda() {
+            return lambda;
+        }
+
+        public void setLambda(double lambda) {
+            this.lambda = lambda;
+        }
+
+        public int getMaxPrice() {
+            return maxPrice;
+        }
+
+        public void setMaxPrice(int maxPrice) {
+            this.maxPrice = maxPrice;
+        }
+    }
+
+
     /**
      * 处理令牌解析错误
      * @param e 异常信息

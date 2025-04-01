@@ -37,7 +37,7 @@
         />
       </el-form-item>
 
-      <el-form-item label="价格预算">
+      <el-form-item label="价格预算(万元)">
         <el-input-number
             v-model.number="params.maxPrice"
             :min="0"
@@ -93,7 +93,7 @@ export default {
       rank: 10,
       iterations: 15,
       lambda: 0.1,
-      maxPrice: 500000 // 默认50万元
+      maxPrice: 50 // 默认50万元
     });
 
     const recommendations = ref({
@@ -122,7 +122,7 @@ export default {
           rank: parseInt(params.rank),
           iterations: parseInt(params.iterations),
           lambda: parseFloat(params.lambda),
-          maxPrice: parseInt(params.maxPrice)
+          maxPrice: parseInt(params.maxPrice)*10000
         };
 
         const response = await axios.post('/api/ai/Ex_cars', requestData, {

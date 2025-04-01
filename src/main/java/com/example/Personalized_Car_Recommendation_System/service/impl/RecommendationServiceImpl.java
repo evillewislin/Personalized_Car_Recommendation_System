@@ -3,8 +3,10 @@ package com.example.Personalized_Car_Recommendation_System.service.impl;
 import com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.dto.ImCarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.dto.CarRecommendationDto;
+import com.example.Personalized_Car_Recommendation_System.entity.CarBrand;
 import com.example.Personalized_Car_Recommendation_System.entity.CarInfo;
-import com.example.Personalized_Car_Recommendation_System.entity.User;
+import com.example.Personalized_Car_Recommendation_System.repository.CarBrandRepository;
+import com.example.Personalized_Car_Recommendation_System.repository.CarInfoRepository;
 import com.example.Personalized_Car_Recommendation_System.repository.CarRepository;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
@@ -18,10 +20,9 @@ import com.example.Personalized_Car_Recommendation_System.repository.Recommendat
 import com.example.Personalized_Car_Recommendation_System.service.RecommendationService;
 import com.example.Personalized_Car_Recommendation_System.util.JwtUtil;
 
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
-import jakarta.validation.Valid;
 
 import org.apache.spark.rdd.RDD;
+import org.apache.spark.storage.StorageLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.ChatClient;
@@ -31,15 +32,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.ResponseEntity;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 
 import scala.Tuple2;
 import scala.reflect.ClassTag;
@@ -47,13 +44,18 @@ import scala.reflect.ClassTag$;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
 public class RecommendationServiceImpl implements RecommendationService {
     private static final Logger logger = LoggerFactory.getLogger(RecommendationServiceImpl.class);
+    @Autowired
+    private RecommendationHistoryRepository recommendationHistoryRepository;
+    @Autowired
+    private CarInfoRepository carInfoRepository;
+    @Autowired
+    private CarBrandRepository carBrandRepository;
     private static final String RECOMMENDATION_SQL = "SELECT ci.car_id, b.name, ci.full_name AS fullName, " +
             "CONCAT(ci.minprice, '-', ci.maxprice) AS priceRange, " +
             "AVG(rh.score) AS avgScore " +
@@ -85,7 +87,6 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private final ChatClient chatClient;
     private final JdbcTemplate jdbcTemplate;
-    private final RecommendationHistoryRepository recommendationHistoryRepository;
     private final CarRepository carRepository;
 
     @Value("${hadoop.home.dir}")
@@ -116,11 +117,14 @@ public class RecommendationServiceImpl implements RecommendationService {
             logger.error("Token 为空，无法解析");
             throw new IllegalArgumentException("Token 为空，无法解析");
         }
-        // 去除可能存在的空格和多余字符
-        token = token.trim().replace("Bearer ", ""); 
+        token = token.trim().replace("Bearer ", "");
         logger.info("开始解析 Token: {}", token);
         try {
             Integer userId = JwtUtil.getUserIdFromToken(token);
+            if (userId == null) {
+                logger.error("Token 解析结果为空，无法获取用户 ID");
+                throw new IllegalArgumentException("Token 解析失败，无法获取用户 ID");
+            }
             logger.debug("成功解析 Token，用户 ID: {}", userId);
             return userId;
         } catch (Exception e) {
@@ -144,7 +148,6 @@ public class RecommendationServiceImpl implements RecommendationService {
             return CompletableFuture.completedFuture(response);
         } catch (Exception e) {
             logger.error("AI 调用异常: {}", e.getMessage(), e);
-            // 可以添加重试机制或者其他处理逻辑
             return CompletableFuture.completedFuture("AI服务异常，请稍后重试");
         }
     }
@@ -163,17 +166,17 @@ public class RecommendationServiceImpl implements RecommendationService {
         int offset = (page - 1) * size;
 
         try {
-            // 修正查询参数传递
             List<Map<String, Object>> resultList = jdbcTemplate.queryForList(RECOMMENDATION_SQL, userId, searchKeyword, searchKeyword, size, offset);
-            List<CarRecommendationDto> carRecommendations = new ArrayList<>();
-            for (Map<String, Object> row : resultList) {
-                Integer carId = (Integer) row.get("car_id");
-                String brandName = (String) row.get("name");
-                String fullName = (String) row.get("fullName");
-                String priceRange = (String) row.get("priceRange");
-                Float avgScore = ((Number) row.get("avgScore")).floatValue();
-                carRecommendations.add(new CarRecommendationDto(carId, brandName, fullName, priceRange, avgScore));
-            }
+            List<CarRecommendationDto> carRecommendations = resultList.stream()
+                    .map(row -> {
+                        Integer carId = (Integer) row.get("car_id");
+                        String brandName = (String) row.get("name");
+                        String fullName = (String) row.get("fullName");
+                        String priceRange = (String) row.get("priceRange");
+                        Float avgScore = ((Number) row.get("avgScore")).floatValue();
+                        return new CarRecommendationDto(carId, brandName, fullName, priceRange, avgScore);
+                    })
+                    .collect(Collectors.toList());
 
             int total = jdbcTemplate.queryForObject(COUNT_SQL, Integer.class, userId, searchKeyword, searchKeyword);
 
@@ -190,19 +193,18 @@ public class RecommendationServiceImpl implements RecommendationService {
     @Override
     public Map<String, Object> getAllRecommendations(int userId) {
         try {
-            // 查询数据
             List<Map<String, Object>> resultList = jdbcTemplate.queryForList(ALL_RECOMMENDATION_SQL, userId);
-            List<CarRecommendationDto> carRecommendations = new ArrayList<>();
-            for (Map<String, Object> row : resultList) {
-                Integer carId = (Integer) row.get("car_id");
-                String brandName = (String) row.get("name");
-                String fullName = (String) row.get("fullName");
-                String priceRange = (String) row.get("priceRange");
-                Float avgScore = ((Number) row.get("avgScore")).floatValue();
-                carRecommendations.add(new CarRecommendationDto(carId, brandName, fullName, priceRange, avgScore));
-            }
+            List<CarRecommendationDto> carRecommendations = resultList.stream()
+                    .map(row -> {
+                        Integer carId = (Integer) row.get("car_id");
+                        String brandName = (String) row.get("name");
+                        String fullName = (String) row.get("fullName");
+                        String priceRange = (String) row.get("priceRange");
+                        Float avgScore = ((Number) row.get("avgScore")).floatValue();
+                        return new CarRecommendationDto(carId, brandName, fullName, priceRange, avgScore);
+                    })
+                    .collect(Collectors.toList());
 
-            // 查询总数
             int total = jdbcTemplate.queryForObject(COUNT_SQL, Integer.class, userId, "%", "%");
 
             Map<String, Object> response = new HashMap<>();
@@ -228,80 +230,64 @@ public class RecommendationServiceImpl implements RecommendationService {
         try {
             sc = createSparkContext();
 
-            // 获取所有用户的推荐历史记录
             List<RecommendationHistory> allHistory = recommendationHistoryRepository.findAll();
-            logger.info("所有用户的推荐历史记录: {}", allHistory);
             if (allHistory.isEmpty()) {
                 logger.info("没有推荐历史记录，返回默认推荐");
                 return getDefaultRecommendations(data);
             }
+            logger.info("所有用户的推荐历史记录: {}", allHistory);
 
-            // 将推荐历史记录转换为 Spark 的 Rating 对象
             JavaRDD<Rating> ratingsRDD = convertToRatingsRDD(sc, allHistory);
-            // 检查 carId 的分布
             Map<Integer, Long> carIdCounts = ratingsRDD.mapToPair(r -> new Tuple2<>(r.product(), 1L))
                     .reduceByKey(Long::sum)
                     .collectAsMap();
             logger.info("CarID 分布: {}", carIdCounts);
 
-            // 划分训练集和测试集，这里使用 80% 作为训练集，20% 作为测试集
             JavaRDD<Rating>[] splits = ratingsRDD.randomSplit(new double[]{0.8, 0.2}, 12345L);
             JavaRDD<Rating> training = splits[0];
             JavaRDD<Rating> test = splits[1];
 
-            // 训练 ALS 模型
             MatrixFactorizationModel model = trainALSModel(training);
             if (model == null) {
                 logger.info("无法训练 ALS 模型，返回默认推荐");
                 return getDefaultRecommendations(data);
             }
 
-            // 模型性能检查：计算均方误差（MSE）
             double mse = calculateMSE(model, test);
             logger.info("模型的均方误差 (MSE): {}", mse);
 
-            // 可以设置一个 MSE 阈值，如果 MSE 过高，认为模型性能不佳，返回默认推荐
             double mseThreshold = 1.0;
             if (mse > mseThreshold) {
                 logger.info("模型性能不佳，MSE 超过阈值，返回默认推荐");
                 return getDefaultRecommendations(data);
             }
 
-            // 获取所有汽车的 ID
             List<Integer> carIds = extractCarIds(data);
-            logger.info("所有汽车的 ID: {}", carIds);
             if (carIds.isEmpty()) {
                 logger.info("没有有效的汽车 ID，返回默认推荐");
                 return getDefaultRecommendations(data);
             }
+            logger.info("所有汽车的 ID: {}", carIds);
 
-            // 创建待预测的 (用户 ID, 物品 ID) 元组列表
             JavaRDD<Tuple2<Object, Object>> inputRDD = createInputRDD(sc, userId, carIds);
             logger.info("预测的 (用户 ID, 物品 ID) 元组列表: {}", inputRDD);
 
-            // 使用模型进行预测
             JavaRDD<Rating> userCarRatingsRDD = predictRatings(model, inputRDD);
             logger.info("模型预测结果: {}", userCarRatingsRDD);
 
-            // 将预测结果转换为列表
             List<Rating> userCarRatings = userCarRatingsRDD.collect();
             logger.info("预测结果列表: {}", userCarRatings);
 
-            // 将列表转换为支持修改操作的 ArrayList
             userCarRatings = new ArrayList<>(userCarRatings);
-
-            // 根据预测评分对汽车进行排序
             userCarRatings.sort((r1, r2) -> Double.compare(r2.rating(), r1.rating()));
             logger.info("排序预测结果: {}", userCarRatings);
 
-            // 根据排序后的评分筛选出对应的汽车信息
             List<Map<String, Object>> recommendedCars = filterRecommendedCars(data, userCarRatings, maxPrice);
-            logger.info("筛选预测结果: {}", recommendedCars);
-
             if (recommendedCars.isEmpty()) {
                 logger.info("没有推荐的汽车，返回默认推荐");
                 return getDefaultRecommendations(data);
             }
+            logger.info("筛选预测结果: {}", recommendedCars);
             logger.info("最终推荐结果: {}", recommendedCars);
 
             return recommendedCars;
@@ -321,17 +307,15 @@ public class RecommendationServiceImpl implements RecommendationService {
         JavaRDD<Rating> predictions = predictRatings(model, userProducts);
 
         JavaRDD<Tuple2<Double, Double>> ratesAndPreds = testData.mapToPair(rating -> new Tuple2<>(new Tuple2<>(rating.user(), rating.product()), rating.rating()))
-               .join(predictions.mapToPair(rating -> new Tuple2<>(new Tuple2<>(rating.user(), rating.product()), rating.rating())))
-               .values();
+                .join(predictions.mapToPair(rating -> new Tuple2<>(new Tuple2<>(rating.user(), rating.product()), rating.rating())))
+                .values();
 
         double mse = ratesAndPreds.mapToDouble(pair -> {
             double err = pair._1() - pair._2();
             return err * err;
         }).mean();
 
-        // 记录 MSE 结果到日志
         logger.info("模型在测试集上计算得到的均方误差 (MSE) 为: {}", mse);
-
         return mse;
     }
 
@@ -352,6 +336,7 @@ public class RecommendationServiceImpl implements RecommendationService {
 
         SparkConf conf = new SparkConf()
                 .setAppName("CarRecommendationALS")
+                // 设置主节点 URL，这里使用 local[*] 表示在本地使用所有可用的核心
                 .setMaster("local[*]")
                 .set("spark.driver.extraJavaOptions", jvmOptions)
                 .set("spark.executor.extraJavaOptions", jvmOptions)
@@ -371,8 +356,8 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private JavaRDD<Rating> convertToRatingsRDD(JavaSparkContext sc, List<RecommendationHistory> allHistory) {
         return sc.parallelize(allHistory.stream()
-               .map(history -> new Rating(history.getUserId(), history.getCarId(), history.getScore()))
-               .collect(Collectors.toList()));
+                .map(history -> new Rating(history.getUserId(), history.getCarId(), history.getScore()))
+                .collect(Collectors.toList()));
     }
 
     private MatrixFactorizationModel trainALSModel(JavaRDD<Rating> ratingsRDD) {
@@ -384,19 +369,17 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     private List<Integer> extractCarIds(List<Map<String, Object>> data) {
-        // 只取前 1000 个汽车 ID，避免数据量过大
         return data.stream()
                 .limit(1000)
                 .map(carMap -> (Integer) carMap.get("carId"))
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
-    
 
     private JavaRDD<Tuple2<Object, Object>> createInputRDD(JavaSparkContext sc, int userId, List<Integer> carIds) {
         List<Tuple2<Integer, Integer>> userCarPairs = carIds.stream()
-               .map(singleCarId -> new Tuple2<>(userId, singleCarId))
-               .collect(Collectors.toList());
+                .map(singleCarId -> new Tuple2<>(userId, singleCarId))
+                .collect(Collectors.toList());
         JavaPairRDD<Integer, Integer> userCarPairsRDD = sc.parallelizePairs(userCarPairs);
         return userCarPairsRDD.map(pair -> new Tuple2<>(pair._1(), pair._2()));
     }
@@ -408,7 +391,6 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     private List<Map<String, Object>> filterRecommendedCars(List<Map<String, Object>> data, List<Rating> userRatings, int userMaxPrice) {
-        // 将 data 转换为以 carId 为键的 Map
         Map<Integer, Map<String, Object>> carMap = data.stream()
                 .filter(car -> car.get("carId") != null)
                 .collect(Collectors.toMap(
@@ -416,7 +398,6 @@ public class RecommendationServiceImpl implements RecommendationService {
                         Function.identity()
                 ));
 
-        // 从数据库查询汽车价格信息（优化为批量查询）
         List<Integer> carIds = userRatings.stream()
                 .map(Rating::product)
                 .toList();
@@ -424,9 +405,8 @@ public class RecommendationServiceImpl implements RecommendationService {
                 carIds.stream().map(String::valueOf).collect(Collectors.joining(",")) + ")";
         List<Map<String, Object>> carInfoList = jdbcTemplate.queryForList(carInfoSql);
 
-        // 筛选符合条件的汽车
         return userRatings.stream()
-                .sorted((r1, r2) -> Double.compare(r2.rating(), r1.rating())) // 按评分降序
+                .sorted((r1, r2) -> Double.compare(r2.rating(), r1.rating()))
                 .map(Rating::product)
                 .distinct()
                 .filter(carId -> {
@@ -453,6 +433,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 })
                 .collect(Collectors.toList());
     }
+
     /**
      * 生成显式推荐
      * @param rank 隐式推荐的秩
@@ -472,243 +453,281 @@ public class RecommendationServiceImpl implements RecommendationService {
             int maxPrice,
             int page,
             int size) {
-        try {
-            // 分页参数校验
-            if (page < 1 || size < 1) {
-                logger.error("无效的分页参数: page={}, size={}", page, size);
-                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
-            }
-
-            // 获取原始数据
-            List<CarInfo> carInfos = carRepository.findAll();
-            if (carInfos.isEmpty()) {
-                logger.warn("没有找到任何汽车信息");
-                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
-            }
-
-            // 价格过滤
-            List<CarDetailsDto> dtos = carInfos.stream()
-                    .filter(carInfo ->
-                            carInfo.getMaxPrice() != null &&
-                                    carInfo.getMaxPrice() <= maxPrice
-                    )
-                    .map(carInfo -> {
-                        String brandName = Optional.ofNullable(carInfo.getBrandId())
-                                .flatMap(brandId -> Optional.ofNullable(carRepository.getBrandNameByBrandId(brandId)))
-                                .orElse("未知品牌");
-                        return new CarDetailsDto(
-                                carInfo.getId(),
-                                brandName,
-                                carInfo.getFullName(),
-                                carInfo.getMinPrice(),
-                                carInfo.getMaxPrice()
-                        );
-                    })
-                    .collect(Collectors.toList());
-
-            // 排序
-            dtos = dtos.stream()
-                    .sorted((dto1, dto2) -> {
-                        Integer price1 = dto1.getMaxPrice() != null ? dto1.getMaxPrice() : 0;
-                        Integer price2 = dto2.getMaxPrice() != null ? dto2.getMaxPrice() : 0;
-                        return price2.compareTo(price1);
-                    })
-                    .collect(Collectors.toList());
-
-            // 分页参数校验
-            int totalElements = dtos.size();
-            int totalPages = (int) Math.ceil((double) totalElements / size);
-
-            // 页码矫正
-            if (page > totalPages) {
-                logger.warn("请求的页码超出范围: page={}, totalPages={}，自动调整为最后一页", page, totalPages);
-                page = totalPages;
-            }
-
-            // 计算分页索引
-            int start = (page - 1) * size;
-            int end = Math.min(start + size, totalElements);
-            if (start >= totalElements) {
-                logger.warn("起始索引超出数据范围: start={}, totalElements={}", start, totalElements);
-                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), totalElements);
-            }
-
-            // 获取分页数据
-            List<CarDetailsDto> subList = dtos.subList(start, end);
-            return new PageImpl<>(subList, PageRequest.of(page - 1, size), totalElements);
-        } catch (Exception e) {
-            logger.error("显式推荐生成失败", e);
+        if (page < 1 || size < 1) {
+            logger.error("无效的分页参数: page={}, size={}", page, size);
             return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
         }
+
+        List<CarInfo> carInfos = carRepository.findAll();
+        if (carInfos.isEmpty()) {
+            logger.warn("没有找到任何汽车信息");
+            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
+        }
+
+        List<CarDetailsDto> dtos = carInfos.stream()
+                .filter(carInfo ->
+                        carInfo.getMaxPrice() != null &&
+                                carInfo.getMaxPrice() <= maxPrice
+                )
+                .map(carInfo -> {
+                    String brandName = Optional.ofNullable(carInfo.getBrandId())
+                            .flatMap(brandId -> Optional.ofNullable(carRepository.getBrandNameByBrandId(brandId)))
+                            .orElse("未知品牌");
+                    return new CarDetailsDto(
+                            carInfo.getId(),
+                            brandName,
+                            carInfo.getFullName(),
+                            carInfo.getMinPrice(),
+                            carInfo.getMaxPrice()
+                    );
+                })
+                .collect(Collectors.toList());
+
+        dtos = dtos.stream()
+                .sorted((dto1, dto2) -> {
+                    Integer price1 = dto1.getMaxPrice() != null ? dto1.getMaxPrice() : 0;
+                    Integer price2 = dto2.getMaxPrice() != null ? dto2.getMaxPrice() : 0;
+                    return price2.compareTo(price1);
+                })
+                .collect(Collectors.toList());
+
+        int totalElements = dtos.size();
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+
+        if (page > totalPages) {
+            logger.warn("请求的页码超出范围: page={}, totalPages={}，自动调整为最后一页", page, totalPages);
+            page = totalPages;
+        }
+
+        int start = (page - 1) * size;
+        int end = Math.min(start + size, totalElements);
+        if (start >= totalElements) {
+            logger.warn("起始索引超出数据范围: start={}, totalElements={}", start, totalElements);
+            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), totalElements);
+        }
+
+        List<CarDetailsDto> subList = dtos.subList(start, end);
+        return new PageImpl<>(subList, PageRequest.of(page - 1, size), totalElements);
     }
- /**
-     * 生成隐式推荐
-     * @param rank 隐式推荐的秩
-     * @param iterations 迭代次数
-     * @param lambda 正则化参数
-     * @param maxPrice 用户输入的最高价格
-     * @param page 页码
-     * @param size 每页数量
-     * @param userId 用户ID
-     * @return 隐式推荐结果
-     */
+
+
+
     @Override
-    @Cacheable(value = "implicitRecommendations", key = "#rank+#iterations+#lambda+#maxPrice+#page+#size+#userId")
-   
+    @Cacheable(value = "implicitRecommendations", key = "#rank+#iterations+#lambda+#maxPrice+#userId")
     public Page<ImCarDetailsDto> generateImplicitRecommendations(
             int rank,
             int iterations,
             double lambda,
-            int maxPrice,
             int page,
             int size,
+            int maxPrice,
             int userId
     ) {
-        JavaSparkContext sc = null;
+        long startTime = System.currentTimeMillis();
+        logger.info("开始生成隐式推荐，用户ID: {}, 最大价格: {}", userId, maxPrice);
+
         try {
-            // 分页参数校验
-            if (page < 1 || size < 1) {
-                logger.error("无效的分页参数: page={}, size={}", page, size);
-                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
-            }
-
-            sc = createSparkContext();
-
-            // 获取所有用户的推荐历史记录
+            // 1. 加载推荐历史数据
+            long loadHistoryStartTime = System.currentTimeMillis();
             List<RecommendationHistory> allHistory = recommendationHistoryRepository.findAll();
+            long loadHistoryEndTime = System.currentTimeMillis();
+            long loadHistoryTime = loadHistoryEndTime - loadHistoryStartTime;
             if (allHistory.isEmpty()) {
-                logger.info("没有推荐历史记录，返回空推荐结果");
-                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
+                logger.warn("没有找到推荐历史记录，返回空推荐结果");
+                return new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             }
-            logger.info("成功获取所有用户的推荐历史记录，记录数量: {}", allHistory.size());
+            logger.info("加载推荐历史数据耗时: {}ms", loadHistoryTime);
 
-            // 将推荐历史记录转换为 Spark 的 Rating 对象
-            JavaRDD<Rating> ratingsRDD = convertToRatingsRDD(sc, allHistory);
-            if (ratingsRDD.isEmpty()) {
-                logger.info("转换后的 Ratings RDD 为空，返回空推荐结果");
-                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
+            // 2. 构建用户-汽车评分矩阵
+            long buildRatingsStartTime = System.currentTimeMillis();
+            Map<Integer, Map<Integer, Double>> userCarRatings = buildUserCarRatings(allHistory);
+            long buildRatingsEndTime = System.currentTimeMillis();
+            long buildRatingsTime = buildRatingsEndTime - buildRatingsStartTime;
+            logger.info("构建用户-汽车评分矩阵耗时: {}ms", buildRatingsTime);
+
+            // 3. 计算用户相似度
+            long similarityStartTime = System.currentTimeMillis();
+            Map<Integer, Double> userSimilarities = calculateUserSimilarities(userId, userCarRatings);
+            long similarityEndTime = System.currentTimeMillis();
+            long similarityTime = similarityEndTime - similarityStartTime;
+            logger.info("计算用户相似度耗时: {}ms", similarityTime);
+
+            // 4. 加载汽车数据
+            long loadCarsStartTime = System.currentTimeMillis();
+            List<CarInfo> carInfos = carInfoRepository.findAll();
+            long loadCarsEndTime = System.currentTimeMillis();
+            long loadCarsTime = loadCarsEndTime - loadCarsStartTime;
+            if (carInfos.isEmpty()) {
+                logger.warn("没有找到汽车信息");
+                return new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             }
-            logger.info("成功将推荐历史记录转换为 Ratings RDD，RDD 数量: {}", ratingsRDD.count());
+            logger.info("加载汽车数据耗时: {}ms", loadCarsTime);
 
-            // 划分训练集和测试集，这里使用 80% 作为训练集，20% 作为测试集
-            JavaRDD<Rating>[] splits = ratingsRDD.randomSplit(new double[]{0.8, 0.2}, 12345L);
-            JavaRDD<Rating> training = splits[0];
-            JavaRDD<Rating> test = splits[1];
-            logger.info("训练集数量: {}, 测试集数量: {}", training.count(), test.count());
+            // 5. 生成推荐
+            long generateRecommendationsStartTime = System.currentTimeMillis();
+            List<ImCarDetailsDto> recommendedCars = generateRecommendations(userId, userSimilarities, carInfos, maxPrice, userCarRatings);
+            long generateRecommendationsEndTime = System.currentTimeMillis();
+            long generateRecommendationsTime = generateRecommendationsEndTime - generateRecommendationsStartTime;
+            logger.info("生成推荐耗时: {}ms", generateRecommendationsTime);
 
-            // 训练 ALS 模型
-            MatrixFactorizationModel model = ALS.train(training.rdd(), rank, iterations, lambda);
-            if (model == null) {
-                logger.info("无法训练 ALS 模型，返回空推荐结果");
-                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
-            }
-            logger.info("成功训练 ALS 模型");
+            // 6. 分页处理结果，固定每页大小为10，页码为第1页
+            long paginateStartTime = System.currentTimeMillis();
+            int fixedPage = 1;
+            int fixedSize = 10;
+            Page<ImCarDetailsDto> result = paginateResults(recommendedCars, fixedPage, fixedSize);
+            long paginateEndTime = System.currentTimeMillis();
+            long paginateTime = paginateEndTime - paginateStartTime;
+            logger.info("分页处理结果耗时: {}ms", paginateTime);
 
-            // 模型性能检查：计算均方误差（MSE）
-            double mse = calculateMSE(model, test);
-            logger.info("模型的均方误差 (MSE): {}", mse);
-
-            // 可以设置一个 MSE 阈值，如果 MSE 过高，认为模型性能不佳，返回空推荐结果
-            double mseThreshold = 1.0;
-            if (mse > mseThreshold) {
-                logger.info("模型性能不佳，MSE 超过阈值，返回空推荐结果");
-                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
-            }
-
-            // 获取所有汽车的 ID
-            List<CarInfo> carInfos = carRepository.findAll();
-            List<Integer> carIds = carInfos.stream()
-                   .map(CarInfo::getId)
-                   .collect(Collectors.toList());
-            if (carIds.isEmpty()) {
-                logger.info("没有有效的汽车 ID，返回空推荐结果");
-                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
-            }
-            logger.info("成功获取所有汽车的 ID，ID 数量: {}", carIds.size());
-
-            // 创建待预测的 (用户 ID, 物品 ID) 元组列表
-            JavaRDD<Tuple2<Object, Object>> inputRDD = createInputRDD(sc, userId, carIds);
-            logger.info("成功创建待预测的 (用户 ID, 物品 ID) 元组列表，列表数量: {}", inputRDD.count());
-
-            // 使用模型进行预测
-            JavaRDD<Rating> userCarRatingsRDD = predictRatings(model, inputRDD);
-            logger.info("成功使用模型进行预测，预测结果数量: {}", userCarRatingsRDD.count());
-
-            // 将预测结果转换为列表
-            List<Rating> userCarRatings = userCarRatingsRDD.collect();
-            logger.info("成功将预测结果转换为列表，列表数量: {}", userCarRatings.size());
-
-            // 根据预测评分对汽车进行排序
-            userCarRatings.sort((r1, r2) -> Double.compare(r2.rating(), r1.rating()));
-            logger.info("成功根据预测评分对汽车进行排序");
-
-            // 根据排序后的评分筛选出对应的汽车信息
-            List<ImCarDetailsDto> recommendedCars = filterImplicitRecommendedCars(carInfos, userCarRatings, userId, maxPrice);
-            logger.info("成功筛选出对应的汽车信息，推荐汽车数量: {}", recommendedCars.size());
-
-            // 分页处理
-            int totalElements = recommendedCars.size();
-            int totalPages = (int) Math.ceil((double) totalElements / size);
-
-            // 页码矫正
-            if (page > totalPages) {
-                logger.warn("请求的页码超出范围: page={}, totalPages={}，自动调整为最后一页", page, totalPages);
-                page = totalPages;
-            }
-
-            // 计算分页索引
-            int start = (page - 1) * size;
-            int end = Math.min(start + size, totalElements);
-            if (start >= totalElements) {
-                logger.warn("起始索引超出数据范围: start={}, totalElements={}", start, totalElements);
-                return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), totalElements);
-            }
-
-            // 获取分页数据
-            List<ImCarDetailsDto> subList = recommendedCars.subList(start, end);
-            return new PageImpl<>(subList, PageRequest.of(page - 1, size), totalElements);
+            long totalTime = System.currentTimeMillis() - startTime;
+            logger.info("隐式推荐生成完成，总耗时: {}ms", totalTime);
+            logger.info("各步骤耗时详情 - 加载历史数据: {}ms, 构建评分矩阵: {}ms, 计算相似度: {}ms, 加载汽车数据: {}ms, 生成推荐: {}ms, 分页处理: {}ms",
+                    loadHistoryTime, buildRatingsTime, similarityTime, loadCarsTime, generateRecommendationsTime, paginateTime);
+            return result;
 
         } catch (Exception e) {
-            logger.error("隐式推荐生成失败", e);
-            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
-        } finally {
-            if (sc != null) {
-                sc.stop();
-            }
+            logger.error("生成隐式推荐时发生错误", e);
+            return new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
         }
     }
 
-    private List<ImCarDetailsDto> filterImplicitRecommendedCars(List<CarInfo> carInfos, List<Rating> userRatings, int userId, int userMaxPrice) {
-        List<ImCarDetailsDto> recommendedCars = new ArrayList<>();
-        Map<Integer, CarInfo> carInfoMap = carInfos.stream()
-               .collect(Collectors.toMap(CarInfo::getId, Function.identity()));
+    // 构建用户-汽车评分矩阵
+    private Map<Integer, Map<Integer, Double>> buildUserCarRatings(List<RecommendationHistory> allHistory) {
+        Map<Integer, Map<Integer, Double>> userCarRatings = new HashMap<>();
+        for (RecommendationHistory history : allHistory) {
+            int userId = history.getUserId();
+            int carId = history.getCarId();
+            double score = history.getScore();
 
-        for (Rating rating : userRatings) {
-            Integer carId = rating.product();
-            CarInfo carInfo = carInfoMap.get(carId);
-            if (carInfo != null && carInfo.getMaxPrice() != null && carInfo.getMaxPrice() <= userMaxPrice) {
-                // 获取品牌名称
-                String brandName = Optional.ofNullable(carInfo.getBrandId())
-                       .flatMap(brandId -> Optional.ofNullable(carRepository.getBrandNameByBrandId(brandId)))
-                       .orElse("未知品牌");
+            userCarRatings.computeIfAbsent(userId, k -> new HashMap<>()).put(carId, score);
+        }
+        return userCarRatings;
+    }
+
+
+    private Map<Integer, Double> calculateUserSimilarities(int targetUserId, Map<Integer, Map<Integer, Double>> userCarRatings) {
+        Map<Integer, Double> userSimilarities = new HashMap<>();
+        Map<Integer, Double> targetUserRatings = userCarRatings.get(targetUserId);
+        if (targetUserRatings == null) {
+            return userSimilarities;
+        }
+
+        for (Map.Entry<Integer, Map<Integer, Double>> entry : userCarRatings.entrySet()) {
+            int otherUserId = entry.getKey();
+            if (otherUserId == targetUserId) {
+                continue;
+            }
+
+            Map<Integer, Double> otherUserRatings = entry.getValue();
+            double similarity = cosineSimilarity(targetUserRatings, otherUserRatings);
+            userSimilarities.put(otherUserId, similarity);
+        }
+        return userSimilarities;
+    }
+
+    // 计算余弦相似度
+    private double cosineSimilarity(Map<Integer, Double> vector1, Map<Integer, Double> vector2) {
+        double dotProduct = 0.0;
+        double normA = 0.0;
+        double normB = 0.0;
+
+        for (Map.Entry<Integer, Double> entry : vector1.entrySet()) {
+            int key = entry.getKey();
+            double value1 = entry.getValue();
+            normA += value1 * value1;
+            if (vector2.containsKey(key)) {
+                double value2 = vector2.get(key);
+                dotProduct += value1 * value2;
+            }
+        }
+
+        for (double value : vector2.values()) {
+            normB += value * value;
+        }
+
+        if (normA == 0 || normB == 0) {
+            return 0.0;
+        }
+
+        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+
+    // 生成推荐结果
+    private List<ImCarDetailsDto> generateRecommendations(
+            int userId,
+            Map<Integer, Double> userSimilarities,
+            List<CarInfo> carInfos,
+            int maxPrice,
+            Map<Integer, Map<Integer, Double>> userCarRatings) {
+
+        Map<Integer, Double> predictedRatings = new HashMap<>();
+        Map<Integer, Integer> ratingCount = new HashMap<>();
+
+        // 根据用户相似度计算预测评分
+        for (Map.Entry<Integer, Double> entry : userSimilarities.entrySet()) {
+            int otherUserId = entry.getKey();
+            double similarity = entry.getValue();
+            Map<Integer, Double> otherUserRatings = userCarRatings.get(otherUserId);
+
+            for (Map.Entry<Integer, Double> carRatingEntry : otherUserRatings.entrySet()) {
+                int carId = carRatingEntry.getKey();
+                double rating = carRatingEntry.getValue();
+
+                predictedRatings.compute(carId, (k, v) -> (v == null ? 0.0 : v) + similarity * rating);
+                ratingCount.compute(carId, (k, v) -> (v == null ? 0 : v) + 1);
+            }
+        }
+
+        // 计算最终预测评分
+        for (Map.Entry<Integer, Integer> countEntry : ratingCount.entrySet()) {
+            int carId = countEntry.getKey();
+            int count = countEntry.getValue();
+            predictedRatings.put(carId, predictedRatings.get(carId) / count);
+        }
+
+        // 筛选符合价格条件的汽车
+        List<ImCarDetailsDto> recommendedCars = new ArrayList<>();
+        for (CarInfo carInfo : carInfos) {
+            if (carInfo.getMaxPrice() != null && carInfo.getMaxPrice() <= maxPrice) {
+                int carId = carInfo.getId();
+                double predictedRating = predictedRatings.getOrDefault(carId, 0.0);
+
+                Optional<CarBrand> carBrandOptional = carBrandRepository.findById(carInfo.getBrandId());
+                String brandName = carBrandOptional.map(CarBrand::getName).orElse("未知品牌");
+                String priceRange = carInfo.getMinPrice() + " - " + carInfo.getMaxPrice();
 
                 recommendedCars.add(new ImCarDetailsDto(
                         carId,
-                        userId,
                         brandName,
                         carInfo.getFullName(),
-                        carInfo.getMinPrice(),
-                        carInfo.getMaxPrice(),
-                        (float) rating.rating(),
-                        0
+                        priceRange,
+                        predictedRating
                 ));
             }
         }
+
+        // 按评分降序排序
+        recommendedCars.sort((c1, c2) -> Double.compare(c2.getPredictedRating(), c1.getPredictedRating()));
+
+        logger.info("生成 {} 条符合条件的推荐", recommendedCars.size());
         return recommendedCars;
+    }
+
+    // 分页处理结果
+    private Page<ImCarDetailsDto> paginateResults(List<ImCarDetailsDto> recommendedCars, int page, int size) {
+        int start = (page - 1) * size;
+        if (start >= recommendedCars.size()) {
+            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), recommendedCars.size());
+        }
+
+        int end = Math.min(start + size, recommendedCars.size());
+        List<ImCarDetailsDto> pagedResults = recommendedCars.subList(start, end);
+
+        return new PageImpl<>(pagedResults, PageRequest.of(page - 1, size), recommendedCars.size());
     }
 
     // 新用户默认推荐逻辑
     private List<Map<String, Object>> getDefaultRecommendations(List<Map<String, Object>> data) {
         return sortByPopularity(data);
     }
-}    
+}

@@ -23,7 +23,6 @@ public interface RecommendationService {
 
     @Cacheable(value = "recommendations", key = "#rank+#iterations+#lambda+#page+#size")
     Page<CarDetailsDto> generateExplicitRecommendations(int rank, int iterations, double lambda, int maxPrice,int page, int size);
-
     @Cacheable(value = "implicitRecommendations", key = "#rank+#iterations+#lambda+#maxPrice+#page+#size+#userId")
     Page<ImCarDetailsDto> generateImplicitRecommendations(
             int rank,

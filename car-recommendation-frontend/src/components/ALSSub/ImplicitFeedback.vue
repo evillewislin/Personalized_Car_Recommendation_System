@@ -1,13 +1,5 @@
 <template>
   <div class="implicit-feedback">
-    <el-loading
-        :target="loadingTarget"
-        :text="loadingText"
-        :spinner="loadingSpinner"
-        :background="loadingBackground"
-        v-show="isLoading"
-    ></el-loading>
-
     <h3>隐式反馈参数设置</h3>
     <el-form :model="params">
       <el-form-item label="特征维度">
@@ -37,13 +29,13 @@
         />
       </el-form-item>
 
-      <el-form-item label="价格预算">
+      <el-form-item label="价格预算(万元)">
         <el-input-number
-          v-model.number="params.maxPrice"
-          :min="0"
-          :step="1"
-          suffix="万元"
-          size="small"
+            v-model.number="params.maxPrice"
+            :min="0"
+            :step="1"
+            suffix="万元"
+            size="small"
         />
       </el-form-item>
     </el-form>
@@ -61,28 +53,21 @@
       {{ error }}
     </div>
 
-    <div class="result-container" v-if="recommendations.content.length > 0">
+    <div class="result-container" v-if="recommendations.length > 0">
       <h4>推荐结果</h4>
       <el-table
-          :data="recommendations.content"
-          :empty-text="暂无数据"
+          :data="recommendations"
+          empty-text="暂无数据"
       >
-        <el-table-column label="用户 ID" prop="userId" />
-        <el-table-column label="物品 ID" prop="carId" />
-        <el-table-column label="评分" prop="score" />
-        <el-table-column label="交互次数" prop="interactions" />
+        <el-table-column prop="brandName" label="品牌" width="120" />
+        <el-table-column prop="fullName" label="车型" />
+        <el-table-column prop="priceRange" label="价格区间" width="180" />
+        <el-table-column prop="predictedRating" label="预测评分" width="120">
+          <template #default="{row}">
+            {{ row.predictedRating.toFixed(2) }}
+          </template>
+        </el-table-column>
       </el-table>
-    </div>
-
-    <div class="pagination-container" v-if="recommendations.total > 0">
-      <el-button
-          type="primary"
-          @click="handleNextPage"
-          :loading="nextPageLoading"
-          :disabled="!hasNextPage"
-      >
-        加载更多
-      </el-button>
     </div>
   </div>
 </template>
@@ -97,104 +82,45 @@ export default {
       rank: 10,
       iterations: 15,
       lambda: 0.1,
-      maxPrice: 500000
+      maxPrice: 50 // 单位改为万元，与后端一致
     });
 
-    const recommendations = ref({
-      content: [],
-      total: 0,
-      page: 1,
-      size: 10,
-      totalPages: 0
-    });
+    const recommendations = ref([]);
     const error = ref('');
     const isLoading = ref(false);
-    const nextPageLoading = ref(false);
-    const hasNextPage = ref(false);
-
-    const loadingTarget = ref(null);
-    const loadingText = ref('正在生成推荐...');
-    const loadingSpinner = ref('el-icon-loading');
-    const loadingBackground = ref('rgba(0, 0, 0, 0.7)');
 
     const handleRecommend = async () => {
       isLoading.value = true;
       error.value = '';
-      try {
-        const requestData = {
-          rank: parseInt(params.rank),
-          iterations: parseInt(params.iterations),
-          lambda: parseFloat(params.lambda),
-          maxPrice: parseInt(params.maxPrice) 
-        };
+      recommendations.value = [];
 
-        const response = await axios.post('/api/ai/Im_cars', requestData, {
+      try {
+        const response = await axios.post('/api/ai/Im_cars', {
+          rank: params.rank,
+          iterations: params.iterations,
+          lambda: params.lambda,
+          maxPrice: params.maxPrice * 10000  // 转换为元
+        }, {
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}` // 添加 token
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
           },
           params: {
             page: 1,
-            size: recommendations.value.size
+            size: 10
           }
         });
 
-        recommendations.value.content = response.data.content;
-        recommendations.value.total = response.data.total;
-        recommendations.value.totalPages = response.data.totalPages;
-        recommendations.value.page = 2;
-        hasNextPage.value = recommendations.value.page <= recommendations.value.totalPages;
+        // 假设后端返回的结果是分页对象，取content部分
+        if (response.data && response.data.content) {
+          recommendations.value = response.data.content.slice(0, 10);
+        } else {
+          recommendations.value = response.data.slice(0, 10);
+        }
       } catch (err) {
         error.value = err.response?.data?.message || '推荐失败，请重试';
-        if (err.response?.status === 400) {
-          error.value = '请求参数错误，请检查输入';
-        } else if (err.response?.status === 500) {
-          error.value = '服务器内部错误，请稍后重试';
-        }
+        console.error('推荐请求失败:', err);
       } finally {
         isLoading.value = false;
-      }
-    };
-
-    const handleNextPage = async () => {
-      if (!hasNextPage.value || nextPageLoading.value) return;
-      nextPageLoading.value = true;
-      try {
-        const requestData = {
-          rank: parseInt(params.rank),
-          iterations: parseInt(params.iterations),
-          lambda: parseFloat(params.lambda),
-          maxPrice: parseInt(params.maxPrice) 
-        };
-
-        const response = await axios.post('/api/ai/Im_cars', requestData, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}` // 添加 token
-          },
-          params: {
-            page: recommendations.value.page,
-            size: recommendations.value.size
-          }
-        });
-
-        recommendations.value.content = [
-          ...recommendations.value.content,
-          ...response.data.content
-        ];
-        recommendations.value.total = response.data.total;
-        recommendations.value.totalPages = response.data.totalPages;
-        recommendations.value.page = response.data.page + 1;
-        hasNextPage.value = recommendations.value.page < recommendations.value.totalPages;
-      } catch (err) {
-        error.value = err.response?.data?.message || '推荐失败，请重试';
-        if (err.response?.status === 400) {
-          error.value = '请求参数错误，请检查输入';
-        } else if (err.response?.status === 500) {
-          error.value = '服务器内部错误，请稍后重试';
-        }
-      } finally {
-        nextPageLoading.value = false;
       }
     };
 
@@ -203,14 +129,7 @@ export default {
       recommendations,
       error,
       isLoading,
-      nextPageLoading,
-      hasNextPage,
-      handleRecommend,
-      handleNextPage,
-      loadingTarget,
-      loadingText,
-      loadingSpinner,
-      loadingBackground
+      handleRecommend
     };
   }
 };
@@ -218,12 +137,9 @@ export default {
 
 <style scoped>
 .implicit-feedback {
-  position: relative;
   padding: 20px;
-}
-
-.el-loading-mask {
-  z-index: 9999;
+  max-width: 1000px;
+  margin: 0 auto;
 }
 
 .el-form-item {
@@ -238,33 +154,13 @@ export default {
   margin-top: 30px;
 }
 
-.car-card {
-  margin: 10px 0;
-  padding: 15px;
-}
-
-.car-name {
-  font-size: 1.2em;
-  font-weight: bold;
-  margin-bottom: 5px;
-}
-
-.car-price {
-  color: #666;
-}
-
-.car-description {
-  color: #666;
-  margin-top: 10px;
-}
-
 .error-message {
   color: #f56c6c;
   margin: 10px 0;
 }
 
-.pagination-container {
+.el-table {
   margin-top: 20px;
-  text-align: center;
+  width: 100%;
 }
-</style>    
+</style>
