@@ -96,7 +96,7 @@ public class RecommendationController {
     }
 
     /**
-     * 新增：ALS 算法接口
+     * 混合ALS 算法接口
      * @param token 用户的授权令牌
      * @param data 调用 /api/ai/recommend 接口返回的数据
      * @param maxPrice 用户输入的最高价格

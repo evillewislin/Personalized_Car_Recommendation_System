@@ -1,6 +1,5 @@
 <template>
   <div class="implicit-feedback">
-    <h3>隐式反馈参数设置</h3>
     <el-form :model="params">
       <el-form-item label="特征维度">
         <el-input-number
@@ -62,10 +61,6 @@
         <el-table-column prop="brandName" label="品牌" width="120" />
         <el-table-column prop="fullName" label="车型" />
         <el-table-column prop="priceRange" label="价格区间" width="180" >
-          <template #default="{row}">
-            <!-- 添加空值检查 -->
-            {{ row.predictedRating ? row.predictedRating.toFixed(2) : 'N/A' }}
-          </template>
         </el-table-column>
       </el-table>
     </div>
@@ -109,13 +104,19 @@ export default {
             size: 10
           }
         });
+        console.log("数据",response)
+        // 处理返回数据
+        let rawData = response.data.content || response.data;
+        recommendations.value = rawData.slice(0, 10).map(item => {
+          return {
+            ...item,
+            // 将价格从元转换为万元，并保留2位小数
+            priceRange: item.minPrice === item.maxPrice
+                ? `${(item.minPrice / 10000).toFixed(2)}万元`
+                : `${(item.minPrice / 10000).toFixed(2)}-${(item.maxPrice / 10000).toFixed(2)}万元`
+          };
+        });
 
-        // 假设后端返回的结果是分页对象，取content部分
-        if (response.data && response.data.content) {
-          recommendations.value = response.data.content.slice(0, 10);
-        } else {
-          recommendations.value = response.data.slice(0, 10);
-        }
       } catch (err) {
         error.value = err.response?.data?.message || '推荐失败，请重试';
         console.error('推荐请求失败:', err);

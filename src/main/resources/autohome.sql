@@ -10,7 +10,7 @@ CREATE TABLE `car_brand` (
   `name` varchar(255) NOT NULL,
   `img` varchar(255) NOT NULL,
   `firstletter` char(3) NOT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`brand_id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=400 DEFAULT CHARSET=utf8 COMMENT='品牌';
 
 INSERT INTO `car_brand` (`brand_id`, `name`, `img`, `firstletter`) VALUES
@@ -269,10 +269,10 @@ CREATE TABLE `car_info` (
   `minprice` int(10) NOT NULL COMMENT '最低价',
   `maxprice` int(10) NOT NULL COMMENT '最高价',
   `year` varchar(255) NOT NULL COMMENT '年份',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`car_id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=1009621 DEFAULT CHARSET=utf8;
 
-INSERT INTO `car_info` (`id`, `brand_id`, `group_id`, `series_id`, `full_name`, `name`, `brand_name`, `group_name`, `series_name`, `state`, `minprice`, `maxprice`, `year`) VALUES
+INSERT INTO `car_info` (`car_id`, `brand_id`, `group_id`, `series_id`, `full_name`, `name`, `brand_name`, `group_name`, `series_name`, `state`, `minprice`, `maxprice`, `year`) VALUES
 (2247,	77,	4,	6,	'长城赛弗2006款 2.2L 两驱豪华型',	'2006款 2.2L 两驱豪华型',	'长城',	'长城汽车',	'赛弗',	40,	77800,	77800,	'2006'),
 (2248,	77,	4,	6,	'长城赛弗2006款 2.2L 两驱超豪华型',	'2006款 2.2L 两驱超豪华型',	'长城',	'长城汽车',	'赛弗',	40,	81800,	81800,	'2006'),
 (2249,	77,	4,	6,	'长城赛弗2006款 2.2L 两驱顶级型',	'2006款 2.2L 两驱顶级型',	'长城',	'长城汽车',	'赛弗',	40,	88600,	88600,	'2006'),

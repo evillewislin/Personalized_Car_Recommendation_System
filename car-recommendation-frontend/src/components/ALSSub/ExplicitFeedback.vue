@@ -8,7 +8,6 @@
         v-show="isLoading"
     ></el-loading>
 
-    <h3>显式反馈参数设置</h3>
     <el-form :model="params">
       <el-form-item label="特征维度">
         <el-input-number
@@ -86,6 +85,7 @@
 <script>
 import {ref, reactive} from 'vue';
 import axios from 'axios';
+import {ElMessage} from "element-plus";
 
 export default {
   setup() {

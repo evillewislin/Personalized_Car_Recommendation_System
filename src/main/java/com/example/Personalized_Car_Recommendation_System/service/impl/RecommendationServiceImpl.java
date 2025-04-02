@@ -5,9 +5,8 @@ import com.example.Personalized_Car_Recommendation_System.dto.ImCarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.dto.CarRecommendationDto;
 import com.example.Personalized_Car_Recommendation_System.entity.CarBrand;
 import com.example.Personalized_Car_Recommendation_System.entity.CarInfo;
-import com.example.Personalized_Car_Recommendation_System.repository.CarBrandRepository;
-import com.example.Personalized_Car_Recommendation_System.repository.CarInfoRepository;
-import com.example.Personalized_Car_Recommendation_System.repository.CarRepository;
+import com.example.Personalized_Car_Recommendation_System.entity.DefaultRecommendation;
+import com.example.Personalized_Car_Recommendation_System.repository.*;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -16,7 +15,6 @@ import org.apache.spark.mllib.recommendation.ALS;
 import org.apache.spark.mllib.recommendation.MatrixFactorizationModel;
 import org.apache.spark.mllib.recommendation.Rating;
 import com.example.Personalized_Car_Recommendation_System.entity.RecommendationHistory;
-import com.example.Personalized_Car_Recommendation_System.repository.RecommendationHistoryRepository;
 import com.example.Personalized_Car_Recommendation_System.service.RecommendationService;
 import com.example.Personalized_Car_Recommendation_System.util.JwtUtil;
 
@@ -56,6 +54,8 @@ public class RecommendationServiceImpl implements RecommendationService {
     private CarInfoRepository carInfoRepository;
     @Autowired
     private CarBrandRepository carBrandRepository;
+    @Autowired
+    private DefaultRecommendationRepository defaultRecommendationRepository;
     private static final String RECOMMENDATION_SQL = "SELECT ci.car_id, b.name, ci.full_name AS fullName, " +
             "CONCAT(ci.minprice, '-', ci.maxprice) AS priceRange, " +
             "AVG(rh.score) AS avgScore " +
@@ -218,7 +218,7 @@ public class RecommendationServiceImpl implements RecommendationService {
     }
 
     /**
-     * 新增：基于历史记录的推荐方法
+     * 混合推荐方法
      * @param userId 用户ID
      * @param data 调用 /api/ai/recommend 接口返回的数据
      * @param maxPrice 用户输入的最高价格
@@ -231,9 +231,10 @@ public class RecommendationServiceImpl implements RecommendationService {
             sc = createSparkContext();
 
             List<RecommendationHistory> allHistory = recommendationHistoryRepository.findAll();
+            logger.info("推荐历史记录{}",allHistory);
             if (allHistory.isEmpty()) {
-                logger.info("没有推荐历史记录，返回默认推荐");
-                return getDefaultRecommendations(data);
+                logger.info("没有推荐历史记录，返回默认推荐{}",getDefaultRecommendations());
+                return getDefaultRecommendations();
             }
             logger.info("所有用户的推荐历史记录: {}", allHistory);
 
@@ -250,7 +251,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             MatrixFactorizationModel model = trainALSModel(training);
             if (model == null) {
                 logger.info("无法训练 ALS 模型，返回默认推荐");
-                return getDefaultRecommendations(data);
+                return getDefaultRecommendations();
             }
 
             double mse = calculateMSE(model, test);
@@ -259,13 +260,13 @@ public class RecommendationServiceImpl implements RecommendationService {
             double mseThreshold = 1.0;
             if (mse > mseThreshold) {
                 logger.info("模型性能不佳，MSE 超过阈值，返回默认推荐");
-                return getDefaultRecommendations(data);
+                return getDefaultRecommendations();
             }
 
             List<Integer> carIds = extractCarIds(data);
             if (carIds.isEmpty()) {
                 logger.info("没有有效的汽车 ID，返回默认推荐");
-                return getDefaultRecommendations(data);
+                return getDefaultRecommendations();
             }
             logger.info("所有汽车的 ID: {}", carIds);
 
@@ -285,7 +286,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             List<Map<String, Object>> recommendedCars = filterRecommendedCars(data, userCarRatings, maxPrice);
             if (recommendedCars.isEmpty()) {
                 logger.info("没有推荐的汽车，返回默认推荐");
-                return getDefaultRecommendations(data);
+                return getDefaultRecommendations();
             }
             logger.info("筛选预测结果: {}", recommendedCars);
             logger.info("最终推荐结果: {}", recommendedCars);
@@ -293,7 +294,7 @@ public class RecommendationServiceImpl implements RecommendationService {
             return recommendedCars;
         } catch (Exception e) {
             logger.error("ALS 推荐过程中出现异常: {}", e.getMessage(), e);
-            return getDefaultRecommendations(data);
+            return getDefaultRecommendations();
         } finally {
             if (sc != null) {
                 sc.stop();
@@ -321,8 +322,6 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private JavaSparkContext createSparkContext() {
         System.setProperty("hadoop.home.dir", hadoopHomeDir);
-
-        // 核心修复点：扩展模块开放配置
         String jvmOptions = String.join(" ",
                 "--add-opens=java.base/java.util=ALL-UNNAMED",
                 "--add-opens=java.base/java.lang=ALL-UNNAMED",
@@ -336,7 +335,6 @@ public class RecommendationServiceImpl implements RecommendationService {
 
         SparkConf conf = new SparkConf()
                 .setAppName("CarRecommendationALS")
-                // 设置主节点 URL，这里使用 local[*] 表示在本地使用所有可用的核心
                 .setMaster("local[*]")
                 .set("spark.driver.extraJavaOptions", jvmOptions)
                 .set("spark.executor.extraJavaOptions", jvmOptions)
@@ -512,84 +510,104 @@ public class RecommendationServiceImpl implements RecommendationService {
 
 
 
-    @Override
-    @Cacheable(value = "implicitRecommendations", key = "#rank+#iterations+#lambda+#maxPrice+#userId")
-    public Page<ImCarDetailsDto> generateImplicitRecommendations(
-            int rank,
-            int iterations,
-            double lambda,
-            int page,
-            int size,
-            int maxPrice,
-            int userId
-    ) {
-        long startTime = System.currentTimeMillis();
-        logger.info("开始生成隐式推荐，用户ID: {}, 最大价格: {}", userId, maxPrice);
+        @Override
+        @Cacheable(value = "implicitRecommendations", key = "#rank+#iterations+#lambda+#maxPrice+#userId")
+        public Page<ImCarDetailsDto> generateImplicitRecommendations(
+                int rank,
+                int iterations,
+                double lambda,
+                int page,
+                int size,
+                int maxPrice,
+                int userId
+        ) {
+            long startTime = System.currentTimeMillis();
+            logger.info("开始生成隐式推荐，用户ID: {}, 最大价格: {}", userId, maxPrice);
 
-        try {
-            // 1. 加载推荐历史数据
-            long loadHistoryStartTime = System.currentTimeMillis();
-            List<RecommendationHistory> allHistory = recommendationHistoryRepository.findAll();
-            long loadHistoryEndTime = System.currentTimeMillis();
-            long loadHistoryTime = loadHistoryEndTime - loadHistoryStartTime;
-            if (allHistory.isEmpty()) {
-                logger.warn("没有找到推荐历史记录，返回空推荐结果");
+            try {
+                // 1. 加载推荐历史数据
+                long loadHistoryStartTime = System.currentTimeMillis();
+                List<RecommendationHistory> allHistory = recommendationHistoryRepository.findAll();
+                long loadHistoryEndTime = System.currentTimeMillis();
+                long loadHistoryTime = loadHistoryEndTime - loadHistoryStartTime;
+                if (allHistory.isEmpty()) {
+                    logger.warn("没有找到推荐历史记录，返回空推荐结果");
+                    List<DefaultRecommendation> defaultRecs = defaultRecommendationRepository.findAll();
+                    List<ImCarDetailsDto> defaultDtos = convertDefaultToDto(defaultRecs);
+                   logger.info("数据{}",defaultDtos);
+                    return paginateResults(defaultDtos, page, size);
+                }
+                logger.info("加载推荐历史数据耗时: {}ms", loadHistoryTime);
+
+                // 2. 构建用户-汽车评分矩阵
+                long buildRatingsStartTime = System.currentTimeMillis();
+                Map<Integer, Map<Integer, Double>> userCarRatings = buildUserCarRatings(allHistory);
+                long buildRatingsEndTime = System.currentTimeMillis();
+                long buildRatingsTime = buildRatingsEndTime - buildRatingsStartTime;
+                logger.info("构建用户-汽车评分矩阵耗时: {}ms", buildRatingsTime);
+
+                // 3. 计算用户相似度
+                long similarityStartTime = System.currentTimeMillis();
+                Map<Integer, Double> userSimilarities = calculateUserSimilarities(userId, userCarRatings);
+                long similarityEndTime = System.currentTimeMillis();
+                long similarityTime = similarityEndTime - similarityStartTime;
+                logger.info("计算用户相似度耗时: {}ms", similarityTime);
+
+                // 4. 加载汽车数据
+                long loadCarsStartTime = System.currentTimeMillis();
+                List<CarInfo> carInfos = carInfoRepository.findAll();
+                long loadCarsEndTime = System.currentTimeMillis();
+                long loadCarsTime = loadCarsEndTime - loadCarsStartTime;
+                if (carInfos.isEmpty()) {
+                    logger.warn("没有找到汽车信息");
+                    return new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+                }
+                logger.info("加载汽车数据耗时: {}ms", loadCarsTime);
+
+                // 5. 生成推荐
+                long generateRecommendationsStartTime = System.currentTimeMillis();
+                List<ImCarDetailsDto> recommendedCars = generateRecommendations(userId, userSimilarities, carInfos, maxPrice, userCarRatings);
+                long generateRecommendationsEndTime = System.currentTimeMillis();
+                long generateRecommendationsTime = generateRecommendationsEndTime - generateRecommendationsStartTime;
+                logger.info("生成推荐耗时: {}ms", generateRecommendationsTime);
+
+                // 6. 分页处理结果，固定每页大小为10，页码为第1页
+                long paginateStartTime = System.currentTimeMillis();
+                int fixedPage = 1;
+                int fixedSize = 10;
+                Page<ImCarDetailsDto> result = paginateResults(recommendedCars, fixedPage, fixedSize);
+                long paginateEndTime = System.currentTimeMillis();
+                long paginateTime = paginateEndTime - paginateStartTime;
+                logger.info("分页处理结果耗时: {}ms", paginateTime);
+
+                long totalTime = System.currentTimeMillis() - startTime;
+                logger.info("隐式推荐生成完成，总耗时: {}ms", totalTime);
+                logger.info("各步骤耗时详情 - 加载历史数据: {}ms, 构建评分矩阵: {}ms, 计算相似度: {}ms, 加载汽车数据: {}ms, 生成推荐: {}ms, 分页处理: {}ms",
+                        loadHistoryTime, buildRatingsTime, similarityTime, loadCarsTime, generateRecommendationsTime, paginateTime);
+                return result;
+
+            } catch (Exception e) {
+                logger.error("生成隐式推荐时发生错误", e);
                 return new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
             }
-            logger.info("加载推荐历史数据耗时: {}ms", loadHistoryTime);
-
-            // 2. 构建用户-汽车评分矩阵
-            long buildRatingsStartTime = System.currentTimeMillis();
-            Map<Integer, Map<Integer, Double>> userCarRatings = buildUserCarRatings(allHistory);
-            long buildRatingsEndTime = System.currentTimeMillis();
-            long buildRatingsTime = buildRatingsEndTime - buildRatingsStartTime;
-            logger.info("构建用户-汽车评分矩阵耗时: {}ms", buildRatingsTime);
-
-            // 3. 计算用户相似度
-            long similarityStartTime = System.currentTimeMillis();
-            Map<Integer, Double> userSimilarities = calculateUserSimilarities(userId, userCarRatings);
-            long similarityEndTime = System.currentTimeMillis();
-            long similarityTime = similarityEndTime - similarityStartTime;
-            logger.info("计算用户相似度耗时: {}ms", similarityTime);
-
-            // 4. 加载汽车数据
-            long loadCarsStartTime = System.currentTimeMillis();
-            List<CarInfo> carInfos = carInfoRepository.findAll();
-            long loadCarsEndTime = System.currentTimeMillis();
-            long loadCarsTime = loadCarsEndTime - loadCarsStartTime;
-            if (carInfos.isEmpty()) {
-                logger.warn("没有找到汽车信息");
-                return new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
-            }
-            logger.info("加载汽车数据耗时: {}ms", loadCarsTime);
-
-            // 5. 生成推荐
-            long generateRecommendationsStartTime = System.currentTimeMillis();
-            List<ImCarDetailsDto> recommendedCars = generateRecommendations(userId, userSimilarities, carInfos, maxPrice, userCarRatings);
-            long generateRecommendationsEndTime = System.currentTimeMillis();
-            long generateRecommendationsTime = generateRecommendationsEndTime - generateRecommendationsStartTime;
-            logger.info("生成推荐耗时: {}ms", generateRecommendationsTime);
-
-            // 6. 分页处理结果，固定每页大小为10，页码为第1页
-            long paginateStartTime = System.currentTimeMillis();
-            int fixedPage = 1;
-            int fixedSize = 10;
-            Page<ImCarDetailsDto> result = paginateResults(recommendedCars, fixedPage, fixedSize);
-            long paginateEndTime = System.currentTimeMillis();
-            long paginateTime = paginateEndTime - paginateStartTime;
-            logger.info("分页处理结果耗时: {}ms", paginateTime);
-
-            long totalTime = System.currentTimeMillis() - startTime;
-            logger.info("隐式推荐生成完成，总耗时: {}ms", totalTime);
-            logger.info("各步骤耗时详情 - 加载历史数据: {}ms, 构建评分矩阵: {}ms, 计算相似度: {}ms, 加载汽车数据: {}ms, 生成推荐: {}ms, 分页处理: {}ms",
-                    loadHistoryTime, buildRatingsTime, similarityTime, loadCarsTime, generateRecommendationsTime, paginateTime);
-            return result;
-
-        } catch (Exception e) {
-            logger.error("生成隐式推荐时发生错误", e);
-            return new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
         }
+    // 转换默认推荐数据为DTO
+    private List<ImCarDetailsDto> convertDefaultToDto(List<DefaultRecommendation> defaultRecs) {
+        return defaultRecs.stream().map(dr -> {
+            // 解析价格字符串为整数（假设价格格式为"100000"或"100,000"）
+            Integer price = dr.getPrice();
+
+            // 使用带参数的构造函数
+            return new ImCarDetailsDto(
+                    dr.getCarId(),
+                    dr.getBrandName(),
+                    dr.getFullName(),
+                    price,  // minPrice
+                    price   // maxPrice (使用相同值，或根据业务逻辑调整)
+            );
+        }).collect(Collectors.toList());
     }
+
 
     // 构建用户-汽车评分矩阵
     private Map<Integer, Map<Integer, Double>> buildUserCarRatings(List<RecommendationHistory> allHistory) {
@@ -731,8 +749,16 @@ public class RecommendationServiceImpl implements RecommendationService {
         return new PageImpl<>(pagedResults, PageRequest.of(page - 1, size), recommendedCars.size());
     }
 
-    // 新用户默认推荐逻辑
-    private List<Map<String, Object>> getDefaultRecommendations(List<Map<String, Object>> data) {
-        return sortByPopularity(data);
+    private List<Map<String, Object>> getDefaultRecommendations() {
+        return defaultRecommendationRepository.findAll().stream()
+                .map(recommendation -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("carId", recommendation.getCarId());
+                    map.put("brandName", recommendation.getBrandName());
+                    map.put("fullName", recommendation.getFullName());
+                    map.put("price", recommendation.getPrice());
+                    return map;
+                })
+                .collect(Collectors.toList());
     }
 }

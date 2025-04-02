@@ -17,6 +17,17 @@ public class ImCarDetailsDto implements Serializable {
         this.maxPrice = maxPrice;
     }
 
+    @Override
+    public String toString() {
+        return "ImCarDetailsDto{" +
+                "carId=" + carId +
+                ", brandName='" + brandName + '\'' +
+                ", fullName='" + fullName + '\'' +
+                ", minPrice=" + minPrice +
+                ", maxPrice=" + maxPrice +
+                '}';
+    }
+
     // Getters and Setters
     public Integer getCarId() {
         return carId;
