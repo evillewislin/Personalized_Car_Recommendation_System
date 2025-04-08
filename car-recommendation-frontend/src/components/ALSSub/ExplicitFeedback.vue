@@ -61,7 +61,7 @@
     </div>
 
     <div class="result-container" v-if="recommendations.content.length > 0">
-      <h4>推荐结果</h4>
+      <h4>结合您的个人信息和偏好，推荐如下车型</h4>
       <el-card v-for="car in recommendations.content" :key="car.carId" class="car-card">
         <div class="car-name">{{ car.name }}</div>
         <div class="car-price">价格区间：{{ car.minPrice }} - {{ car.maxPrice }} 万元</div>
@@ -142,6 +142,7 @@ export default {
         hasNextPage.value = recommendations.value.page <= recommendations.value.totalPages;
       } catch (err) {
         error.value = err.response?.data?.message || '推荐失败，请重试';
+        ElMessage.error('推荐失败，请重试');
         if (err.response?.status === 400) {
           error.value = '请求参数错误，请检查输入';
         } else if (err.response?.status === 500) {
@@ -183,6 +184,7 @@ export default {
         hasNextPage.value = recommendations.value.page <= recommendations.value.totalPages;
       } catch (err) {
         error.value = err.response?.data?.message || '推荐失败，请重试';
+        ElMessage.error('推荐失败，请重试');
         if (err.response?.status === 400) {
           error.value = '请求参数错误，请检查输入';
         } else if (err.response?.status === 500) {

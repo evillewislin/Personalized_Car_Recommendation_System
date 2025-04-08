@@ -53,7 +53,7 @@
     </div>
 
     <div class="result-container" v-if="recommendations.length > 0">
-      <h4>推荐结果</h4>
+      <h4>结合您的收藏和偏好，推荐如下车型</h4>
       <el-table
           :data="recommendations"
           empty-text="暂无数据"
@@ -70,6 +70,7 @@
 <script>
 import { ref, reactive } from 'vue';
 import axios from 'axios';
+import {ElMessage} from "element-plus";
 
 export default {
   setup() {
@@ -119,6 +120,7 @@ export default {
 
       } catch (err) {
         error.value = err.response?.data?.message || '推荐失败，请重试';
+        ElMessage.info('推荐失败，请重试');
         console.error('推荐请求失败:', err);
       } finally {
         isLoading.value = false;

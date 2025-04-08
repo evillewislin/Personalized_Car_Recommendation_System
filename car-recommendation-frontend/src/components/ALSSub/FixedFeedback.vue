@@ -27,7 +27,7 @@
 
     <!-- 添加 key 强制表格重新渲染 -->
     <div v-if="recommendations.length > 0 && !isLoading" class="result-container">
-      <h4>推荐结果</h4>
+      <h4>结合您的各种信息以及浏览收藏等偏好，推荐如下车型</h4>
       <el-table
           :data="recommendations"
           empty-text="暂无数据"
@@ -44,68 +44,71 @@
 <script>
 import { ref, reactive } from 'vue';
 import axios from 'axios';
+import {ElMessage} from "element-plus";
 
-export default {
-  setup() {
-    const tableKey = ref(0);  // 新增表格渲染标识
-    const params = reactive({
-      maxPrice: 50
-    });
+  export default {
+    setup() {
+      const tableKey = ref(0);  // 新增表格渲染标识
+      const params = reactive({
+        maxPrice: 50
+      });
 
-    const recommendations = ref([]);
-    const error = ref('');
-    const isLoading = ref(false);
+      const recommendations = ref([]);
+      const error = ref('');
+      const isLoading = ref(false);
 
-    const handleRecommend = async () => {
-      if (isNaN(params.maxPrice) || params.maxPrice < 0) {
-        error.value = '请输入有效的价格预算';
-        return;
-      }
-
-      isLoading.value = true;
-      error.value = '';
-      recommendations.value = [];
-
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          error.value = '未授权，请重新登录';
-          isLoading.value = false;
+      const handleRecommend = async () => {
+        if (isNaN(params.maxPrice) || params.maxPrice < 0) {
+          error.value = '请输入有效的价格预算';
+          ElMessage.info('请输入有效的价格预算');
           return;
         }
 
-        const recommendResponse = await axios.get('/api/ai/recommend', {
-          headers: { Authorization: `Bearer ${token}` },
-          params: { page: 1, size: 10 }
-        });
+        isLoading.value = true;
+        error.value = '';
+        recommendations.value = [];
 
-        const alsResponse = await axios.post('/api/ai/als',
-            recommendResponse.data.data,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-              params: { maxPrice: params.maxPrice * 10000 }
-            }
-        );
+        try {
+          const token = localStorage.getItem('token');
+          if (!token) {
+            error.value = '未授权，请重新登录';
+            ElMessage.info('未授权，请重新登录');
+            isLoading.value = false;
+            return;
+          }
 
-        recommendations.value = alsResponse.data.slice(0, 10);
-        tableKey.value++;  // 关键修复：更新 key 强制表格重新渲染
-      } catch (err) {
-        // 错误处理保持不变...
-      } finally {
-        isLoading.value = false;
-      }
-    };
+          const recommendResponse = await axios.get('/api/ai/recommend', {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { page: 1, size: 10 }
+          });
 
-    return {
-      params,
-      recommendations,
-      error,
-      isLoading,
-      handleRecommend,
-      tableKey  // 关键修复：必须返回 tableKey
-    };
-  }
-};
+          const alsResponse = await axios.post('/api/ai/als',
+              recommendResponse.data.data,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+                params: { maxPrice: params.maxPrice * 10000 }
+              }
+          );
+
+          recommendations.value = alsResponse.data.slice(0, 10);
+          tableKey.value++;  // 关键修复：更新 key 强制表格重新渲染
+        } catch (err) {
+          // 错误处理保持不变...
+        } finally {
+          isLoading.value = false;
+        }
+      };
+
+      return {
+        params,
+        recommendations,
+        error,
+        isLoading,
+        handleRecommend,
+        tableKey  // 关键修复：必须返回 tableKey
+      };
+    }
+  };
 </script>
 
 <style scoped>
