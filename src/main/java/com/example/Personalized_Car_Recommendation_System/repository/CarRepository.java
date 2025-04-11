@@ -5,14 +5,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.Map;
-import java.util.Set;
-
+import java.util.List;
 public interface CarRepository extends JpaRepository<CarInfo, Integer> {
-    // 可以添加自定义查询方法
     @Query("SELECT b.name FROM CarBrand b WHERE b.brandId = :brandId")
     String getBrandNameByBrandId(@Param("brandId") Integer brandId);
 
-    @Query("SELECT b.brandId, b.name FROM CarBrand b WHERE b.brandId IN :brandIds")
-    Map<Integer, String> getBrandNameMap(@Param("brandIds") Set<Integer> brandIds);
+
+    @Query("SELECT DISTINCT c FROM CarInfo c JOIN RecommendationHistory p ON c.id = p.carId WHERE p.userId IN :userIds AND c.maxPrice <= :maxPrice")
+    List<CarInfo> findCarsHistoryByUsers(
+            @Param("userIds") List<Long> userIds,
+            @Param("maxPrice") int maxPrice);
+
 }

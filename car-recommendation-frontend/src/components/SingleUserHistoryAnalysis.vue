@@ -11,15 +11,23 @@
       </select>
     </div>
 
-    <!-- 图表容器 -->
-    <div class="chart-item">
-      <canvas ref="userHistoryBarChart"></canvas>
-    </div>
-    <div class="chart-item">
-      <canvas ref="userHistoryLineChart"></canvas>
-    </div>
-    <div class="chart-item">
-      <canvas ref="newUserHistoryLineChart"></canvas>
+    <div>
+      <!-- 无数据提示（默认隐藏） -->
+      <div class="no-data-tip" v-show="!hasData">
+        无历史汽车数据
+      </div>
+      <!-- 图表容器 -->
+      <div class="chart-item">
+        <canvas ref="userHistoryBarChart"></canvas>
+      </div>
+      <div class="chart-item">
+        <canvas ref="userHistoryLineChart"></canvas>
+      </div>
+      <div class="chart-item">
+        <canvas ref="newUserHistoryLineChart"></canvas>
+      </div>
+
+
     </div>
   </div>
 </template>
@@ -91,21 +99,14 @@ export default {
       // 定义 chartInstances
       chartInstances: {
         newLineChart: null
-      }
+      },
+      hasData: false // 新增数据状态标识
     };
   },
   watch: {
     selectedTimeUnit(newUnit) {
       // 当时间单位改变时，销毁之前的图表实例
-      if (this.barChart) {
-        this.barChart.destroy();
-      }
-      if (this.lineChart) {
-        this.lineChart.destroy();
-      }
-      if (this.chartInstances.newLineChart) {
-        this.chartInstances.newLineChart.destroy();
-      }
+      this.destroyCharts();
       // 重新绘制图表
       this.fetchDataAndRenderChart();
     }
@@ -131,9 +132,12 @@ export default {
         const data = response.data;
 
         if (!data || data.length === 0) {
+          this.hasData = false;
           console.error('数据为空，无法绘制图表');
           return;
         }
+
+        this.hasData = true;
 
         const carBrandScoreMap = new Map();
         const timeScoreMap = new Map();
@@ -251,6 +255,7 @@ export default {
             }
           });
         } else {
+          this.hasData = false;
           console.error('数据包含无效值，无法绘制图表');
         }
 
@@ -261,6 +266,7 @@ export default {
         };
         this.renderNewLineChart(newLineData);
       } catch (error) {
+        this.hasData = false;
         console.error('获取数据失败:', error);
       }
     },
@@ -306,6 +312,17 @@ export default {
           }
         }
       });
+    },
+    destroyCharts() {
+      if (this.barChart) {
+        this.barChart.destroy();
+      }
+      if (this.lineChart) {
+        this.lineChart.destroy();
+      }
+      if (this.chartInstances.newLineChart) {
+        this.chartInstances.newLineChart.destroy();
+      }
     }
   }
 };
@@ -350,5 +367,11 @@ export default {
 canvas {
   width: 100% !important;
   height: 100% !important;
+}
+
+.no-data-tip {
+  text-align: center;
+  color: #999;
+  padding: 20px;
 }
 </style>

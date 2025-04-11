@@ -29,13 +29,8 @@
           <el-form-item label="用户名" prop="username">
             <el-input v-model="addForm.username"></el-input>
           </el-form-item>
-          <el-form-item label="密码" prop="password">
-            <el-input v-model="addForm.password" type="password"></el-input>
-          </el-form-item>
-          <el-form-item label="确认密码" prop="confirmPassword">
-            <el-input v-model="addForm.confirmPassword" type="password"></el-input>
-          </el-form-item>
         </el-form>
+        <h4>Tip:默认密码为123456</h4>
         <div class="custom-modal-footer">
           <el-button @click="addModalVisible = false">取消</el-button>
           <el-button type="primary" @click="submitAddForm">确定</el-button>
@@ -158,8 +153,8 @@ const showAddModal = () => {
   addModalVisible.value = true;
   addForm.value = {
     username: '',
-    password: '',
-    confirmPassword: ''
+    password: '123456',
+    confirmPassword: '123456'
   };
 };
 

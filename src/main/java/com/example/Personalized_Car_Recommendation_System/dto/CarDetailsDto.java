@@ -6,29 +6,74 @@ public class CarDetailsDto {
     private String fullName;
     private Integer minPrice;
     private Integer maxPrice;
-
-
+    private double recommendationScore;
 
     // 构造函数
-    public CarDetailsDto(Integer carId,String name, String fullName, Integer minPrice, Integer maxPrice)     {
+    public CarDetailsDto(Integer carId, String name, String fullName, Integer minPrice, Integer maxPrice) {
         this.carId = carId;
         this.name = name;
         this.fullName = fullName;
         this.minPrice = minPrice;
         this.maxPrice = maxPrice;
-
-
+        this.recommendationScore = recommendationScore;
+    }
+    @Override
+    public String toString() {
+        return "CarDetailsDto{" +
+                "carId=" + carId +
+                ", name='" + name + '\'' +
+                ", fullName='" + fullName + '\'' +
+                ", minPrice=" + minPrice +
+                ", maxPrice=" + maxPrice +
+                ", recommendationScore=" + recommendationScore +
+                '}';
+    }
+    // Getters and Setters
+    public Integer getCarId() {
+        return carId;
     }
 
-    // Getters and Setters
-    public Integer getCarId() { return carId; }
-    public void setCarId(Integer carId) { this.carId = carId; }
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-    public String getFullName() { return fullName; }
-    public void setFullName(String fullName) { this.fullName = fullName; }
-    public Integer getMinPrice() { return minPrice; }
-    public void setMinPrice(Integer minPrice) { this.minPrice = minPrice; }
-    public Integer getMaxPrice() { return maxPrice; }
-    public void setMaxPrice(Integer maxPrice) { this.maxPrice = maxPrice; }
+    public void setCarId(Integer carId) {
+        this.carId = carId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
+    public Integer getMinPrice() {
+        return minPrice;
+    }
+
+    public void setMinPrice(Integer minPrice) {
+        this.minPrice = minPrice;
+    }
+
+    public Integer getMaxPrice() {
+        return maxPrice;
+    }
+
+    public void setMaxPrice(Integer maxPrice) {
+        this.maxPrice = maxPrice;
+    }
+
+    public double getRecommendationScore() {
+        return recommendationScore;
+    }
+
+    public void setRecommendationScore(double recommendationScore) {
+        this.recommendationScore = recommendationScore;
+    }
 }

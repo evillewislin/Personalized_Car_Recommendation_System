@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.logging.Level;
 
 @RestController
 @RequestMapping("/api/ai")
@@ -31,6 +32,7 @@ public class RecommendationController {
 
     /**
      * 提取从 Token 中获取用户 ID 的逻辑
+     *
      * @param token 用户的令牌
      * @return 用户ID
      */
@@ -40,6 +42,7 @@ public class RecommendationController {
 
     /**
      * 读取用户历史数据
+     *
      * @param token 用户的授权令牌
      * @return 推荐信息的 JSON 格式
      */
@@ -79,6 +82,7 @@ public class RecommendationController {
 
     /**
      * 调用ai接口
+     *
      * @param message 用户输入的消息
      * @return 异步的AI响应
      */
@@ -97,8 +101,9 @@ public class RecommendationController {
 
     /**
      * 混合ALS 算法接口
-     * @param token 用户的授权令牌
-     * @param data 调用 /api/ai/recommend 接口返回的数据
+     *
+     * @param token    用户的授权令牌
+     * @param data     调用 /api/ai/recommend 接口返回的数据
      * @param maxPrice 用户输入的最高价格
      * @return ALS 算法过滤后的数据
      */
@@ -121,99 +126,92 @@ public class RecommendationController {
     }
 
 
-    /**
-     * 显式推荐接口
-     * @param request 显式推荐请求参数
-     * @param page 页码
-     * @param size 每页数量
-     * @return 显式推荐结果
-     */
     @PostMapping("/Ex_cars")
-    public ResponseEntity<Page<CarDetailsDto>> getExplicitRecommendations(
+    public ResponseEntity<List<CarDetailsDto>> getExplicitRecommendations(
             @Valid @RequestBody ExplicitRecommendationRequest request,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestHeader("Authorization") String token
     ) {
         try {
             int maxPrice = request.getMaxPrice();
-            Page<CarDetailsDto> recommendations = recommendationService.generateExplicitRecommendations(
+            Integer userId = getUserIdFromToken(token);
+            List<CarDetailsDto> recommendations = recommendationService.generateExplicitRecommendations(
                     request.getRank(),
                     request.getIterations(),
                     request.getLambda(),
                     maxPrice,
-                    page,
-                    size
-
+                    userId
             );
             return new ResponseEntity<>(recommendations, HttpStatus.OK);
         } catch (Exception e) {
-            log.error("处理显式推荐请求时出错: {}", e.getMessage(), e);
+            log.error("处理显式推荐请求时出错: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
     }
+
     // 显式推荐请求对象
-        static class ExplicitRecommendationRequest {
-            private int rank;
-            private int iterations;
-            private double lambda;
-            private int maxPrice;
+    static class ExplicitRecommendationRequest {
+        private int rank;
+        private int iterations;
+        private double lambda;
+        private int maxPrice;
 
-            public int getRank() {
-                return rank;
-            }
-
-            public void setRank(int rank) {
-                this.rank = rank;
-            }
-
-            public int getIterations() {
-                return iterations;
-            }
-
-            public void setIterations(int iterations) {
-                this.iterations = iterations;
-            }
-
-            public double getLambda() {
-                return lambda;
-            }
-
-            public void setLambda(double lambda) {
-                this.lambda = lambda;
-            }
-
-            public int getMaxPrice() {
-                return maxPrice;
-            }
-
-            public void setMaxPrice(int maxPrice) {
-                this.maxPrice = maxPrice;
-            }
+        public int getRank() {
+            return rank;
         }
+
+        public void setRank(int rank) {
+            this.rank = rank;
+        }
+
+        public int getIterations() {
+            return iterations;
+        }
+
+        public void setIterations(int iterations) {
+            this.iterations = iterations;
+        }
+
+        public double getLambda() {
+            return lambda;
+        }
+
+        public void setLambda(double lambda) {
+            this.lambda = lambda;
+        }
+
+        public int getMaxPrice() {
+            return maxPrice;
+        }
+
+        public void setMaxPrice(int maxPrice) {
+            this.maxPrice = maxPrice;
+        }
+    }
 
 
     /**
      * 隐式推荐接口
+     *
      * @param request 隐式推荐请求参数
      * @return 隐式推荐结果
      */
     @PostMapping("/Im_cars")
-    public ResponseEntity<Page<ImCarDetailsDto>> getImplicitRecommendations(
+    public ResponseEntity<List<ImCarDetailsDto>> getImplicitRecommendations(
             @Valid @RequestBody ImplicitRecommendationRequest request,
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
             @RequestHeader("Authorization") String token
     ) {
         try {
             int userId = recommendationService.getUserIdFromToken(token);
             int maxPrice = request.getMaxPrice();
-            Page<ImCarDetailsDto> imrecommendations = recommendationService.generateImplicitRecommendations(
-                    request.getRank(),
-                    request.getIterations(),
-                    request.getLambda(),
+            int rank = request.getRank();
+            int iterations = request.getIterations();
+            double lambda = request.getLambda();
+
+            List<ImCarDetailsDto> imrecommendations = recommendationService.generateImplicitRecommendations(
+                    rank,
+                    iterations,
+                    lambda,
                     maxPrice,
-                    page,
-                    size,
                     userId
             );
             return new ResponseEntity<>(imrecommendations, HttpStatus.OK);

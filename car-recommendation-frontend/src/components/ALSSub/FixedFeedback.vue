@@ -1,41 +1,35 @@
 <template>
-  <div class="fixed-feedback">
-    <el-form :model="params">
-      <el-form-item label="价格预算(万元)">
-        <el-input-number
-            v-model.number="params.maxPrice"
-            :min="0"
-            :step="1"
-            suffix="万元"
-            size="small"
-        />
-      </el-form-item>
-    </el-form>
+  <div class="car-recommendation-container">
+
 
     <el-button
         type="primary"
         @click="handleRecommend"
         :loading="isLoading"
-        class="action-btn"
+        class="recommendation-action-btn"
     >
       生成推荐
     </el-button>
 
-    <div v-if="error" class="error-message">
+    <div v-if="error" class="recommendation-error-message">
       {{ error }}
     </div>
 
-    <!-- 添加 key 强制表格重新渲染 -->
-    <div v-if="recommendations.length > 0 && !isLoading" class="result-container">
-      <h4>结合您的各种信息以及浏览收藏等偏好，推荐如下车型</h4>
+    <div class="recommendation-result-container" v-if="recommendations.length > 0 && !isLoading">
+      <h4 class="recommendation-result-title">结合您的各种信息以及浏览收藏等偏好，推荐如下车型</h4>
       <el-table
           :data="recommendations"
           empty-text="暂无数据"
+          class="recommendation-table"
           :key="tableKey"
       >
         <el-table-column prop="brandName" label="品牌" width="120" />
-        <el-table-column prop="fullName" label="车型" width="300" />
-        <el-table-column prop="price" label="价格" width="180" />
+        <el-table-column prop="fullName" label="车型" />
+        <el-table-column label="价格" width="180">
+          <template #default="{ row }">
+            {{ (row.price / 10000).toFixed(2) }} 万元
+          </template>
+        </el-table-column>
       </el-table>
     </div>
   </div>
@@ -44,99 +38,135 @@
 <script>
 import { ref, reactive } from 'vue';
 import axios from 'axios';
-import {ElMessage} from "element-plus";
+import { ElMessage } from 'element-plus';
 
-  export default {
-    setup() {
-      const tableKey = ref(0);  // 新增表格渲染标识
-      const params = reactive({
-        maxPrice: 50
-      });
+export default {
+  setup() {
+    const tableKey = ref(0);
+    const params = reactive({
+      maxPrice: 50
+    });
 
-      const recommendations = ref([]);
-      const error = ref('');
-      const isLoading = ref(false);
+    const recommendations = ref([]);
+    const error = ref('');
+    const isLoading = ref(false);
 
-      const handleRecommend = async () => {
-        if (isNaN(params.maxPrice) || params.maxPrice < 0) {
-          error.value = '请输入有效的价格预算';
-          ElMessage.info('请输入有效的价格预算');
+    const handleRecommend = async () => {
+      if (isNaN(params.maxPrice) || params.maxPrice < 0) {
+        error.value = '请输入有效的价格预算';
+        ElMessage.info('请输入有效的价格预算');
+        return;
+      }
+
+      isLoading.value = true;
+      error.value = '';
+      recommendations.value = [];
+
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          error.value = '未授权，请重新登录';
+          ElMessage.info('未授权，请重新登录');
+          isLoading.value = false;
           return;
         }
 
-        isLoading.value = true;
-        error.value = '';
-        recommendations.value = [];
+        const recommendResponse = await axios.get('/api/ai/recommend', {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { page: 1, size: 10 }
+        });
 
-        try {
-          const token = localStorage.getItem('token');
-          if (!token) {
-            error.value = '未授权，请重新登录';
-            ElMessage.info('未授权，请重新登录');
-            isLoading.value = false;
-            return;
-          }
+        const alsResponse = await axios.post('/api/ai/als',
+            recommendResponse.data.data,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+              params: { maxPrice: params.maxPrice * 10000 }
+            }
+        );
 
-          const recommendResponse = await axios.get('/api/ai/recommend', {
-            headers: { Authorization: `Bearer ${token}` },
-            params: { page: 1, size: 10 }
-          });
+        recommendations.value = alsResponse.data.slice(0, 10);
+        tableKey.value++;
+      } catch (err) {
+        error.value = err.response?.data?.message || '推荐失败，请重试';
+        ElMessage.error('推荐失败，请重试');
+      } finally {
+        isLoading.value = false;
+      }
+    };
 
-          const alsResponse = await axios.post('/api/ai/als',
-              recommendResponse.data.data,
-              {
-                headers: { Authorization: `Bearer ${token}` },
-                params: { maxPrice: params.maxPrice * 10000 }
-              }
-          );
-
-          recommendations.value = alsResponse.data.slice(0, 10);
-          tableKey.value++;  // 关键修复：更新 key 强制表格重新渲染
-        } catch (err) {
-          // 错误处理保持不变...
-        } finally {
-          isLoading.value = false;
-        }
-      };
-
-      return {
-        params,
-        recommendations,
-        error,
-        isLoading,
-        handleRecommend,
-        tableKey  // 关键修复：必须返回 tableKey
-      };
-    }
-  };
+    return {
+      params,
+      recommendations,
+      error,
+      isLoading,
+      handleRecommend,
+      tableKey
+    };
+  }
+};
 </script>
 
 <style scoped>
-.fixed-feedback {
+.car-recommendation-container {
+  position: relative;
   padding: 20px;
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
+  min-height: 400px;
 }
 
-.el-form-item {
+.recommendation-form {
+  margin-bottom: 20px;
+}
+
+.recommendation-form-item {
   margin-bottom: 15px;
 }
 
-.action-btn {
-  margin: 20px 0;
+.recommendation-action-btn {
 }
 
-.result-container {
+.recommendation-result-container {
   margin-top: 30px;
+  background: #fff;
+  padding: 20px;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
-.error-message {
+.recommendation-result-title {
+  margin-bottom: 20px;
+  color: #333;
+  font-weight: normal;
+  font-size: 16px;
+}
+
+.recommendation-error-message {
   color: #f56c6c;
   margin: 10px 0;
+  padding: 10px;
+  background: #fef0f0;
+  border-radius: 4px;
 }
 
-.el-table {
+.recommendation-table {
   margin-top: 20px;
   width: 100%;
+  border: 1px solid #ebeef5;
+}
+
+.recommendation-table::before {
+  height: 0;
+}
+
+.recommendation-table th {
+  background-color: #f5f7fa;
+  color: #333;
+}
+
+.recommendation-table td,
+.recommendation-table th {
+  padding: 12px 0;
+  text-align: center;
 }
 </style>

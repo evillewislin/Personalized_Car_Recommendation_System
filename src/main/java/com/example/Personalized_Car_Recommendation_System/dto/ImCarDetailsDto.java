@@ -1,20 +1,20 @@
 package com.example.Personalized_Car_Recommendation_System.dto;
 
-import java.io.Serializable;
-
-public class ImCarDetailsDto implements Serializable {
+public class ImCarDetailsDto {
     private Integer carId;
     private String brandName;
     private String fullName;
     private Integer minPrice;
     private Integer maxPrice;
+    private Double predictedRating;
 
-    public ImCarDetailsDto(Integer carId, String brandName, String fullName,  Integer minPrice, Integer maxPrice) {
+    public ImCarDetailsDto(Integer carId, String brandName, String fullName, Integer minPrice, Integer maxPrice, Double predictedRating) {
         this.carId = carId;
         this.brandName = brandName;
         this.fullName = fullName;
         this.minPrice = minPrice;
         this.maxPrice = maxPrice;
+        this.predictedRating = predictedRating;
     }
 
     @Override
@@ -25,6 +25,7 @@ public class ImCarDetailsDto implements Serializable {
                 ", fullName='" + fullName + '\'' +
                 ", minPrice=" + minPrice +
                 ", maxPrice=" + maxPrice +
+                ", predictedRating=" + predictedRating +
                 '}';
     }
 
@@ -53,10 +54,27 @@ public class ImCarDetailsDto implements Serializable {
         this.fullName = fullName;
     }
 
-    public Integer getMinPrice() { return minPrice; }
-    public void setMinPrice(Integer minPrice) { this.minPrice = minPrice; }
-    public Integer getMaxPrice() { return maxPrice; }
-    public void setMaxPrice(Integer maxPrice) { this.maxPrice = maxPrice; }
+    public Integer getMinPrice() {
+        return minPrice;
+    }
 
+    public void setMinPrice(Integer minPrice) {
+        this.minPrice = minPrice;
+    }
 
+    public Integer getMaxPrice() {
+        return maxPrice;
+    }
+
+    public void setMaxPrice(Integer maxPrice) {
+        this.maxPrice = maxPrice;
+    }
+
+    public Double getPredictedRating() {
+        return predictedRating;
+    }
+
+    public void setPredictedRating(Double predictedRating) {
+        this.predictedRating = predictedRating;
+    }
 }

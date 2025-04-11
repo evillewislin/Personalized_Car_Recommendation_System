@@ -1,5 +1,5 @@
 <template>
-  <div>
+
     <!-- 顶部导航栏 -->
     <nav class="nav-container">
       <div class="nav-left">
@@ -49,7 +49,7 @@
         </div>
       </div>
     </div>
-  </div>
+
 </template>
 
 <script>
@@ -172,6 +172,9 @@ export default defineComponent({
 <style scoped>
 /* 顶部导航栏样式 */
 .nav-container {
+  position: sticky; /* 或 fixed */
+  top: 0; /* 固定定位时需要 */
+  z-index: 1000; /* 关键层级设置 */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -223,13 +226,14 @@ button:hover {
 
 /* 修改后的3D轮播样式 */
 .carousel-container {
-  margin-top: 20px;
+  margin-top:50px;
   perspective: 1000px;
-  height: 500px;
+  height: 400px;
   overflow: visible;
 }
 
 .carousel-track {
+  z-index: 100;
   position: relative;
   width: 100%;
   height: 100%;

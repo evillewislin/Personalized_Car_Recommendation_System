@@ -21,13 +21,21 @@ public interface RecommendationService {
 
     Map<String, Object> getAllRecommendations(int userId);
 
-    @Cacheable(value = "recommendations", key = "#rank+#iterations+#lambda+#page+#size")
-    Page<CarDetailsDto> generateExplicitRecommendations(int rank, int iterations, double lambda, int maxPrice,int page, int size);
-    @Cacheable(value = "implicitRecommendations", key = "#rank+#iterations+#lambda+#maxPrice+#page+#size+#userId")
-    Page<ImCarDetailsDto> generateImplicitRecommendations(
+
+    @Cacheable(value = "recommendations", key = "#rank+#iterations+#lambda+#maxPrice+#userId")
+    List<CarDetailsDto> generateExplicitRecommendations(
             int rank,
             int iterations,
             double lambda,
             int maxPrice,
-            int page, int size,int userId );
+            Integer userId);
+
+    @Cacheable(value = "implicitRecommendations", key = "#rank+#iterations+#lambda+#maxPrice+#userId")
+    List<ImCarDetailsDto> generateImplicitRecommendations(
+            int rank,
+            int iterations,
+            double lambda,
+            int maxPrice,
+            int userId );
+
 }

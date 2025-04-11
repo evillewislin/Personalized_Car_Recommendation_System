@@ -39,6 +39,7 @@ public class CarServiceImpl implements CarService {
                         (String) arr[2],   // fullName
                         (Integer) arr[3], // minPrice
                         (Integer) arr[4] // maxPrice
+
                 ))
                 .collect(Collectors.toList());
 

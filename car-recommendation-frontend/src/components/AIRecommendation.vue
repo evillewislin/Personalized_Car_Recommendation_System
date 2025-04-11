@@ -36,9 +36,8 @@ export default {
       aiResponse.value = '';
 
       try {
-        const message = `${userRequest.value}，以品牌名，全名，价格范围和平均评分形式进行回答，`;
+        const message = `给我推荐几款汽车，${userRequest.value}，以品牌名，全名，价格范围,续航和平均评分形式进行回答，`;
         const encodedMessage = encodeURIComponent(message);
-
         const aiChatResponse = await axios.get('/api/ai/chat', {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`

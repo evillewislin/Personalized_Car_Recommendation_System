@@ -2,13 +2,13 @@ package com.example.Personalized_Car_Recommendation_System.dto;
 
 public class CarAnalysisDataDto {
     private String car_brand_name;
-    private Integer minprice;
-    private Integer maxprice;
+    private Integer minPrice;
+    private Integer maxPrice;
 
-    public CarAnalysisDataDto(String car_brand_name, Integer minprice, Integer maxprice) {
+    public CarAnalysisDataDto(String car_brand_name, Integer minPrice, Integer maxPrice) {
         this.car_brand_name = car_brand_name;
-        this.minprice = minprice;
-        this.maxprice = maxprice;
+        this.minPrice = minPrice;
+        this.maxPrice = maxPrice;
     }
 
     public String getCar_brand_name() {
@@ -20,18 +20,18 @@ public class CarAnalysisDataDto {
     }
 
     public Integer getMinprice() {
-        return minprice;
+        return minPrice;
     }
 
-    public void setMinprice(Integer minprice) {
-        this.minprice = minprice;
+    public void setMinprice(Integer minPrice) {
+        this.minPrice = minPrice;
     }
 
     public Integer getMaxprice() {
-        return maxprice;
+        return maxPrice;
     }
 
-    public void setMaxprice(Integer maxprice) {
-        this.maxprice = maxprice;
+    public void setMaxprice(Integer maxPrice) {
+        this.maxPrice = maxPrice;
     }
 }

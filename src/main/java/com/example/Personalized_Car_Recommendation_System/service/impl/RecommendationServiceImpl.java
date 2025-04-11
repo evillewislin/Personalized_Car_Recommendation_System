@@ -3,10 +3,9 @@ package com.example.Personalized_Car_Recommendation_System.service.impl;
 import com.example.Personalized_Car_Recommendation_System.dto.CarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.dto.ImCarDetailsDto;
 import com.example.Personalized_Car_Recommendation_System.dto.CarRecommendationDto;
-import com.example.Personalized_Car_Recommendation_System.entity.CarBrand;
-import com.example.Personalized_Car_Recommendation_System.entity.CarInfo;
-import com.example.Personalized_Car_Recommendation_System.entity.DefaultRecommendation;
+import com.example.Personalized_Car_Recommendation_System.entity.*;
 import com.example.Personalized_Car_Recommendation_System.repository.*;
+import org.apache.hadoop.shaded.org.apache.commons.math3.linear.*;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
@@ -14,13 +13,11 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.mllib.recommendation.ALS;
 import org.apache.spark.mllib.recommendation.MatrixFactorizationModel;
 import org.apache.spark.mllib.recommendation.Rating;
-import com.example.Personalized_Car_Recommendation_System.entity.RecommendationHistory;
 import com.example.Personalized_Car_Recommendation_System.service.RecommendationService;
 import com.example.Personalized_Car_Recommendation_System.util.JwtUtil;
 
 
 import org.apache.spark.rdd.RDD;
-import org.apache.spark.storage.StorageLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.ChatClient;
@@ -52,6 +49,8 @@ public class RecommendationServiceImpl implements RecommendationService {
     private RecommendationHistoryRepository recommendationHistoryRepository;
     @Autowired
     private CarInfoRepository carInfoRepository;
+    @Autowired
+    private  UserRepository userRepository;
     @Autowired
     private CarBrandRepository carBrandRepository;
     @Autowired
@@ -97,11 +96,12 @@ public class RecommendationServiceImpl implements RecommendationService {
     private int alsNumIterations;
 
     @Autowired
-    public RecommendationServiceImpl(ChatClient chatClient, JdbcTemplate jdbcTemplate,
+    public RecommendationServiceImpl(ChatClient chatClient, JdbcTemplate jdbcTemplate,UserRepository userRepository,
                                      RecommendationHistoryRepository recommendationHistoryRepository,
                                      CarRepository carRepository) {
         this.chatClient = chatClient;
         this.jdbcTemplate = jdbcTemplate;
+        this.userRepository = userRepository;
         this.recommendationHistoryRepository = recommendationHistoryRepository;
         this.carRepository = carRepository;
     }
@@ -216,6 +216,8 @@ public class RecommendationServiceImpl implements RecommendationService {
             throw new RuntimeException("查询全部推荐汽车列表时出错", e);
         }
     }
+
+
 
     /**
      * 混合推荐方法
@@ -434,320 +436,396 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     /**
      * 生成显式推荐
-     * @param rank 隐式推荐的秩
+     * @param rank 显式推荐的秩
      * @param iterations 迭代次数
      * @param lambda 正则化参数
      * @param maxPrice 用户输入的最高价格
-     * @param page 页码
-     * @param size 每页数量
      * @return 显式推荐结果
      */
-    @Override
-    @Cacheable(value = "recommendations", key = "#rank+#iterations+#lambda+#maxPrice+#page+#size")
-    public Page<CarDetailsDto> generateExplicitRecommendations(
+    private static final int MAX_RECOMMENDATIONS = 10;
+    @Cacheable(value = "recommendations", key = "#rank+#iterations+#lambda+#maxPrice+#userId")
+    public List<CarDetailsDto> generateExplicitRecommendations(
             int rank,
             int iterations,
             double lambda,
             int maxPrice,
-            int page,
-            int size) {
-        if (page < 1 || size < 1) {
-            logger.error("无效的分页参数: page={}, size={}", page, size);
-            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
+            Integer userId) {
+
+        // 获取当前用户信息
+        User currentUser = userRepository.findByUserId(userId);
+        if (currentUser == null) {
+            logger.error("未找到用户 ID 为 " + userId + " 的用户信息");
+            return Collections.emptyList();
         }
+        logger.info("当前用户信息：年龄={}, 地区={}", currentUser.getAge(), currentUser.getRegion());
 
-        List<CarInfo> carInfos = carRepository.findAll();
-        if (carInfos.isEmpty()) {
-            logger.warn("没有找到任何汽车信息");
-            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), 0);
-        }
+        // 先尝试按地区和年龄匹配相似用户
+        List<Long> similarUserIds = userRepository.findUserIdsByRegionAndAgeBetween(
+                currentUser.getRegion(),
+                currentUser.getAge() - 5,
+                currentUser.getAge() + 5
+        );
+        similarUserIds.remove((long) userId);
 
-        List<CarDetailsDto> dtos = carInfos.stream()
-                .filter(carInfo ->
-                        carInfo.getMaxPrice() != null &&
-                                carInfo.getMaxPrice() <= maxPrice
-                )
-                .map(carInfo -> {
-                    String brandName = Optional.ofNullable(carInfo.getBrandId())
-                            .flatMap(brandId -> Optional.ofNullable(carRepository.getBrandNameByBrandId(brandId)))
-                            .orElse("未知品牌");
-                    return new CarDetailsDto(
-                            carInfo.getId(),
-                            brandName,
-                            carInfo.getFullName(),
-                            carInfo.getMinPrice(),
-                            carInfo.getMaxPrice()
-                    );
-                })
-                .collect(Collectors.toList());
-
-        dtos = dtos.stream()
-                .sorted((dto1, dto2) -> {
-                    Integer price1 = dto1.getMaxPrice() != null ? dto1.getMaxPrice() : 0;
-                    Integer price2 = dto2.getMaxPrice() != null ? dto2.getMaxPrice() : 0;
-                    return price2.compareTo(price1);
-                })
-                .collect(Collectors.toList());
-
-        int totalElements = dtos.size();
-        int totalPages = (int) Math.ceil((double) totalElements / size);
-
-        if (page > totalPages) {
-            logger.warn("请求的页码超出范围: page={}, totalPages={}，自动调整为最后一页", page, totalPages);
-            page = totalPages;
-        }
-
-        int start = (page - 1) * size;
-        int end = Math.min(start + size, totalElements);
-        if (start >= totalElements) {
-            logger.warn("起始索引超出数据范围: start={}, totalElements={}", start, totalElements);
-            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), totalElements);
-        }
-
-        List<CarDetailsDto> subList = dtos.subList(start, end);
-        return new PageImpl<>(subList, PageRequest.of(page - 1, size), totalElements);
-    }
-
-
-
-        @Override
-        @Cacheable(value = "implicitRecommendations", key = "#rank+#iterations+#lambda+#maxPrice+#userId")
-        public Page<ImCarDetailsDto> generateImplicitRecommendations(
-                int rank,
-                int iterations,
-                double lambda,
-                int page,
-                int size,
-                int maxPrice,
-                int userId
-        ) {
-            long startTime = System.currentTimeMillis();
-            logger.info("开始生成隐式推荐，用户ID: {}, 最大价格: {}", userId, maxPrice);
-
-            try {
-                // 1. 加载推荐历史数据
-                long loadHistoryStartTime = System.currentTimeMillis();
-                List<RecommendationHistory> allHistory = recommendationHistoryRepository.findAll();
-                long loadHistoryEndTime = System.currentTimeMillis();
-                long loadHistoryTime = loadHistoryEndTime - loadHistoryStartTime;
-                if (allHistory.isEmpty()) {
-                    logger.warn("没有找到推荐历史记录，返回空推荐结果");
-                    List<DefaultRecommendation> defaultRecs = defaultRecommendationRepository.findAll();
-                    List<ImCarDetailsDto> defaultDtos = convertDefaultToDto(defaultRecs);
-                   logger.info("数据{}",defaultDtos);
-                    return paginateResults(defaultDtos, page, size);
-                }
-                logger.info("加载推荐历史数据耗时: {}ms", loadHistoryTime);
-
-                // 2. 构建用户-汽车评分矩阵
-                long buildRatingsStartTime = System.currentTimeMillis();
-                Map<Integer, Map<Integer, Double>> userCarRatings = buildUserCarRatings(allHistory);
-                long buildRatingsEndTime = System.currentTimeMillis();
-                long buildRatingsTime = buildRatingsEndTime - buildRatingsStartTime;
-                logger.info("构建用户-汽车评分矩阵耗时: {}ms", buildRatingsTime);
-
-                // 3. 计算用户相似度
-                long similarityStartTime = System.currentTimeMillis();
-                Map<Integer, Double> userSimilarities = calculateUserSimilarities(userId, userCarRatings);
-                long similarityEndTime = System.currentTimeMillis();
-                long similarityTime = similarityEndTime - similarityStartTime;
-                logger.info("计算用户相似度耗时: {}ms", similarityTime);
-
-                // 4. 加载汽车数据
-                long loadCarsStartTime = System.currentTimeMillis();
-                List<CarInfo> carInfos = carInfoRepository.findAll();
-                long loadCarsEndTime = System.currentTimeMillis();
-                long loadCarsTime = loadCarsEndTime - loadCarsStartTime;
-                if (carInfos.isEmpty()) {
-                    logger.warn("没有找到汽车信息");
-                    return new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
-                }
-                logger.info("加载汽车数据耗时: {}ms", loadCarsTime);
-
-                // 5. 生成推荐
-                long generateRecommendationsStartTime = System.currentTimeMillis();
-                List<ImCarDetailsDto> recommendedCars = generateRecommendations(userId, userSimilarities, carInfos, maxPrice, userCarRatings);
-                long generateRecommendationsEndTime = System.currentTimeMillis();
-                long generateRecommendationsTime = generateRecommendationsEndTime - generateRecommendationsStartTime;
-                logger.info("生成推荐耗时: {}ms", generateRecommendationsTime);
-
-                // 6. 分页处理结果，固定每页大小为10，页码为第1页
-                long paginateStartTime = System.currentTimeMillis();
-                int fixedPage = 1;
-                int fixedSize = 10;
-                Page<ImCarDetailsDto> result = paginateResults(recommendedCars, fixedPage, fixedSize);
-                long paginateEndTime = System.currentTimeMillis();
-                long paginateTime = paginateEndTime - paginateStartTime;
-                logger.info("分页处理结果耗时: {}ms", paginateTime);
-
-                long totalTime = System.currentTimeMillis() - startTime;
-                logger.info("隐式推荐生成完成，总耗时: {}ms", totalTime);
-                logger.info("各步骤耗时详情 - 加载历史数据: {}ms, 构建评分矩阵: {}ms, 计算相似度: {}ms, 加载汽车数据: {}ms, 生成推荐: {}ms, 分页处理: {}ms",
-                        loadHistoryTime, buildRatingsTime, similarityTime, loadCarsTime, generateRecommendationsTime, paginateTime);
-                return result;
-
-            } catch (Exception e) {
-                logger.error("生成隐式推荐时发生错误", e);
-                return new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
-            }
-        }
-    // 转换默认推荐数据为DTO
-    private List<ImCarDetailsDto> convertDefaultToDto(List<DefaultRecommendation> defaultRecs) {
-        return defaultRecs.stream().map(dr -> {
-            // 解析价格字符串为整数（假设价格格式为"100000"或"100,000"）
-            Integer price = dr.getPrice();
-
-            // 使用带参数的构造函数
-            return new ImCarDetailsDto(
-                    dr.getCarId(),
-                    dr.getBrandName(),
-                    dr.getFullName(),
-                    price,  // minPrice
-                    price   // maxPrice (使用相同值，或根据业务逻辑调整)
+        if (similarUserIds.isEmpty()) {
+            // 如果没有相似地区的用户，按年龄匹配
+            logger.info("未找到相似地区的用户，尝试按年龄匹配");
+            similarUserIds = userRepository.findUserIdsByAgeBetween(
+                    currentUser.getAge() - 5,
+                    currentUser.getAge() + 5
             );
-        }).collect(Collectors.toList());
-    }
-
-
-    // 构建用户-汽车评分矩阵
-    private Map<Integer, Map<Integer, Double>> buildUserCarRatings(List<RecommendationHistory> allHistory) {
-        Map<Integer, Map<Integer, Double>> userCarRatings = new HashMap<>();
-        for (RecommendationHistory history : allHistory) {
-            int userId = history.getUserId();
-            int carId = history.getCarId();
-            double score = history.getScore();
-
-            userCarRatings.computeIfAbsent(userId, k -> new HashMap<>()).put(carId, score);
-        }
-        return userCarRatings;
-    }
-
-    // 计算用户相似度（这里使用简单的余弦相似度）
-    private Map<Integer, Double> calculateUserSimilarities(int targetUserId, Map<Integer, Map<Integer, Double>> userCarRatings) {
-        Map<Integer, Double> userSimilarities = new HashMap<>();
-        Map<Integer, Double> targetUserRatings = userCarRatings.get(targetUserId);
-        if (targetUserRatings == null) {
-            return userSimilarities;
+            similarUserIds.remove((long) userId);
         }
 
-        for (Map.Entry<Integer, Map<Integer, Double>> entry : userCarRatings.entrySet()) {
-            int otherUserId = entry.getKey();
-            if (otherUserId == targetUserId) {
-                continue;
-            }
+        logger.info("相似用户 ID 列表：{}", similarUserIds);
 
-            Map<Integer, Double> otherUserRatings = entry.getValue();
-            double similarity = cosineSimilarity(targetUserRatings, otherUserRatings);
-            userSimilarities.put(otherUserId, similarity);
+        // 根据相似用户的历史记录查找汽车信息
+        List<CarDetailsDto> recommendedCars = new ArrayList<>();
+        if (!similarUserIds.isEmpty()) {
+            List<CarDetailsDto> carsFromHistory = carRepository.findCarsHistoryByUsers(similarUserIds, maxPrice).stream()
+                    .map(carInfo -> {
+                        String brandName = carRepository.getBrandNameByBrandId(carInfo.getBrandId());
+                        CarDetailsDto dto = new CarDetailsDto(
+                                carInfo.getId(),
+                                brandName,
+                                carInfo.getFullName(),
+                                carInfo.getMinPrice(),
+                                carInfo.getMaxPrice()
+                        );
+                        // 计算推荐分数，这里简单结合 rank、iterations 和 lambda
+                        double rawScore = (double) rank * iterations / (carInfo.getMaxPrice() + lambda);
+                        double normalizedScore = normalizeScore(rawScore);
+                        dto.setRecommendationScore(normalizedScore);
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+            recommendedCars.addAll(carsFromHistory);
+        } else {
+            logger.info("未找到相似用户，无法生成推荐");
         }
-        return userSimilarities;
-    }
 
-    // 计算余弦相似度
-    private double cosineSimilarity(Map<Integer, Double> vector1, Map<Integer, Double> vector2) {
-        double dotProduct = 0.0;
-        double normA = 0.0;
-        double normB = 0.0;
+        // 按推荐分数排序
+        recommendedCars.sort((dto1, dto2) -> Double.compare(dto2.getRecommendationScore(), dto1.getRecommendationScore()));
 
-        for (Map.Entry<Integer, Double> entry : vector1.entrySet()) {
-            int key = entry.getKey();
-            double value1 = entry.getValue();
-            normA += value1 * value1;
-            if (vector2.containsKey(key)) {
-                double value2 = vector2.get(key);
-                dotProduct += value1 * value2;
+        // 去除重复品牌
+        Set<String> uniqueBrands = new HashSet<>();
+        List<CarDetailsDto> Recommendations = new ArrayList<>();
+        for (CarDetailsDto dto : recommendedCars) {
+            if (uniqueBrands.add(dto.getName())) {
+                Recommendations.add(dto);
+                if (Recommendations.size() >= MAX_RECOMMENDATIONS) {
+                    break;
+                }
             }
         }
+        logger.info("最终推荐结果数量：{}", Recommendations.size());
+        logger.info("最终推荐结果：{}", Recommendations);
+        return Recommendations;
+    }
+    private double normalizeScore(double rawScore) {
+         rawScore = rawScore * 3000;
+        return rawScore;
+    }
+    /**
+     * 生成隐式推荐
+     * @param rank 隐式推荐的秩
+     * @param iterations 迭代次数
+     * @param lambda 正则化参数
+     * @param maxPrice 用户输入的最高价格
+     * @return 隐式推荐结果
+     */
 
-        for (double value : vector2.values()) {
-            normB += value * value;
+    @Cacheable(value = "implicitRecommendations", key = "#rank+#iterations+#lambda+#maxPrice+#userId")
+    public List<ImCarDetailsDto> generateImplicitRecommendations(
+            int rank,
+            int iterations,
+            double lambda,
+            int maxPrice,
+            int userId
+    ) {
+
+        logger.info("开始生成隐式推荐，用户ID: {}, 最大价格: {}", userId, maxPrice);
+
+        try {
+            // 1. 加载数据
+            List<RecommendationHistory> allHistory = recommendationHistoryRepository.findAll();
+            List<CarInfo> carInfos = carInfoRepository.findAll();
+
+            if (allHistory.isEmpty() || carInfos.isEmpty()) {
+                logger.warn("数据不足，返回默认推荐");
+                return ImgetDefaultRecommendations();
+            }
+
+            // 2. 构建正确的评分矩阵
+            RatingMatrixBuilder.RatingMatrix matrix = new RatingMatrixBuilder()
+                    .setHistories(allHistory)
+                    .setCarInfos(carInfos)
+                    .build();
+
+            // 3. 检查目标用户是否存在
+            if (!matrix.userIndexMap.containsKey(userId)) {
+                logger.warn("用户ID {} 不存在于历史数据中", userId);
+                return ImgetDefaultRecommendations();
+            }
+
+            // 4. 执行矩阵分解
+            MatrixFactorizationResult result = performALS(
+                    matrix.matrix,
+                    rank,
+                    iterations,
+                    lambda
+            );
+
+            // 5. 获取目标用户的预测评分
+            int userIndex = matrix.userIndexMap.get(userId);
+            double[] userPredictions = result.getUserFeatures().getRow(userIndex);
+
+            // 6. 生成推荐结果
+            return generateRecommendations(
+                    userPredictions,
+                    carInfos,
+                    matrix.carIndexMap,
+                    maxPrice
+            );
+
+        } catch (Exception e) {
+            logger.error("生成隐式推荐时发生错误", e);
+            return ImgetDefaultRecommendations();
+        }
+    }
+
+    // 评分矩阵构建器
+    private static class RatingMatrixBuilder {
+        private List<RecommendationHistory> histories;
+        private List<CarInfo> carInfos;
+
+        public RatingMatrixBuilder setHistories(List<RecommendationHistory> histories) {
+            this.histories = histories;
+            return this;
         }
 
-        if (normA == 0 || normB == 0) {
-            return 0.0;
+        public RatingMatrixBuilder setCarInfos(List<CarInfo> carInfos) {
+            this.carInfos = carInfos;
+            return this;
         }
 
-        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+        public RatingMatrix build() {
+            // 创建用户ID到矩阵索引的映射
+            Map<Integer, Integer> userIndexMap = new HashMap<>();
+            int userIndex = 0;
+            for (RecommendationHistory history : histories) {
+                if (!userIndexMap.containsKey(history.getUserId())) {
+                    userIndexMap.put(history.getUserId(), userIndex++);
+                }
+            }
+
+            // 创建汽车ID到矩阵索引的映射
+            Map<Integer, Integer> carIndexMap = new HashMap<>();
+            int carIndex = 0;
+            for (CarInfo car : carInfos) {
+                if (!carIndexMap.containsKey(car.getId())) {
+                    carIndexMap.put(car.getId(), carIndex++);
+                }
+            }
+
+            // 初始化评分矩阵
+            RealMatrix matrix = MatrixUtils.createRealMatrix(
+                    userIndexMap.size(),
+                    carIndexMap.size()
+            );
+
+            // 填充评分矩阵
+            for (RecommendationHistory history : histories) {
+                Integer uIdx = userIndexMap.get(history.getUserId());
+                Integer cIdx = carIndexMap.get(history.getCarId());
+                if (uIdx != null && cIdx != null) {
+                    matrix.setEntry(uIdx, cIdx, history.getScore());
+                }
+            }
+
+            return new RatingMatrix(matrix, userIndexMap, carIndexMap);
+        }
+
+        static class RatingMatrix {
+            final RealMatrix matrix;
+            final Map<Integer, Integer> userIndexMap;
+            final Map<Integer, Integer> carIndexMap;
+
+            RatingMatrix(RealMatrix matrix,
+                         Map<Integer, Integer> userIndexMap,
+                         Map<Integer, Integer> carIndexMap) {
+                this.matrix = matrix;
+                this.userIndexMap = userIndexMap;
+                this.carIndexMap = carIndexMap;
+            }
+        }
     }
 
     // 生成推荐结果
     private List<ImCarDetailsDto> generateRecommendations(
-            int userId,
-            Map<Integer, Double> userSimilarities,
+            double[] userPredictions,
             List<CarInfo> carInfos,
-            int maxPrice,
-            Map<Integer, Map<Integer, Double>> userCarRatings) {
+            Map<Integer, Integer> carIndexMap,
+            int maxPrice) {
 
-        Map<Integer, Double> predictedRatings = new HashMap<>();
-        Map<Integer, Integer> ratingCount = new HashMap<>();
-
-        // 根据用户相似度计算预测评分
-        for (Map.Entry<Integer, Double> entry : userSimilarities.entrySet()) {
-            int otherUserId = entry.getKey();
-            double similarity = entry.getValue();
-            Map<Integer, Double> otherUserRatings = userCarRatings.get(otherUserId);
-
-            for (Map.Entry<Integer, Double> carRatingEntry : otherUserRatings.entrySet()) {
-                int carId = carRatingEntry.getKey();
-                double rating = carRatingEntry.getValue();
-
-                predictedRatings.compute(carId, (k, v) -> (v == null ? 0.0 : v) + similarity * rating);
-                ratingCount.compute(carId, (k, v) -> (v == null ? 0 : v) + 1);
+        // 创建汽车ID到预测评分的映射
+        Map<Integer, Double> predictions = new HashMap<>();
+        for (CarInfo car : carInfos) {
+            Integer index = carIndexMap.get(car.getId());
+            if (index != null && index < userPredictions.length) {
+                predictions.put(car.getId(), userPredictions[index]);
             }
         }
+        Map<String, ImCarDetailsDto> bestCarPerBrand = new LinkedHashMap<>();
 
-        // 计算最终预测评分
-        for (Map.Entry<Integer, Integer> countEntry : ratingCount.entrySet()) {
-            int carId = countEntry.getKey();
-            int count = countEntry.getValue();
-            predictedRatings.put(carId, predictedRatings.get(carId) / count);
-        }
+        carInfos.stream()
+                .filter(car -> car.getMaxPrice() != null && car.getMaxPrice() <= maxPrice)
+                .forEach(car -> {
+                    String brandName = carBrandRepository.findById(car.getBrandId())
+                            .map(CarBrand::getName)
+                            .orElse("未知品牌");
 
-        // 筛选符合价格条件的汽车
-        List<ImCarDetailsDto> recommendedCars = new ArrayList<>();
-        for (CarInfo carInfo : carInfos) {
-            if (carInfo.getMaxPrice() != null && carInfo.getMaxPrice() <= maxPrice) {
-                int carId = carInfo.getId();
-                // 这里去掉了预测评分相关的逻辑，因为新的 ImCarDetailsDto 构造函数不包含预测评分
+                    double rating = predictions.getOrDefault(car.getId(), 0.0);
 
-                Optional<CarBrand> carBrandOptional = carBrandRepository.findById(carInfo.getBrandId());
-                String brandName = carBrandOptional.map(CarBrand::getName).orElse("未知品牌");
+                    ImCarDetailsDto currentDto = new ImCarDetailsDto(
+                            car.getId(),
+                            brandName,
+                            car.getFullName(),
+                            car.getMinPrice(),
+                            car.getMaxPrice(),
+                            rating
+                    );
 
-                recommendedCars.add(new ImCarDetailsDto(
-                        carId,
-                        brandName,
-                        carInfo.getFullName(),
-                        carInfo.getMinPrice(),
-                        carInfo.getMaxPrice()
-                ));
-            }
-        }
+                    // Keep only the highest-rated car for each brand
+                    bestCarPerBrand.merge(brandName, currentDto,
+                            (existing, newDto) ->
+                                    newDto.getPredictedRating() > existing.getPredictedRating() ? newDto : existing);
+                });
 
-        // 由于新的 ImCarDetailsDto 没有预测评分，这里的排序逻辑需要调整或移除
-        // 如果需要排序，可以根据其他字段进行排序，例如价格
-        recommendedCars.sort((c1, c2) -> {
-            if (c1.getMaxPrice() != null && c2.getMaxPrice() != null) {
-                return c2.getMaxPrice().compareTo(c1.getMaxPrice());
-            }
-            return 0;
-        });
-
-        logger.info("生成 {} 条符合条件的推荐", recommendedCars.size());
-        return recommendedCars;
+        // Convert to list and sort by rating
+        return bestCarPerBrand.values().stream()
+                .sorted((c1, c2) -> Double.compare(c2.getPredictedRating(), c1.getPredictedRating()))
+                .collect(Collectors.toList());
     }
 
-    // 分页处理结果
-    private Page<ImCarDetailsDto> paginateResults(List<ImCarDetailsDto> recommendedCars, int page, int size) {
-        int start = (page - 1) * size;
-        if (start >= recommendedCars.size()) {
-            return new PageImpl<>(Collections.emptyList(), PageRequest.of(page - 1, size), recommendedCars.size());
+    private List<ImCarDetailsDto> ImgetDefaultRecommendations() {
+        List<DefaultRecommendation> defaultRecs = defaultRecommendationRepository.findAll();
+        return convertDefaultToDto(defaultRecs);
+    }
+
+    private List<ImCarDetailsDto> convertDefaultToDto(List<DefaultRecommendation> defaultRecs) {
+        return defaultRecs.stream()
+                .map(dr -> new ImCarDetailsDto(
+                        dr.getCarId(),
+                        dr.getBrandName(),
+                        dr.getFullName(),
+                        dr.getPrice(),
+                        dr.getPrice(),
+                        0.0 // 默认评分
+                ))
+                .collect(Collectors.toList());
+    }
+
+    // ALS矩阵分解实现
+    private MatrixFactorizationResult performALS(RealMatrix ratings, int rank, int iterations, double lambda) {
+        int userCount = ratings.getRowDimension();
+        int itemCount = ratings.getColumnDimension();
+
+        // 初始化用户和物品特征矩阵
+        RealMatrix userFeatures = MatrixUtils.createRealMatrix(userCount, rank);
+        RealMatrix itemFeatures = MatrixUtils.createRealMatrix(itemCount, rank);
+
+        // 随机初始化
+        Random random = new Random();
+        for (int i = 0; i < userCount; i++) {
+            for (int j = 0; j < rank; j++) {
+                userFeatures.setEntry(i, j, random.nextDouble());
+            }
         }
 
-        int end = Math.min(start + size, recommendedCars.size());
-        List<ImCarDetailsDto> pagedResults = recommendedCars.subList(start, end);
+        for (int i = 0; i < itemCount; i++) {
+            for (int j = 0; j < rank; j++) {
+                itemFeatures.setEntry(i, j, random.nextDouble());
+            }
+        }
 
-        return new PageImpl<>(pagedResults, PageRequest.of(page - 1, size), recommendedCars.size());
+        // ALS迭代
+        for (int iter = 0; iter < iterations; iter++) {
+            // 固定物品特征，优化用户特征
+            for (int u = 0; u < userCount; u++) {
+                RealMatrix A = MatrixUtils.createRealMatrix(rank, rank);
+                RealVector b = MatrixUtils.createRealVector(new double[rank]);
+
+                for (int i = 0; i < itemCount; i++) {
+                    double rating = ratings.getEntry(u, i);
+                    if (rating > 0) {
+                        RealVector itemVector = itemFeatures.getRowVector(i);
+                        A = A.add(itemVector.outerProduct(itemVector));
+                        b = b.add(itemVector.mapMultiply(rating));
+                    }
+                }
+
+                // 添加正则化项
+                RealMatrix lambdaI = MatrixUtils.createRealIdentityMatrix(rank).scalarMultiply(lambda);
+                A = A.add(lambdaI);
+
+                // 解线性方程组
+                DecompositionSolver solver = new LUDecomposition(A).getSolver();
+                RealVector userVector = solver.solve(b);
+                userFeatures.setRow(u, userVector.toArray());
+            }
+
+            // 固定用户特征，优化物品特征
+            for (int i = 0; i < itemCount; i++) {
+                RealMatrix A = MatrixUtils.createRealMatrix(rank, rank);
+                RealVector b = MatrixUtils.createRealVector(new double[rank]);
+
+                for (int u = 0; u < userCount; u++) {
+                    double rating = ratings.getEntry(u, i);
+                    if (rating > 0) {
+                        RealVector userVector = userFeatures.getRowVector(u);
+                        A = A.add(userVector.outerProduct(userVector));
+                        b = b.add(userVector.mapMultiply(rating));
+                    }
+                }
+
+                // 添加正则化项
+                RealMatrix lambdaI = MatrixUtils.createRealIdentityMatrix(rank).scalarMultiply(lambda);
+                A = A.add(lambdaI);
+
+                // 解线性方程组
+                DecompositionSolver solver = new LUDecomposition(A).getSolver();
+                RealVector itemVector = solver.solve(b);
+                itemFeatures.setRow(i, itemVector.toArray());
+            }
+        }
+
+        return new MatrixFactorizationResult(userFeatures, itemFeatures);
     }
+
+    // 矩阵分解结果容器类
+    private static class MatrixFactorizationResult {
+        private final RealMatrix userFeatures;
+        private final RealMatrix itemFeatures;
+
+        public MatrixFactorizationResult(RealMatrix userFeatures, RealMatrix itemFeatures) {
+            this.userFeatures = userFeatures;
+            this.itemFeatures = itemFeatures;
+        }
+
+        public RealMatrix getUserFeatures() {
+            return userFeatures;
+        }
+
+        public RealMatrix getItemFeatures() {
+            return itemFeatures;
+        }
+
+        public RealMatrix getPredictions() {
+            return userFeatures.multiply(itemFeatures.transpose());
+        }
+    }
+
 
     private List<Map<String, Object>> getDefaultRecommendations() {
         return defaultRecommendationRepository.findAll().stream()

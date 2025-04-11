@@ -35,9 +35,9 @@ public class CollectController {
             Integer carId = (Integer) request.get("carId");
             logger.info("Received Car ID: {}", carId);
             String name = (String) request.get("name");
-            Float score = (Float) request.get("score");
+            Integer score = (Integer) request.get("score");
 
-            RecommendationHistory result = collectService.collectCar(carId, userId, name, score);
+            RecommendationHistory result = collectService.collectCar(carId, userId, name, Float.valueOf(score));
             if (result != null) {
                 return new ResponseEntity<>("收藏成功", HttpStatus.OK);
             } else {

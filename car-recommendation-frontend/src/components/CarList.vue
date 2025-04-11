@@ -20,11 +20,10 @@
       </el-table-column>
       <el-table-column label="评分">
         <template #default="scope">
-          <el-input v-model="scope.row.score" type="number" min="1" max="5" placeholder="1-5分"></el-input>
+          <el-input v-model="scope.row.score" type="number" min="1" max="10" placeholder="1-10分"></el-input>
         </template>
       </el-table-column>
     </el-table>
-
     <!-- 分页组件 -->
     <el-pagination
         background
@@ -122,8 +121,8 @@ export default defineComponent({
         return;
       }
 
-      if (!score || isNaN(score) || score < 1 || score > 5) {
-        ElMessage.warning('请输入 1 - 5 分的评分');
+      if (!score || isNaN(score) || score < 1 || score > 10) {
+        ElMessage.warning('请输入 1 - 10 分的评分');
         return;
       }
       console.log('Car ID:', carId); // 打印 carId 确认是否正确
