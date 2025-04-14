@@ -26,8 +26,6 @@
       <div class="chart-item">
         <canvas ref="newUserHistoryLineChart"></canvas>
       </div>
-
-
     </div>
   </div>
 </template>
@@ -73,10 +71,9 @@ const formatDateByUnit = (timestamp, unit) => {
     case 'month':
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     case 'week': {
-      const oneDay = 24 * 60 * 60 * 1000;
-      const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
-      const dayOfYear = Math.floor((date - firstDayOfYear) / oneDay);
-      return `${date.getFullYear()}-W${Math.ceil((dayOfYear + firstDayOfYear.getDay() + 1) / 7)}`;
+      const year = date.getFullYear();
+      const weekNumber = Math.ceil((date - new Date(year, 0, 1 - (new Date(year, 0, 1).getDay() || 7))) / (7 * 24 * 60 * 60 * 1000));
+      return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
     }
     case 'day':
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -87,7 +84,7 @@ const formatDateByUnit = (timestamp, unit) => {
 
 // 检查数据是否包含 undefined 或 null 值
 const isValidData = (data) => {
-  return data.every(item => item !== undefined && item !== null);
+  return data.every(item => item!== undefined && item!== null);
 };
 
 export default {
@@ -96,19 +93,17 @@ export default {
       selectedTimeUnit: 'day', // 默认时间单位
       barChart: null,
       lineChart: null,
-      // 定义 chartInstances
-      chartInstances: {
-        newLineChart: null
-      },
+      chartInstances: { newLineChart: null },
       hasData: false // 新增数据状态标识
     };
   },
   watch: {
-    selectedTimeUnit(newUnit) {
-      // 当时间单位改变时，销毁之前的图表实例
-      this.destroyCharts();
-      // 重新绘制图表
-      this.fetchDataAndRenderChart();
+    selectedTimeUnit: {
+      handler(newUnit) {
+        this.destroyCharts();
+        this.fetchDataAndRenderChart();
+      },
+      immediate: true // 初始化时触发
     }
   },
   mounted() {
@@ -123,8 +118,8 @@ export default {
         const token = userStore.token;
         const userId = getUserIdFromToken(token);
 
-        let url = '/api/user-history-analysis';
-        if (role === 'user' && userId !== null) {
+        let url = '/api/history/user-history-analysis';
+        if (role === 'user' && userId!== null) {
           url += `?userId=${userId}`;
         }
 
@@ -145,7 +140,12 @@ export default {
         data.forEach(item => {
           const carBrand = item[1];
           const score = item[2];
-          const timestamp = item[0];
+          const timestampStr = item[0];
+          if (!carBrand || score === undefined ||!timestampStr) {
+            console.warn('数据项缺少必要字段:', item);
+            return;
+          }
+          const timestamp = new Date(timestampStr).getTime();
           const formattedTime = formatDateByUnit(timestamp, this.selectedTimeUnit);
 
           // 处理直方图数据：合并相同品牌并计算平均分数
@@ -167,7 +167,6 @@ export default {
 
         const carBrandLabels = [];
         const scoreDataForBar = [];
-
         carBrandScoreMap.forEach(([totalScore, count], carBrand) => {
           carBrandLabels.push(carBrand);
           scoreDataForBar.push(totalScore / count);
@@ -175,7 +174,6 @@ export default {
 
         const timeLabels = [];
         const scoreDataForLine = [];
-
         const sortedTimes = Array.from(timeScoreMap.keys()).sort();
         sortedTimes.forEach(time => {
           const [totalScore, count] = timeScoreMap.get(time);
@@ -201,11 +199,7 @@ export default {
             options: {
               responsive: true,
               maintainAspectRatio: false,
-              scales: {
-                y: {
-                  beginAtZero: true
-                }
-              }
+              scales: { y: { beginAtZero: true } }
             }
           });
 
@@ -235,21 +229,15 @@ export default {
                     displayFormats: {
                       year: 'yyyy',
                       month: 'yyyy-MM',
-                      week: 'yyyy-II',
+                      week: 'yyyy-WW',
                       day: 'yyyy-MM-dd'
                     }
                   },
-                  title: {
-                    display: true,
-                    text: '时间'
-                  }
+                  title: { display: true, text: '时间' }
                 },
                 y: {
                   beginAtZero: true,
-                  title: {
-                    display: true,
-                    text: '平均评分'
-                  }
+                  title: { display: true, text: '平均评分' }
                 }
               }
             }
@@ -262,7 +250,7 @@ export default {
         // 模拟新折线图数据
         const newLineData = {
           timeLabels: timeLabels,
-          brandDataForLine: scoreDataForLine.map((score, index) => index + 1) // 简单示例数据
+          brandDataForLine: scoreDataForLine.map((score, index) => index + 1)
         };
         this.renderNewLineChart(newLineData);
       } catch (error) {
@@ -270,10 +258,12 @@ export default {
         console.error('获取数据失败:', error);
       }
     },
-    // 将 renderNewLineChart 方法移动到 methods 内部
     renderNewLineChart(data) {
-      console.log("新折线图", data);
       const newLineCtx = this.$refs.newUserHistoryLineChart.getContext('2d');
+      if (!newLineCtx) {
+        console.error('无法获取新折线图的 canvas 上下文');
+        return;
+      }
       if (this.chartInstances.newLineChart) {
         this.chartInstances.newLineChart.destroy();
       }
@@ -295,34 +285,18 @@ export default {
           scales: {
             x: {
               type: 'time',
-              time: {
-                unit: this.selectedTimeUnit
-              },
-              title: {
-                display: true,
-                text: '时间'
-              }
+              time: { unit: this.selectedTimeUnit },
+              title: { display: true, text: '时间' }
             },
-            y: {
-              title: {
-                display: true,
-                text: '车品牌索引'
-              }
-            }
+            y: { title: { display: true, text: '车品牌索引' } }
           }
         }
       });
     },
     destroyCharts() {
-      if (this.barChart) {
-        this.barChart.destroy();
-      }
-      if (this.lineChart) {
-        this.lineChart.destroy();
-      }
-      if (this.chartInstances.newLineChart) {
-        this.chartInstances.newLineChart.destroy();
-      }
+      if (this.barChart) this.barChart.destroy();
+      if (this.lineChart) this.lineChart.destroy();
+      if (this.chartInstances.newLineChart) this.chartInstances.newLineChart.destroy();
     }
   }
 };
