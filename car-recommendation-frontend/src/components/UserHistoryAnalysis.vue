@@ -280,4 +280,4 @@ const userStats = {
     margin-bottom: 10px;
   }
 }
-</style>    
+</style>
