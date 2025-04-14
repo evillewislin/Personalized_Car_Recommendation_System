@@ -50,7 +50,7 @@ const loading = ref(true);
 const fetchData = async () => {
   try {
     const [usersRes, recRes] = await Promise.all([
-      axios.get('/api/history/users/'),
+      axios.get('/api//history/users'),
       axios.get('/api/history/recommendation-history')
     ]);
     users.value = usersRes.data;
@@ -75,6 +75,7 @@ const processUserData = () => {
 
   const regionData = users.value.reduce((acc, user) => {
     acc[user.region] = (acc[user.region] || 0) + 1;
+    console.error('region数据', user.region);
     return acc;
   }, {});
 
