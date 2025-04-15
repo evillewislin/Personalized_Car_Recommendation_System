@@ -11,20 +11,13 @@
       </select>
     </div>
 
-    <div>
-      <!-- 无数据提示（默认隐藏） -->
-      <div class="no-data-tip" v-show="!hasData">
-        无历史汽车数据
-      </div>
-      <!-- 图表容器 -->
+    <!-- 图表容器 - 并排显示 -->
+    <div class="chart-row">
       <div class="chart-item">
         <canvas ref="userHistoryBarChart"></canvas>
       </div>
       <div class="chart-item">
         <canvas ref="userHistoryLineChart"></canvas>
-      </div>
-      <div class="chart-item">
-        <canvas ref="newUserHistoryLineChart"></canvas>
       </div>
     </div>
   </div>
@@ -93,7 +86,6 @@ export default {
       selectedTimeUnit: 'day', // 默认时间单位
       barChart: null,
       lineChart: null,
-      chartInstances: { newLineChart: null },
       hasData: false // 新增数据状态标识
     };
   },
@@ -246,57 +238,14 @@ export default {
           this.hasData = false;
           console.error('数据包含无效值，无法绘制图表');
         }
-
-        // 模拟新折线图数据
-        const newLineData = {
-          timeLabels: timeLabels,
-          brandDataForLine: scoreDataForLine.map((score, index) => index + 1)
-        };
-        this.renderNewLineChart(newLineData);
       } catch (error) {
         this.hasData = false;
         console.error('获取数据失败:', error);
       }
     },
-    renderNewLineChart(data) {
-      const newLineCtx = this.$refs.newUserHistoryLineChart.getContext('2d');
-      if (!newLineCtx) {
-        console.error('无法获取新折线图的 canvas 上下文');
-        return;
-      }
-      if (this.chartInstances.newLineChart) {
-        this.chartInstances.newLineChart.destroy();
-      }
-      this.chartInstances.newLineChart = new Chart(newLineCtx, {
-        type: 'line',
-        data: {
-          labels: data.timeLabels,
-          datasets: [{
-            label: '车品牌随时间变化',
-            data: data.brandDataForLine,
-            fill: false,
-            borderColor: 'rgba(54, 162, 235, 1)',
-            tension: 0.1
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              type: 'time',
-              time: { unit: this.selectedTimeUnit },
-              title: { display: true, text: '时间' }
-            },
-            y: { title: { display: true, text: '车品牌索引' } }
-          }
-        }
-      });
-    },
     destroyCharts() {
       if (this.barChart) this.barChart.destroy();
       if (this.lineChart) this.lineChart.destroy();
-      if (this.chartInstances.newLineChart) this.chartInstances.newLineChart.destroy();
     }
   }
 };
@@ -309,10 +258,10 @@ export default {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   width: 100%;
-  max-width: 800px;
+  max-width: 1200px; /* 增加最大宽度以适应并排图表 */
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1rem;
 }
 
 .time-unit-selector {
@@ -331,8 +280,18 @@ export default {
   border-radius: 4px;
 }
 
-.chart-item {
+/* 新增图表行样式 */
+.chart-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
   width: 100%;
+}
+
+/* 修改图表项样式为并排 */
+.chart-item {
+  flex: 1;
+  min-width: 300px; /* 确保在小屏幕上也能保持一定宽度 */
   height: 40vh; /* 使用视口高度 */
   min-height: 250px; /* 最小高度 */
   position: relative;
@@ -347,5 +306,16 @@ canvas {
   text-align: center;
   color: #999;
   padding: 20px;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .chart-row {
+    flex-direction: column;
+  }
+
+  .chart-item {
+    width: 100%;
+  }
 }
 </style>
