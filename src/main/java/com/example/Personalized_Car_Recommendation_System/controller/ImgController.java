@@ -20,7 +20,6 @@ import java.util.List;
 @RequestMapping("/api/images")
 public class ImgController {
     private static final Logger log = LogManager.getLogger(CarController.class);
-    // 假设图片存储在这个目录下
     private static final String IMAGE_DIR = "src/main/resources/assets";
 
     /**

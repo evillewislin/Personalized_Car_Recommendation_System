@@ -19,7 +19,7 @@
       </div>
 
       <div class="filter-group">
-        <label>地区：</label>
+        <label>地区筛选：</label>
         <el-select
             v-model="selectedRegions"
             multiple
@@ -34,12 +34,6 @@
               :label="region"
               :value="region"
           />
-          <template #footer>
-            <div class="select-footer">
-              <el-button link @click="selectAllRegions">全选</el-button>
-              <el-button link @click="clearRegions">清空</el-button>
-            </div>
-          </template>
         </el-select>
       </div>
 
@@ -51,12 +45,6 @@
       <div class="stat-card">
         <h3>总用户数</h3>
         <p>{{ userStats.total }}</p>
-        <div class="stat-trend">
-          <span :class="trendClass(userStats.trend)">
-            {{ userStats.trend >= 0 ? '↑' : '↓' }} {{ Math.abs(userStats.trend) }}%
-          </span>
-          <span>较上月</span>
-        </div>
       </div>
       <div class="stat-card">
         <h3>平均年龄</h3>
@@ -74,16 +62,14 @@
         <v-chart
             :option="ageChartOption"
             style="height: 400px;"
-            :loading="loading"
-            autoresize
+            @rendered="handleChartRendered('ageChart')"
         />
       </div>
       <div class="chart-container">
         <v-chart
             :option="regionChartOption"
             style="height: 400px;"
-            :loading="loading"
-            autoresize
+            @rendered="handleChartRendered('regionChart')"
         />
       </div>
     </div>
@@ -93,16 +79,14 @@
         <v-chart
             :option="trendChartOption"
             style="height: 400px;"
-            :loading="loading"
-            autoresize
+            @rendered="handleChartRendered('trendChart')"
         />
       </div>
       <div class="chart-container">
         <v-chart
             :option="brandChartOption"
             style="height: 400px;"
-            :loading="loading"
-            autoresize
+            @rendered="handleChartRendered('brandChart')"
         />
       </div>
     </div>
@@ -110,11 +94,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import axios from 'axios';
 import VChart from 'vue-echarts';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
+import { debounce } from 'lodash-es';
 import {
   BarChart,
   LineChart,
@@ -141,22 +126,48 @@ use([
 // 数据状态
 const rawUsers = ref([]);
 const rawRecommendations = ref([]);
-const loading = ref(true);
 
 // 筛选状态
 const dateRange = ref([]);
 const selectedRegions = ref([]);
 const availableRegions = ref([]);
 
-// 禁用未来日期
-const disabledDate = (time) => {
-  return time.getTime() > Date.now();
+// 图表实例引用
+const chartInstances = ref({
+  ageChart: null,
+  regionChart: null,
+  trendChart: null,
+  brandChart: null
+});
+
+// 设置默认最近一周
+const setDefaultDateRange = () => {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - 7);
+
+  dateRange.value = [
+    start.toISOString().split('T')[0],
+    end.toISOString().split('T')[0]
+  ];
+};
+
+// 获取TOP10地区
+const getTopRegions = () => {
+  const regionCounts = rawUsers.value.reduce((acc, user) => {
+    acc[user.region] = (acc[user.region] || 0) + 1;
+    return acc;
+  }, {});
+
+  return Object.entries(regionCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(item => item[0]);
 };
 
 // 获取数据
 const fetchData = async () => {
   try {
-    loading.value = true;
     const [usersRes, recRes] = await Promise.all([
       axios.get('/api/history/users'),
       axios.get('/api/history/recommendation-history')
@@ -177,206 +188,121 @@ const fetchData = async () => {
       timestamp: rec.timestamp?.split('T')[0] || '2023-01-01'
     }));
 
-    // 初始化地区选项
+    // 初始化地区选项和默认选中TOP10
     availableRegions.value = [
       ...new Set(rawUsers.value.map(u => u.region))
     ].sort();
-    selectedRegions.value = [...availableRegions.value];
+    selectedRegions.value = getTopRegions();
+
+    // 设置默认日期范围
+    setDefaultDateRange();
 
   } catch (error) {
     console.error('数据加载失败:', error);
-  } finally {
-    loading.value = false;
   }
 };
 
-// 筛选后的数据
-const filteredUsers = computed(() => {
-  return rawUsers.value.filter(user => {
-    // 日期筛选
-    const datePass = !dateRange.value?.length ||
-        (user.registerDate >= dateRange.value[0] &&
-            user.registerDate <= dateRange.value[1]);
+// 图表渲染回调
+const handleChartRendered = (chartName) => (instance) => {
+  chartInstances.value[chartName] = instance;
+};
 
-    // 地区筛选
-    const regionPass = selectedRegions.value.includes(user.region);
+// 防抖的resize处理
+const handleResize = debounce(() => {
+  // 延迟图表重绘
+  setTimeout(() => {
+    Object.values(chartInstances.value).forEach(instance => {
+      if (instance) {
+        try {
+          instance.resize();
+        } catch (e) {
+          console.warn('图表resize错误:', e);
+        }
+      }
+    });
+  }, 200);
+}, 200);
 
-    return datePass && regionPass;
-  });
+// 地区筛选后的用户数据
+const regionFilteredUsers = computed(() => {
+  return rawUsers.value.filter(user =>
+      selectedRegions.value.includes(user.region)
+  );
 });
 
-const filteredRecommendations = computed(() => {
-  return rawRecommendations.value.filter(rec => {
-    return !dateRange.value?.length ||
-        (rec.timestamp >= dateRange.value[0] &&
-            rec.timestamp <= dateRange.value[1]);
-  });
+// 日期筛选后的推荐数据
+const dateFilteredRecommendations = computed(() => {
+  if (!dateRange.value?.length) return rawRecommendations.value;
+
+  return rawRecommendations.value.filter(rec =>
+      rec.timestamp >= dateRange.value[0] &&
+      rec.timestamp <= dateRange.value[1]
+  );
 });
 
-// 用户统计信息
+// 用户统计信息（基于全部用户数据）
 const userStats = computed(() => {
-  const validAges = filteredUsers.value.filter(u => !isNaN(u.age));
+  const validAges = rawUsers.value.filter(u => !isNaN(u.age));
   const totalAge = validAges.reduce((sum, u) => sum + u.age, 0);
 
   return {
-    total: filteredUsers.value.length,
+    total: rawUsers.value.length,
     avgAge: validAges.length
         ? `${(totalAge / validAges.length).toFixed(1)}岁`
         : '0.0岁',
-    regions: new Set(filteredUsers.value.map(u => u.region)).size,
-    trend: calculateTrend()
+    regions: new Set(rawUsers.value.map(u => u.region)).size
   };
 });
 
-// 计算趋势
-const calculateTrend = () => {
-  if (filteredUsers.value.length === 0) return 0;
-
-  const now = new Date();
-  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-
-  const currentCount = filteredUsers.value.length;
-  const lastMonthCount = rawUsers.value.filter(u => {
-    const date = new Date(u.registerDate);
-    return date < now && date >= lastMonth;
-  }).length;
-
-  if (lastMonthCount === 0) return 100;
-  return Math.round(((currentCount - lastMonthCount) / lastMonthCount) * 100);
-};
-
-// 图表数据
+// 图表数据 - 上面两个图表使用地区筛选
 const ageChartOption = computed(() => ({
-  title: {
-    text: '用户年龄分布',
-    left: 'center'
-  },
-  tooltip: {
-    trigger: 'axis',
-    axisPointer: {
-      type: 'shadow'
-    }
-  },
-  grid: {
-    left: '3%',
-    right: '4%',
-    bottom: '3%',
-    containLabel: true
-  },
+  title: { text: '用户年龄分布' },
+  tooltip: {},
   xAxis: {
     type: 'category',
-    data: getAgeGroups().map(g => `${g.name}岁`),
-    axisLabel: {
-      rotate: 45
-    }
+    data: getAgeGroups(regionFilteredUsers.value).map(g => `${g.name}岁`)
   },
-  yAxis: {
-    type: 'value',
-    name: '用户数量'
-  },
+  yAxis: { type: 'value' },
   series: [{
-    name: '用户数',
+    data: getAgeGroups(regionFilteredUsers.value).map(g => g.value),
     type: 'bar',
-    data: getAgeGroups().map(g => g.value),
-    itemStyle: {
-      color: '#5470C6'
-    },
-    emphasis: {
-      itemStyle: {
-        color: '#3a56b4'
-      }
-    }
+    itemStyle: { color: '#5470C6' }
   }]
 }));
 
 const regionChartOption = computed(() => ({
-  title: {
-    text: '用户地区分布',
-    left: 'center'
-  },
-  tooltip: {
-    trigger: 'item',
-    formatter: '{b}: {c} ({d}%)'
-  },
+  title: { text: '用户地区分布' },
+  tooltip: { formatter: '{b}: {c} ({d}%)' },
   series: [{
-    name: '地区分布',
     type: 'pie',
-    radius: ['40%', '70%'],
-    avoidLabelOverlap: false,
-    itemStyle: {
-      borderRadius: 10,
-      borderColor: '#fff',
-      borderWidth: 2
-    },
-    label: {
-      show: false,
-      position: 'center'
-    },
-    emphasis: {
-      label: {
-        show: true,
-        fontSize: '18',
-        fontWeight: 'bold'
-      }
-    },
-    labelLine: {
-      show: false
-    },
-    data: getRegionData()
+    radius: '60%',
+    data: getRegionData(regionFilteredUsers.value)
   }]
 }));
 
+// 图表数据 - 下面两个图表使用日期筛选
 const trendChartOption = computed(() => ({
-  title: {
-    text: '推荐评分趋势',
-    left: 'center'
-  },
+  title: { text: '推荐评分趋势' },
   tooltip: {
-    trigger: 'axis',
     formatter: params => {
-      const data = getTrendData()[params[0].dataIndex];
-      return `日期: ${data.date}<br/>平均分: ${data.score.toFixed(1)}<br/>样本数: ${data.count}`;
+      const data = getTrendData()[params.dataIndex];
+      return `日期: ${data.date}<br/>评分: ${data.score.toFixed(1)}`;
     }
-  },
-  grid: {
-    left: '3%',
-    right: '4%',
-    bottom: '3%',
-    containLabel: true
   },
   xAxis: {
     type: 'category',
-    boundaryGap: false,
-    data: getTrendData().map(d => d.date),
-    axisLabel: {
-      rotate: 45
-    }
+    data: getTrendData().map(d => d.date)
   },
   yAxis: {
     type: 'value',
     min: 0,
-    max: 10,
-    axisLabel: {
-      formatter: '{value} 分'
-    }
+    max: 10
   },
   series: [{
-    name: '平均分',
-    type: 'line',
-    symbol: 'circle',
-    symbolSize: 8,
     data: getTrendData().map(d => d.score),
-    lineStyle: {
-      width: 3
-    },
-    itemStyle: {
-      color: '#EE6666'
-    },
-    emphasis: {
-      itemStyle: {
-        color: '#d23333'
-      }
-    }
+    type: 'line',
+    smooth: true,
+    itemStyle: { color: '#EE6666' }
   }]
 }));
 
@@ -387,12 +313,9 @@ const brandChartOption = computed(() => ({
   },
   tooltip: {
     trigger: 'axis',
-    axisPointer: {
-      type: 'shadow'
-    },
     formatter: params => {
       const data = getBrandData()[params[0].dataIndex];
-      return `${data.brand}<br/>平均分: ${data.score.toFixed(1)}<br/>样本数: ${data.count}`;
+      return `${data.brand}<br/>平均分: ${data.score.toFixed(1)}`;
     }
   },
   grid: {
@@ -405,8 +328,7 @@ const brandChartOption = computed(() => ({
     type: 'category',
     data: getBrandData().map(d => d.brand),
     axisLabel: {
-      interval: 0,
-      rotate: 45
+      rotate: 45  // 如果品牌名称较长可以旋转45度
     }
   },
   yAxis: {
@@ -414,34 +336,39 @@ const brandChartOption = computed(() => ({
     min: 0,
     max: 10,
     axisLabel: {
-      formatter: '{value} 分'
+      formatter: '{value} 分'  // 添加单位
     }
   },
   series: [{
     name: '平均分',
-    type: 'bar',
-    data: getBrandData().map(d => ({
-      value: d.score,
-      itemStyle: {
-        color: d.score > 5 ? '#91CC75' : '#EE6666'
-      }
-    })),
-    emphasis: {
-      itemStyle: {
-        color: params => params.value > 5 ? '#6da754' : '#d23333'
-      }
+    data: getBrandData().map(d => d.score),
+    type: 'line',
+    symbol: 'circle',  // 数据点显示为圆形
+    symbolSize: 8,     // 数据点大小
+    smooth: true,      // 平滑曲线
+    lineStyle: {
+      width: 3,        // 线宽
+      color: '#5470C6' // 线条颜色
+    },
+    itemStyle: {
+      color: params => params.value > 5 ? '#91CC75' : '#EE6666'
     },
     label: {
-      show: true,
+      show: true,      // 显示数值标签
       position: 'top',
-      formatter: '{c}'
+      formatter: params => params.value.toFixed(2) // 显示原始值
+    },
+    emphasis: {        // 高亮样式
+      itemStyle: {
+        color: '#FF0000'  // 高亮时变为红色
+      }
     }
   }]
 }));
 
 // 数据处理方法
-const getAgeGroups = () => {
-  const groups = filteredUsers.value.reduce((acc, user) => {
+const getAgeGroups = (users) => {
+  const groups = users.reduce((acc, user) => {
     const decade = Math.floor(user.age / 10) * 10;
     const key = `${decade}-${decade + 9}`;
     acc[key] = (acc[key] || 0) + 1;
@@ -449,12 +376,12 @@ const getAgeGroups = () => {
   }, {});
 
   return Object.entries(groups)
-      .map(([name, value]) => ({name, value}))
+      .map(([name, value]) => ({ name, value }))
       .sort((a, b) => parseInt(a.name) - parseInt(b.name));
 };
 
-const getRegionData = () => {
-  const regions = filteredUsers.value.reduce((acc, user) => {
+const getRegionData = (users) => {
+  const regions = users.reduce((acc, user) => {
     acc[user.region] = (acc[user.region] || 0) + 1;
     return acc;
   }, {});
@@ -471,9 +398,9 @@ const getRegionData = () => {
 };
 
 const getTrendData = () => {
-  const byDate = filteredRecommendations.value.reduce((acc, rec) => {
+  const byDate = dateFilteredRecommendations.value.reduce((acc, rec) => {
     if (!acc[rec.timestamp]) {
-      acc[rec.timestamp] = {total: 0, count: 0};
+      acc[rec.timestamp] = { total: 0, count: 0 };
     }
     acc[rec.timestamp].total += rec.score;
     acc[rec.timestamp].count += 1;
@@ -481,7 +408,7 @@ const getTrendData = () => {
   }, {});
 
   return Object.entries(byDate)
-      .map(([date, {total, count}]) => ({
+      .map(([date, { total, count }]) => ({
         date,
         score: total / count,
         count
@@ -490,10 +417,10 @@ const getTrendData = () => {
 };
 
 const getBrandData = () => {
-  const byBrand = filteredRecommendations.value.reduce((acc, rec) => {
+  const byBrand = dateFilteredRecommendations.value.reduce((acc, rec) => {
     const brand = rec.carName?.split(' ')[0] || '其他';
     if (!acc[brand]) {
-      acc[brand] = {total: 0, count: 0};
+      acc[brand] = { total: 0, count: 0 };
     }
     acc[brand].total += rec.score;
     acc[brand].count += 1;
@@ -501,7 +428,7 @@ const getBrandData = () => {
   }, {});
 
   return Object.entries(byBrand)
-      .map(([brand, {total, count}]) => ({
+      .map(([brand, { total, count }]) => ({
         brand,
         score: total / count,
         count
@@ -514,25 +441,30 @@ const handleFilterChange = () => {
   // 自动触发计算属性更新
 };
 
-const selectAllRegions = () => {
-  selectedRegions.value = [...availableRegions.value];
-};
-
-const clearRegions = () => {
-  selectedRegions.value = [];
-};
-
 const resetFilters = () => {
-  dateRange.value = [];
-  selectedRegions.value = [...availableRegions.value];
+  setDefaultDateRange();
+  selectedRegions.value = getTopRegions();
 };
 
-// 趋势样式
-const trendClass = (trend) => {
-  return trend >= 0 ? 'positive' : 'negative';
+// 禁用未来日期
+const disabledDate = (time) => {
+  return time.getTime() > Date.now();
 };
 
-onMounted(fetchData);
+onMounted(() => {
+  fetchData();
+  window.addEventListener('resize', handleResize);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize);
+  // 清理图表实例
+  Object.values(chartInstances.value).forEach(instance => {
+    if (instance) {
+      instance.dispose();
+    }
+  });
+});
 </script>
 
 <style scoped>
@@ -573,11 +505,10 @@ h1 {
   white-space: nowrap;
 }
 
-.select-footer {
-  padding: 8px;
-  border-top: 1px solid #eee;
-  display: flex;
-  justify-content: space-between;
+.filter-tip {
+  font-size: 12px;
+  color: #999;
+  margin-left: 5px;
 }
 
 /* 统计卡片样式 */
@@ -595,11 +526,6 @@ h1 {
   padding: 20px;
   text-align: center;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s;
-}
-
-.stat-card:hover {
-  transform: translateY(-5px);
 }
 
 .stat-card h3 {
@@ -615,24 +541,6 @@ h1 {
   color: #333;
 }
 
-.stat-trend {
-  margin-top: 10px;
-  font-size: 14px;
-  color: #999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-}
-
-.stat-trend .positive {
-  color: #67c23a;
-}
-
-.stat-trend .negative {
-  color: #f56c6c;
-}
-
 /* 图表区域样式 */
 .charts-row {
   display: flex;
@@ -646,11 +554,17 @@ h1 {
   border-radius: 8px;
   padding: 15px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s;
+  position: relative;
+  min-height: 400px;
 }
 
-.chart-container:hover {
-  transform: translateY(-3px);
+.chart-note {
+  position: absolute;
+  bottom: 10px;
+  right: 15px;
+  font-size: 12px;
+  color: #999;
+  font-style: italic;
 }
 
 /* 响应式布局 */
