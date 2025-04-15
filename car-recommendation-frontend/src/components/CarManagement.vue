@@ -1,26 +1,22 @@
 <template>
   <div>
-    <h2>汽车管理</h2>
+    <h2>用户管理</h2>
     <!-- 操作按钮和搜索框 -->
     <div class="action-buttons">
-      <el-button type="primary" @click="showAddModal">添加汽车</el-button>
-      <el-input v-model="searchQuery" placeholder="请输入搜索关键词"></el-input>
-      <el-button @click="searchCars">搜索</el-button>
+      <el-button type="primary" @click="showAddModal">添加用户</el-button>
+      <el-input v-model="searchQuery" placeholder="请输入搜索关键词" style="width: 200px"></el-input>
+      <el-button @click="searchUsers">搜索</el-button>
     </div>
-    <!-- 汽车列表表格 -->
-    <el-table :data="cars" style="width: 100%">
-      <el-table-column prop="name" label="品牌"></el-table-column>
-      <el-table-column prop="fullName" label="全名"></el-table-column>
-      <el-table-column label="价格区间">
-        <template #default="scope">
-          {{ scope.row.minPrice }} - {{ scope.row.maxPrice }}
-        </template>
-      </el-table-column>
+    <!-- 用户列表表格 -->
+    <el-table :data="paginatedUsers" style="width: 100%">
+      <el-table-column prop="userId" label="用户 ID"></el-table-column>
+      <el-table-column prop="username" label="用户名"></el-table-column>
+      <el-table-column prop="role" label="身份"></el-table-column>
       <!-- 操作列 -->
       <el-table-column label="操作">
         <template #default="scope">
           <el-button size="small" @click="showEditModal(scope.row)">编辑</el-button>
-          <el-button size="small" type="danger" @click="deleteCar(scope.row.carId)">删除</el-button>
+          <el-button size="small" type="danger" @click="deleteUser(scope.row.userId)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -36,24 +32,16 @@
         @current-change="handlePageChange"
     />
 
-    <!-- 添加汽车模态框 -->
+    <!-- 添加用户模态框 -->
     <div v-if="addModalVisible" class="custom-modal">
       <div class="custom-modal-content">
-        <h3>添加汽车</h3>
+        <h3>添加用户</h3>
         <el-form :model="addForm" :rules="addRules" ref="addFormRef">
-          <el-form-item label="品牌" prop="name">
-            <el-input v-model="addForm.name"></el-input>
-          </el-form-item>
-          <el-form-item label="全名" prop="fullName">
-            <el-input v-model="addForm.fullName"></el-input>
-          </el-form-item>
-          <el-form-item label="最低价格" prop="minPrice">
-            <el-input v-model.number="addForm.minPrice" type="number"></el-input>
-          </el-form-item>
-          <el-form-item label="最高价格" prop="maxPrice">
-            <el-input v-model.number="addForm.maxPrice" type="number"></el-input>
+          <el-form-item label="用户名" prop="username">
+            <el-input v-model="addForm.username"></el-input>
           </el-form-item>
         </el-form>
+        <h4>Tip:默认密码为123456</h4>
         <div class="custom-modal-footer">
           <el-button @click="addModalVisible = false">取消</el-button>
           <el-button type="primary" @click="submitAddForm">确定</el-button>
@@ -61,23 +49,19 @@
       </div>
     </div>
 
-    <!-- 编辑汽车模态框 -->
+    <!-- 编辑用户模态框 -->
     <div v-if="editModalVisible" class="custom-modal">
       <div class="custom-modal-content">
-        <h3>编辑汽车</h3>
+        <h3>编辑用户</h3>
         <el-form :model="editForm" :rules="editRules" ref="editFormRef">
-          <el-form-item label="品牌" prop="name">
-            <!-- 添加 disabled 属性 -->
-            <el-input v-model="editForm.name" disabled></el-input>
+          <el-form-item label="用户名" prop="username">
+            <el-input v-model="editForm.username" disabled></el-input>
           </el-form-item>
-          <el-form-item label="全名" prop="fullName">
-            <el-input v-model="editForm.fullName"></el-input>
+          <el-form-item label="新密码" prop="newPassword">
+            <el-input v-model="editForm.newPassword" type="password"></el-input>
           </el-form-item>
-          <el-form-item label="最低价格" prop="minPrice">
-            <el-input v-model.number="editForm.minPrice" type="number"></el-input>
-          </el-form-item>
-          <el-form-item label="最高价格" prop="maxPrice">
-            <el-input v-model.number="editForm.maxPrice" type="number"></el-input>
+          <el-form-item label="确认新密码" prop="confirmNewPassword">
+            <el-input v-model="editForm.confirmNewPassword" type="password"></el-input>
           </el-form-item>
         </el-form>
         <div class="custom-modal-footer">
@@ -90,12 +74,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import axios from 'axios';
 import { ElMessage } from 'element-plus';
 
-// 存储所有汽车数据
-const cars = ref([]);
+// 存储所有用户数据
+const users = ref([]);
 // 总数据条数
 const total = ref(0);
 // 每页条数
@@ -105,100 +89,86 @@ const currentPage = ref(1);
 // 存储搜索关键词
 const searchQuery = ref('');
 
-// 添加汽车模态框相关
+// 计算当前页显示的用户数据
+const paginatedUsers = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return filteredUsers.value.slice(start, end);
+});
+
+// 存储过滤后的用户数据
+const filteredUsers = ref([]);
+
+// 添加用户模态框相关
 const addModalVisible = ref(false);
 const addForm = ref({
-  name: '',
-  fullName: '',
-  minPrice: null,
-  maxPrice: null
+  username: '',
+  password: '123456',
+  confirmPassword: '123456'
 });
 const addRules = ref({
-  name: [
-    { required: true, message: '请输入品牌', trigger: 'blur' }
-  ],
-  fullName: [
-    { required: true, message: '请输入全名', trigger: 'blur' }
-  ],
-  minPrice: [
-    { required: true, message: '请输入最低价格', trigger: 'blur' },
-    { type: 'number', message: '最低价格必须为数字', trigger: 'blur' }
-  ],
-  maxPrice: [
-    { required: true, message: '请输入最高价格', trigger: 'blur' },
-    { type: 'number', message: '最高价格必须为数字', trigger: 'blur' }
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' }
   ]
 });
 const addFormRef = ref(null);
 
-// 编辑汽车模态框相关
+// 编辑用户模态框相关
 const editModalVisible = ref(false);
 const editForm = ref({
-  carId: null,
-  name: '',
-  fullName: '',
-  minPrice: null,
-  maxPrice: null
+  userId: null,
+  username: '',
+  newPassword: '',
+  confirmNewPassword: ''
 });
 const editRules = ref({
-  name: [
-    { required: true, message: '请输入品牌', trigger: 'blur' }
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
   ],
-  fullName: [
-    { required: true, message: '请输入全名', trigger: 'blur' }
-  ],
-  minPrice: [
-    { required: true, message: '请输入最低价格', trigger: 'blur' },
-    { type: 'number', message: '最低价格必须为数字', trigger: 'blur' }
-  ],
-  maxPrice: [
-    { required: true, message: '请输入最高价格', trigger: 'blur' },
-    { type: 'number', message: '最高价格必须为数字', trigger: 'blur' }
+  confirmNewPassword: [
+    { required: true, message: '请确认新密码', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        if (value !== editForm.value.newPassword) {
+          callback(new Error('两次输入的新密码不一致'));
+        } else {
+          callback();
+        }
+      },
+      trigger: 'blur'
+    }
   ]
 });
 const editFormRef = ref(null);
 
-
-const fetchCars = async () => {
+// 获取用户列表
+const getUsers = async () => {
   try {
-    const token = localStorage.getItem('token'); // 获取 token
+    const token = localStorage.getItem('token');
     if (!token) {
       console.error('Token 不存在，请重新登录');
       return;
     }
 
-    // 发送分页请求
-    const response = await axios.get('/api/cars/search', {
+    const response = await axios.get('/api/users', {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${token}`
       },
       params: {
-        page: currentPage.value,
-        pageSize: pageSize.value,
         keyword: searchQuery.value
-      },
+      }
     });
 
-    console.log("Response data:", response.data.data); // 打印响应，确保返回正常
-    if (response.status === 200 && Array.isArray(response.data.data)) {
-      // 计算当前页的平均最低价格和平均最高价格
-      const minPrices = response.data.data.map(car => car.minPrice).filter(price => price !== null && price !== undefined);
-      const maxPrices = response.data.data.map(car => car.maxPrice).filter(price => price !== null && price !== undefined);
-
-      const avgMinPrice = minPrices.length > 0 ? minPrices.reduce((sum, price) => sum + price, 0) / minPrices.length : 0;
-      const avgMaxPrice = maxPrices.length > 0 ? maxPrices.reduce((sum, price) => sum + price, 0) / maxPrices.length : 0;
-
-      cars.value = response.data.data.map((car) => ({
-        ...car,
-        minPrice: car.minPrice || avgMinPrice,
-        maxPrice: car.maxPrice || avgMaxPrice,
-      }));
-      total.value = response.data.total; // 确保使用正确的总条数字段
+    if (response.status === 200 && Array.isArray(response.data)) {
+      users.value = response.data;
+      filteredUsers.value = response.data;
+      total.value = response.data.length;
     } else {
-      ElMessage.error('获取车型列表失败: ' + response.statusText);
+      ElMessage.error('获取用户列表失败: ' + response.statusText);
     }
   } catch (error) {
-    console.error('请求失败:', error);
+    console.error('获取用户列表失败:', error);
     if (error.response) {
       ElMessage.error(`请求失败: ${error.response.status} - ${error.response.statusText}`);
     } else if (error.request) {
@@ -212,27 +182,25 @@ const fetchCars = async () => {
 // 处理页码变化
 const handlePageChange = (page) => {
   currentPage.value = page;
-  fetchCars(); // 重新获取数据
 };
 
 // 监听 searchQuery 变化，变化时重新获取数据并重置页码
 watch(() => searchQuery.value, (newQuery) => {
-  currentPage.value = 1; // 重置页码为第一页
-  fetchCars();
+  currentPage.value = 1;
+  searchUsers();
 });
 
-// 显示添加汽车模态框
+// 显示添加用户模态框
 const showAddModal = () => {
   addModalVisible.value = true;
   addForm.value = {
-    name: '',
-    fullName: '',
-    minPrice: null,
-    maxPrice: null
+    username: '',
+    password: '123456',
+    confirmPassword: '123456'
   };
 };
 
-// 提交添加汽车表单
+// 提交添加用户表单
 const submitAddForm = async () => {
   const form = addFormRef.value;
   if (form) {
@@ -243,31 +211,22 @@ const submitAddForm = async () => {
           const headers = {
             Authorization: `Bearer ${token}`
           };
-          const { name, fullName, minPrice, maxPrice } = addForm.value;
-          // 构建符合后端要求的数据结构
-          const requestData = {
-            carInfo: {
-              fullName,
-              minPrice,
-              maxPrice
-            },
-            carBrand: {
-              name
-            }
-          };
-          await axios.post('/api/cars/add', requestData, { headers });
-          ElMessage.success('汽车添加成功');
+          const { username, password, confirmPassword } = addForm.value;
+          const requestData = { username, password, confirmPassword };
+
+          await axios.post('/api/auth/register', requestData, { headers });
+          ElMessage.success('用户添加成功');
           addModalVisible.value = false;
-          await fetchCars();
+          await getUsers();
         } catch (error) {
-          console.error('添加汽车失败:', error);
+          console.error('添加用户失败:', error);
           if (error.response) {
             if (error.response.status === 401) {
               ElMessage.error('未授权，请重新登录');
             } else if (error.response.data && error.response.data.message) {
               ElMessage.error(error.response.data.message);
             } else {
-              ElMessage.error('添加汽车失败，请稍后重试');
+              ElMessage.error('添加用户失败，请稍后重试');
             }
           } else if (error.request) {
             ElMessage.error('网络请求失败，请检查网络连接');
@@ -280,19 +239,18 @@ const submitAddForm = async () => {
   }
 };
 
-// 显示编辑汽车模态框
-const showEditModal = (car) => {
+// 显示编辑用户模态框
+const showEditModal = (user) => {
   editModalVisible.value = true;
   editForm.value = {
-    carId: car.carId,
-    name: car.name,
-    fullName: car.fullName,
-    minPrice: car.minPrice,
-    maxPrice: car.maxPrice
+    userId: user.userId,
+    username: user.username,
+    newPassword: '',
+    confirmNewPassword: ''
   };
 };
 
-// 提交编辑汽车表单
+// 提交编辑用户表单
 const submitEditForm = async () => {
   const form = editFormRef.value;
   if (form) {
@@ -303,26 +261,17 @@ const submitEditForm = async () => {
           const headers = {
             Authorization: `Bearer ${token}`
           };
-          const { carId, name, fullName, minPrice, maxPrice } = editForm.value;
-          // 构建符合后端要求的数据结构
-          const requestData = {
-            carInfo: {
-              fullName,
-              minPrice,
-              maxPrice
-            },
-            carBrand: {
-              name
-            }
-          };
-          await axios.put(`/api/cars/${carId}`, requestData, { headers });
-          ElMessage.success('汽车信息更新成功');
+          const { userId, username, newPassword } = editForm.value;
+          const requestData = { username, newPassword };
+
+          await axios.put(`/api/users/${userId}`, requestData, { headers });
+          ElMessage.success('用户信息更新成功');
           editModalVisible.value = false;
-          await fetchCars();
+          await getUsers();
         } catch (error) {
-          console.error('编辑汽车失败:', error);
+          console.error('编辑用户失败:', error);
           if (error.response) {
-            const errorMessage = error.response.data.error || '编辑汽车失败，请稍后重试';
+            const errorMessage = error.response.data.error || '编辑用户失败，请稍后重试';
             ElMessage.error(errorMessage);
           } else if (error.request) {
             ElMessage.error('网络请求失败，请检查网络连接');
@@ -335,24 +284,25 @@ const submitEditForm = async () => {
   }
 };
 
-// 删除汽车
-const deleteCar = async (carId) => {
+// 删除用户
+const deleteUser = async (userId) => {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
       console.error('Token 不存在，请重新登录');
       return;
     }
-    await axios.delete(`/api/cars/${carId}`, {
+
+    await axios.delete(`/api/users/${userId}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
-      },
+        Authorization: `Bearer ${token}`
+      }
     });
-    // 删除成功后重新获取汽车列表
-    fetchCars();
+
     ElMessage.success('删除成功');
+    await getUsers();
   } catch (error) {
-    console.error('删除汽车失败:', error);
+    console.error('删除用户失败:', error);
     if (error.response) {
       ElMessage.error(`删除失败: ${error.response.status} - ${error.response.statusText}`);
     } else if (error.request) {
@@ -363,20 +313,27 @@ const deleteCar = async (carId) => {
   }
 };
 
-// 搜索汽车
-const searchCars = () => {
-  currentPage.value = 1; // 重置页码为第一页
-  fetchCars();
+// 搜索用户
+const searchUsers = () => {
+  if (searchQuery.value.trim() === '') {
+    filteredUsers.value = users.value;
+  } else {
+    filteredUsers.value = users.value.filter(user => {
+      return user.username.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+          (user.role && user.role.toLowerCase().includes(searchQuery.value.toLowerCase()));
+    });
+  }
+  total.value = filteredUsers.value.length;
+  currentPage.value = 1;
 };
 
-// 组件挂载时获取汽车列表
+// 组件挂载时获取用户列表
 onMounted(() => {
-  fetchCars();
+  getUsers();
 });
 </script>
 
 <style scoped>
-
 .action-buttons {
   margin-bottom: 10px;
   display: flex;
@@ -406,5 +363,10 @@ onMounted(() => {
 .custom-modal-footer {
   margin-top: 20px;
   text-align: right;
+}
+
+.el-pagination {
+  margin-top: 20px;
+  justify-content: center;
 }
 </style>

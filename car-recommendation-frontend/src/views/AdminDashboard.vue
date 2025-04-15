@@ -1,11 +1,12 @@
 <template>
   <div class="admin-dashboard">
-    <!-- 退出按钮 -->
-    <div class="logout-button-container">
-      <el-button type="danger" @click="handleLogout">退出</el-button>
-    </div>
+
     <!-- 侧边栏导航 -->
     <div class="sidebar">
+      <!-- 退出按钮 -->
+      <div class="logout-button-container">
+        <el-button type="danger" @click="handleLogout">退出</el-button>
+      </div>
       <ul>
         <li :class="{ active: currentTab === 'userManagement' }" @click="currentTab = 'userManagement'">
           用户管理
@@ -75,7 +76,7 @@ export default defineComponent({
 }
 
 .logout-button-container {
-  position: fixed;
+  margin-left: 20px;
   top: 24px;
   left: 24px;
   z-index: 100;

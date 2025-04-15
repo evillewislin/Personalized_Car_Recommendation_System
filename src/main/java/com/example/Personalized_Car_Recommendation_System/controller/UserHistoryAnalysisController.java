@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/history") // 修改类级路径，避免与UserController冲突
+@RequestMapping("/api/history")
 public class UserHistoryAnalysisController {
 
     @Autowired

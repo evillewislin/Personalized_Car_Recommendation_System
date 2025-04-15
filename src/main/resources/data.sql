@@ -373,8 +373,9 @@ BEGIN
                 -- 插入记录
                 WHILE record_counter > 0 DO
                         -- 从 cars 表中随机选取一条记录
-                        SELECT car_id, brand_name INTO random_car_id, random_car_name
+                        SELECT car_id, name INTO random_car_id, random_car_name
                         FROM car_info
+                        JOIN car_brand dr on car_info.brand_id = dr.brand_id
                         ORDER BY RAND()
                         LIMIT 1;
 

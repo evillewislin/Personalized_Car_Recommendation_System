@@ -4,11 +4,11 @@
     <!-- 操作按钮和搜索框 -->
     <div class="action-buttons">
       <el-button type="primary" @click="showAddModal">添加用户</el-button>
-      <el-input v-model="searchQuery" placeholder="请输入用户名搜索"></el-input>
+      <el-input v-model="searchQuery" placeholder="请输入用户名搜索" style="width: 200px"></el-input>
       <el-button @click="searchUsers">搜索</el-button>
     </div>
     <!-- 用户列表表格 -->
-    <el-table :data="filteredUsers">
+    <el-table :data="paginatedUsers" style="width: 100%">
       <el-table-column prop="userId" label="用户 ID"></el-table-column>
       <el-table-column prop="username" label="用户名"></el-table-column>
       <el-table-column prop="role" label="身份"></el-table-column>
@@ -20,6 +20,19 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <!-- 分页组件 -->
+    <div class="pagination-container">
+      <el-pagination
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+          :current-page="currentPage"
+          :page-sizes="[10, 20, 30, 50]"
+          :page-size="pageSize"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="filteredUsers.length">
+      </el-pagination>
+    </div>
 
     <!-- 添加用户模态框 -->
     <div v-if="addModalVisible" class="custom-modal">
@@ -63,7 +76,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import { ElMessage } from 'element-plus';
 
@@ -73,6 +86,17 @@ const users = ref([]);
 const searchQuery = ref('');
 // 存储过滤后的用户数据
 const filteredUsers = ref([]);
+
+// 分页相关
+const currentPage = ref(1);
+const pageSize = ref(10);
+
+// 计算当前页显示的用户数据
+const paginatedUsers = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return filteredUsers.value.slice(start, end);
+});
 
 // 添加用户模态框相关
 const addModalVisible = ref(false);
@@ -142,6 +166,8 @@ const getUsers = async () => {
     const response = await axios.get('/api/users');
     users.value = response.data;
     filteredUsers.value = response.data;
+    // 重置到第一页
+    currentPage.value = 1;
   } catch (error) {
     console.error('获取用户列表失败:', error);
     ElMessage.error('获取用户列表失败，请稍后重试');
@@ -246,9 +272,26 @@ const deleteUser = async (userId) => {
 
 // 搜索用户
 const searchUsers = () => {
-  filteredUsers.value = users.value.filter(user => {
-    return user.username.includes(searchQuery.value) || user.role.includes(searchQuery.value);
-  });
+  if (searchQuery.value.trim() === '') {
+    filteredUsers.value = users.value;
+  } else {
+    filteredUsers.value = users.value.filter(user => {
+      return user.username.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+          (user.role && user.role.toLowerCase().includes(searchQuery.value.toLowerCase()));
+    });
+  }
+  // 搜索后重置到第一页
+  currentPage.value = 1;
+};
+
+// 分页相关方法
+const handleSizeChange = (val) => {
+  pageSize.value = val;
+  currentPage.value = 1; // 改变每页条数时重置到第一页
+};
+
+const handleCurrentChange = (val) => {
+  currentPage.value = val;
 };
 
 // 组件挂载时获取用户列表
@@ -317,5 +360,12 @@ onMounted(() => {
   padding: 20px;
   border-radius: 5px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 分页样式 */
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

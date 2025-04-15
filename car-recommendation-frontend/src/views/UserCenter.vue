@@ -64,7 +64,7 @@ export default defineComponent({
 }
 
 .logout-button-container {
-  position: fixed;
+  margin-left: 20px;
   top: 24px;
   left: 24px;
   z-index: 100;
