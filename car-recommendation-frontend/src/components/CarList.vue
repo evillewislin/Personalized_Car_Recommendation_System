@@ -5,7 +5,7 @@
     <el-input v-model="searchInput" placeholder="请输入搜索关键词" style="width: 300px; margin-right: 10px;"></el-input>
     <el-button @click="handleSearch">搜索</el-button>
 
-    <el-table :data="cars" style="width: 100%">
+    <el-table :data="cars" style="width: 100%" :empty-text="getEmptyText()">
       <el-table-column prop="name" label="品牌"></el-table-column>
       <el-table-column prop="fullName" label="全名"></el-table-column>
       <el-table-column label="价格区间">
@@ -50,19 +50,20 @@ export default defineComponent({
     const pageSize = ref(10); // 每页条数
     const currentPage = ref(1); // 当前页码
     const searchInput = ref(''); // 搜索框输入值
+    const token = ref(localStorage.getItem('token'));
 
     const fetchCars = async () => {
-      try {
-        const token = localStorage.getItem('token'); // 获取 token
-        if (!token) {
-          console.error('Token 不存在，请重新登录');
-          return;
-        }
+      token.value = localStorage.getItem('token');
+      if (!token.value) {
+        cars.value = [];
+        return;
+      }
 
+      try {
         // 发送分页请求，将搜索关键词传递给后端
         const response = await axios.get('/api/cars/search', {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${token.value}`,
           },
           params: {
             page: currentPage.value,
@@ -115,8 +116,7 @@ export default defineComponent({
     };
 
     const handleCollect = async (carId, name, score) => {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      if (!token.value) {
         ElMessage.warning('请先登录');
         return;
       }
@@ -137,7 +137,7 @@ export default defineComponent({
           score: parseInt(score)
         }, {
           headers: {
-            Authorization: `Bearer ${token}`
+            Authorization: `Bearer ${token.value}`
           }
         });
 
@@ -152,6 +152,10 @@ export default defineComponent({
       }
     };
 
+    const getEmptyText = () => {
+      return token.value? '暂无数据' : '请先登录';
+    };
+
     onMounted(fetchCars);
     return {
       cars,
@@ -161,7 +165,8 @@ export default defineComponent({
       handlePageChange,
       handleCollect,
       searchInput,
-      handleSearch
+      handleSearch,
+      getEmptyText
     };
   },
 });

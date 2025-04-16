@@ -1,11 +1,12 @@
 <template>
   <div class="user-center">
-    <!-- 退出按钮 -->
-    <div class="logout-button-container">
-      <el-button type="danger" @click="handleBack">返回</el-button>
-    </div>
+
     <!-- 侧边栏导航 -->
     <div class="sidebar">
+      <!-- 退出按钮 -->
+      <div class="logout-button-container">
+        <el-button type="danger" @click="handleBack">返回</el-button>
+      </div>
       <ul>
         <li :class="{ active: currentTab === 'personalInfo' }" @click="currentTab = 'personalInfo'">
           个人信息
