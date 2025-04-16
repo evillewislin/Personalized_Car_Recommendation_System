@@ -4,7 +4,7 @@
     <!-- 操作按钮和搜索框 -->
     <div class="action-buttons">
       <el-button type="primary" @click="showAddModal">添加用户</el-button>
-      <el-input v-model="searchQuery" placeholder="请输入用户名搜索" style="width: 200px"></el-input>
+      <el-input class="el-input__inner" v-model="searchQuery" placeholder="请输入用户名搜索" style="width: 200px"></el-input>
       <el-button @click="searchUsers">搜索</el-button>
     </div>
     <!-- 用户列表表格 -->
@@ -12,6 +12,8 @@
       <el-table-column prop="userId" label="用户 ID"></el-table-column>
       <el-table-column prop="username" label="用户名"></el-table-column>
       <el-table-column prop="role" label="身份"></el-table-column>
+      <el-table-column prop="age" label="年龄"></el-table-column>
+      <el-table-column prop="region" label="地区"></el-table-column>
       <!-- 操作列 -->
       <el-table-column label="操作">
         <template #default="scope">
@@ -42,6 +44,12 @@
           <el-form-item label="用户名" prop="username">
             <el-input v-model="addForm.username"></el-input>
           </el-form-item>
+          <el-form-item label="年龄" prop="age">
+            <el-input v-model.number="addForm.age" type="number"></el-input>
+          </el-form-item>
+          <el-form-item label="地区" prop="region">
+            <el-input v-model="addForm.region"></el-input>
+          </el-form-item>
         </el-form>
         <h4>Tip:默认密码为123456</h4>
         <div class="custom-modal-footer">
@@ -57,14 +65,23 @@
         <h3>编辑用户</h3>
         <el-form :model="editForm" :rules="editRules" ref="editFormRef">
           <el-form-item label="用户名" prop="username">
-            <el-input v-model="editForm.username"></el-input>
+            <el-input v-model="editForm.username" disabled></el-input>
           </el-form-item>
-          <el-form-item label="新密码" prop="newPassword">
-            <el-input v-model="editForm.newPassword" type="password"></el-input>
+          <el-form-item label="年龄" prop="age">
+            <el-input v-model.number="editForm.age" type="number"></el-input>
           </el-form-item>
-          <el-form-item label="确认新密码" prop="confirmNewPassword">
-            <el-input v-model="editForm.confirmNewPassword" type="password"></el-input>
+          <el-form-item label="地区" prop="region">
+            <el-input v-model="editForm.region"></el-input>
           </el-form-item>
+          <el-checkbox v-model="isChangePassword">是否修改密码</el-checkbox>
+          <template v-if="isChangePassword">
+            <el-form-item label="新密码" prop="newPassword">
+              <el-input v-model="editForm.newPassword" type="password"></el-input>
+            </el-form-item>
+            <el-form-item label="确认新密码" prop="confirmNewPassword">
+              <el-input v-model="editForm.confirmNewPassword" type="password"></el-input>
+            </el-form-item>
+          </template>
         </el-form>
         <div class="custom-modal-footer">
           <el-button @click="editModalVisible = false">取消</el-button>
@@ -102,6 +119,8 @@ const paginatedUsers = computed(() => {
 const addModalVisible = ref(false);
 const addForm = ref({
   username: '',
+  age: null,
+  region: '',
   password: '',
   confirmPassword: ''
 });
@@ -109,6 +128,10 @@ const addRules = ref({
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' }
   ],
+  age: [
+    { type: 'number', message: '年龄必须为数字', trigger: 'blur' }
+  ],
+  region: [],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' }
   ],
@@ -133,22 +156,30 @@ const editModalVisible = ref(false);
 const editForm = ref({
   userId: null,
   username: '',
+  age: null,
+  region: '',
   newPassword: '',
   confirmNewPassword: ''
 });
+const isChangePassword = ref(false);
+const showPassword = ref(false);
 const editRules = ref({
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' }
   ],
+  age: [
+    { type: 'number', message: '年龄必须为数字', trigger: 'blur' }
+  ],
+  region: [],
   newPassword: [
-    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { required: false, message: '请输入新密码', trigger: 'blur' },
     { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
   ],
   confirmNewPassword: [
-    { required: true, message: '请确认新密码', trigger: 'blur' },
+    { required: false, message: '请确认新密码', trigger: 'blur' },
     {
       validator: (rule, value, callback) => {
-        if (value!== editForm.value.newPassword) {
+        if (isChangePassword.value && value!== editForm.value.newPassword) {
           callback(new Error('两次输入的新密码不一致'));
         } else {
           callback();
@@ -179,6 +210,8 @@ const showAddModal = () => {
   addModalVisible.value = true;
   addForm.value = {
     username: '',
+    age: null,
+    region: '',
     password: '123456',
     confirmPassword: '123456'
   };
@@ -191,8 +224,14 @@ const submitAddForm = async () => {
     form.validate(async (valid) => {
       if (valid) {
         try {
-          const { username, password, confirmPassword } = addForm.value;
+          const { username, age, region, password, confirmPassword } = addForm.value;
           const requestData = { username, password, confirmPassword };
+          if (age!== null) {
+            requestData.age = age;
+          }
+          if (region) {
+            requestData.region = region;
+          }
           console.log('请求数据:', requestData);
           await axios.post('/api/auth/register', requestData);
           ElMessage.success('用户添加成功');
@@ -208,14 +247,28 @@ const submitAddForm = async () => {
 };
 
 // 显示编辑用户模态框
-const showEditModal = (user) => {
+const showEditModal = async (user) => {
   editModalVisible.value = true;
-  editForm.value = {
-    userId: user.userId,
-    username: user.username,
-    newPassword: '',
-    confirmNewPassword: ''
-  };
+  try {
+    const token = localStorage.getItem('token');
+    const headers = {
+      Authorization: `Bearer ${token}`
+    };
+    const { data } = await axios.get(`/api/users/${user.userId}`, { headers });
+    editForm.value = {
+      userId: user.userId,
+      username: user.username,
+      age: user.age,
+      region: user.region,
+      newPassword: '',
+      confirmNewPassword: ''
+    };
+    isChangePassword.value = false;
+    showPassword.value = false;
+  } catch (error) {
+    console.error('获取用户信息失败:', error);
+    ElMessage.error('获取用户信息失败，请稍后重试');
+  }
 };
 
 // 提交编辑用户表单
@@ -229,9 +282,18 @@ const submitEditForm = async () => {
           const headers = {
             Authorization: `Bearer ${token}`
           };
-          const { userId, username, newPassword } = editForm.value;
-          const requestData = { username, newPassword };
-          await axios.put(`/api/users/${userId}`, requestData, { headers });
+          const {userId, username, age, region, newPassword} = editForm.value;
+          const requestData = {username};
+          if (age !== null) {
+            requestData.age = age;
+          }
+          if (region) {
+            requestData.region = region;
+          }
+          if (isChangePassword.value) {
+            requestData.newPassword = newPassword;
+          }
+          await axios.put(`/api/users/${userId}`, requestData, {headers});
           ElMessage.success('用户信息更新成功');
           editModalVisible.value = false;
           await getUsers();
@@ -277,7 +339,9 @@ const searchUsers = () => {
   } else {
     filteredUsers.value = users.value.filter(user => {
       return user.username.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-          (user.role && user.role.toLowerCase().includes(searchQuery.value.toLowerCase()));
+          (user.role && user.role.toLowerCase().includes(searchQuery.value.toLowerCase())) ||
+          (user.age !== null && String(user.age).includes(searchQuery.value)) ||
+          (user.region && user.region.toLowerCase().includes(searchQuery.value.toLowerCase()));
     });
   }
   // 搜索后重置到第一页
@@ -308,6 +372,9 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   gap: 20px;
+}
+.el-input__inner{
+  width: 50px;
 }
 
 /* 表格样式 */

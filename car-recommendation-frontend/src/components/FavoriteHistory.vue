@@ -2,7 +2,11 @@
   <div>
     <h2>收藏历史</h2>
     <!-- 添加搜索框 -->
-    <el-input v-model="searchInput" placeholder="请输入搜索关键词" style="width: 300px; margin-right: 10px;"></el-input>
+    <el-input
+        v-model="searchInput"
+        placeholder="请输入搜索关键词"
+        style="width: 300px; margin-right: 10px;"
+    ></el-input>
     <el-button @click="handleSearch">搜索</el-button>
 
     <el-table :data="recommendedCars" style="width: 100%">
@@ -17,15 +21,17 @@
     </el-table>
 
     <!-- 分页组件 -->
-    <el-pagination
-        background
-        layout="prev, pager, next, jumper"
-        :total="total"
-        :page-size="pageSize"
-        :current-page="currentPage"
-        :pager-count="5"
-        @current-change="handlePageChange"
-    />
+    <div class="pagination-container">
+      <el-pagination
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+          :current-page="currentPage"
+          :page-sizes="[10, 20, 30, 50]"
+          :page-size="pageSize"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="total"
+      ></el-pagination>
+    </div>
   </div>
 </template>
 
@@ -82,27 +88,44 @@ export default defineComponent({
       }
     };
 
-    // 处理页码变化
-    const handlePageChange = (page) => {
-      currentPage.value = page;
-      fetchRecommendedCars(); // 重新获取数据
+    // 分页尺寸变化处理
+    const handleSizeChange = (val) => {
+      pageSize.value = val;
+      currentPage.value = 1; // 改变每页条数时重置到第一页
+      fetchRecommendedCars(); // 修正为正确的函数名
     };
 
-    // 处理搜索按钮点击事件
+    // 页码变化处理
+    const handleCurrentChange = (val) => {
+      currentPage.value = val;
+      fetchRecommendedCars(); // 修正为正确的函数名
+    };
+
+    // 搜索按钮点击处理
     const handleSearch = () => {
       currentPage.value = 1; // 重置页码为第一页
       fetchRecommendedCars(); // 重新获取数据
     };
 
+    // 添加搜索框实时监听（可选：按需开启）
+    watch(searchInput, (newVal) => {
+      if (newVal.trim() === '') { // 空值处理
+        currentPage.value = 1;
+        fetchRecommendedCars();
+      }
+    });
+
     onMounted(fetchRecommendedCars);
+
     return {
       recommendedCars,
       total,
       pageSize,
       currentPage,
-      handlePageChange,
       searchInput,
-      handleSearch
+      handleSearch,
+      handleSizeChange,
+      handleCurrentChange // 修正返回对象中的方法名
     };
   },
 });

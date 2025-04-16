@@ -43,21 +43,21 @@ public class UserController {
                                         @RequestHeader("Authorization") String authorizationHeader,
                                         @RequestBody Map<String, Object> request) {
         try {
-            String token = authorizationHeader.replace("Bearer ", "");
-            Integer tokenUserId = JwtUtil.getUserIdFromToken(token);
-            if (!userId.equals(tokenUserId)) {
-                logger.warn("Path User ID 和 Token User ID 不一致: Path User ID = {}, Token User ID = {}", userId, tokenUserId);
-                return new ResponseEntity<>("未授权，请重新登录", HttpStatus.UNAUTHORIZED);
-            }
-
             String username = (String) request.get("username");
             String newPassword = (String) request.get("newPassword");
-            String ageStr = (String) request.get("age");
+            Integer age = null;
+            Object ageObj = request.get("age");
+            if (ageObj != null) {
+                if (ageObj instanceof Integer) {
+                    age = (Integer) ageObj;
+                } else if (ageObj instanceof String) {
+                    age = ValidationUtils.parseAge((String) ageObj);
+                }
+            }
             String region = (String) request.get("region");
 
             // 数据验证
             ValidationUtils.validateUsername(username);
-            Integer age = ValidationUtils.parseAge(ageStr);
 
             User updatedUser = userService.updateUserInfo(userId, username, newPassword, age, region, passwordEncoder);
             if (updatedUser != null) {

@@ -5,18 +5,36 @@
       <el-form-item label="姓名" prop="username">
         <el-input v-model="profileForm.username" placeholder="请输入姓名"></el-input>
       </el-form-item>
+      <el-form-item label="年龄" prop="age">
+        <el-input v-model.number="profileForm.age" type="number" placeholder="请输入年龄"></el-input>
+      </el-form-item>
+      <el-form-item label="地区" prop="region">
+        <el-input v-model="profileForm.region" placeholder="请输入地区"></el-input>
+      </el-form-item>
       <el-form-item label="旧密码" prop="oldPassword" v-if="isChangingPassword">
-        <el-input v-model="profileForm.oldPassword" type="password" placeholder="请输入旧密码"></el-input>
+        <el-input v-model="profileForm.oldPassword" :type="oldPasswordVisible ? 'text' : 'password'" placeholder="请输入旧密码">
+          <template #suffix>
+            <el-button @click="toggleOldPasswordVisibility">👀</el-button>
+          </template>
+        </el-input>
       </el-form-item>
       <el-form-item label="新密码" prop="newPassword" v-if="isChangingPassword">
-        <el-input v-model="profileForm.newPassword" type="password" placeholder="请输入新密码"></el-input>
+        <el-input v-model="profileForm.newPassword" :type="newPasswordVisible ? 'text' : 'password'" placeholder="请输入新密码">
+          <template #suffix>
+            <el-button  @click="toggleNewPasswordVisibility">👀</el-button>
+          </template>
+        </el-input>
       </el-form-item>
       <el-form-item label="确认密码" prop="confirmPassword" v-if="isChangingPassword">
-        <el-input v-model="profileForm.confirmPassword" type="password" placeholder="请再次输入新密码"></el-input>
+        <el-input v-model="profileForm.confirmPassword" :type="confirmPasswordVisible ? 'text' : 'password'" placeholder="请再次输入新密码">
+          <template #suffix>
+            <el-button  @click="toggleConfirmPasswordVisibility">👀</el-button>
+          </template>
+        </el-input>
       </el-form-item>
       <el-form-item>
-        <el-button type="primary" @click="saveProfile" :loading="isLoading">保存信息</el-button>
-        <el-button @click="togglePasswordChange">
+        <el-button type="primary" @click="saveProfile" :loading="isLoading" style="background-color: #2196F3; border-color: #2196F3;">保存信息</el-button>
+        <el-button @click="togglePasswordChange" style="background-color: #2196F3; border-color: #2196F3;">
           {{ isChangingPassword ? '取消修改密码' : '修改密码' }}
         </el-button>
       </el-form-item>
@@ -67,6 +85,8 @@ export default defineComponent({
 
     const profileForm = ref({
       username: '',
+      age: null,
+      region: '',
       oldPassword: '',
       newPassword: '',
       confirmPassword: ''
@@ -77,22 +97,32 @@ export default defineComponent({
     const isChangingPassword = ref(false);
     const isLoading = ref(false);
 
+    const oldPasswordVisible = ref(false);
+    const newPasswordVisible = ref(false);
+    const confirmPasswordVisible = ref(false);
+
     const rules = {
       username: [
-        { required: true, message: '请输入姓名', trigger: 'blur' }
+        { required: false, message: '请输入姓名', trigger: 'blur' }
+      ],
+      age: [
+        { type: 'number', message: '年龄必须为数字', trigger: 'blur' }
+      ],
+      region: [
+        { required: false, message: '请输入地区', trigger: 'blur' }
       ],
       oldPassword: [
-        { required: true, message: '请输入旧密码', trigger: 'blur' }
+        { required: false, message: '请输入旧密码', trigger: 'blur' }
       ],
       newPassword: [
-        { required: true, message: '请输入新密码', trigger: 'blur' },
+        { required: false, message: '请输入新密码', trigger: 'blur' },
         { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
       ],
       confirmPassword: [
-        { required: true, message: '请确认新密码', trigger: 'blur' },
+        { required: false, message: '请确认新密码', trigger: 'blur' },
         {
           validator: (rule, value, callback) => {
-            if (value !== profileForm.value.newPassword) {
+            if (isChangingPassword.value && value!== profileForm.value.newPassword) {
               callback(new Error('两次输入的密码不一致'));
             } else {
               callback();
@@ -113,6 +143,8 @@ export default defineComponent({
         const response = await axios.get(`/api/users/${userId.value}`);
         if (response.data) {
           profileForm.value.username = response.data.username || '';
+          profileForm.value.age = response.data.age || null;
+          profileForm.value.region = response.data.region || '';
         }
       } catch (error) {
         if (error.response) {
@@ -142,13 +174,23 @@ export default defineComponent({
         if (valid) {
           try {
             isLoading.value = true;
-            let dataToSend = {username: profileForm.value.username};
+            let dataToSend = {};
+            if (profileForm.value.username) {
+              dataToSend.username = profileForm.value.username;
+            }
+            if (profileForm.value.age!== null) {
+              dataToSend.age = profileForm.value.age;
+            }
+            if (profileForm.value.region) {
+              dataToSend.region = profileForm.value.region;
+            }
             if (isChangingPassword.value) {
-              dataToSend = {
-                ...dataToSend,
-                oldPassword: profileForm.value.oldPassword,
-                newPassword: profileForm.value.newPassword
-              };
+              if (profileForm.value.oldPassword) {
+                dataToSend.oldPassword = profileForm.value.oldPassword;
+              }
+              if (profileForm.value.newPassword) {
+                dataToSend.newPassword = profileForm.value.newPassword;
+              }
             }
             const response = await axios.put(`/api/users/${userId.value}`, dataToSend);
             if (response.data) {
@@ -197,6 +239,18 @@ export default defineComponent({
       isChangingPassword.value = !isChangingPassword.value;
     };
 
+    const toggleOldPasswordVisibility = () => {
+      oldPasswordVisible.value = !oldPasswordVisible.value;
+    };
+
+    const toggleNewPasswordVisibility = () => {
+      newPasswordVisible.value = !newPasswordVisible.value;
+    };
+
+    const toggleConfirmPasswordVisibility = () => {
+      confirmPasswordVisible.value = !confirmPasswordVisible.value;
+    };
+
     onMounted(() => {
       fetchUserProfile();
     });
@@ -208,7 +262,13 @@ export default defineComponent({
       rules,
       saveProfile,
       togglePasswordChange,
-      isLoading
+      isLoading,
+      oldPasswordVisible,
+      newPasswordVisible,
+      confirmPasswordVisible,
+      toggleOldPasswordVisibility,
+      toggleNewPasswordVisibility,
+      toggleConfirmPasswordVisibility
     };
   }
 });
@@ -226,38 +286,26 @@ export default defineComponent({
 }
 
 /* 按钮样式 */
-el-button {
-  background-color: #4caf50;
+.el-button {
   color: white;
   border-radius: 4px;
 }
 
-el-button:hover {
-  background-color: #45a049;
-}
-
-/* 修改密码切换按钮 */
-el-button[type="default"] {
-  background-color: #f0f0f0;
-  color: #333;
-  border-radius: 4px;
-}
-
-el-button[type="default"]:hover {
-  background-color: #d1d1d1;
+.el-button:hover {
+  opacity: 0.8;
 }
 
 /* 表单输入样式 */
-el-form-item {
+.el-form-item {
   margin-bottom: 20px;
 }
 
-el-input {
+.el-input {
   border-radius: 4px;
   padding: 10px;
 }
 
-el-input[type="password"] {
+.el-input[type="password"] {
   width: 100%;
 }
 </style>
