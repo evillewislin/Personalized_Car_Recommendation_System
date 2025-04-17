@@ -5,9 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface RecommendationHistoryRepository extends JpaRepository<RecommendationHistory, Integer> {
 
-    static Integer findByUserId(Integer userId) {
-        return userId;
-    }
+
 
 
 }

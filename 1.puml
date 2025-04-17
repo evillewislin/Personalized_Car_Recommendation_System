@@ -1,98 +1,49 @@
 @startuml
 
-' 后端 Java 类
-class CarController {
-    +getAllCars(page: int, pageSize: int, keyword: String): ResponseEntity<Map<String, Object>>
-    +saveCar(carUpdateDto: CarUpdateDto): ResponseEntity<CarBrand>
+class CollectController {
+  - logger: Logger
+  - collectService: CollectService
+  + collectCar(authorizationHeader: String, request: Map<String, Object>): ResponseEntity<String>
 }
 
-class ImgController {
-    -IMAGE_DIR: String
-    +getAllImages(): List<String>
-    +getImage(imageName: String): ResponseEntity<Resource>
+interface CollectService {
+  + collectCar(carId: Integer, userId: Integer, name: String, score: Float): RecommendationHistory
 }
 
-class RecommendationServiceImpl {
-    -generateRecommendations(userPredictions: double[], carInfos: List<CarInfo>, carIndexMap: Map<Integer, Integer>, maxPrice: int): List<ImCarDetailsDto>
-    +getAlsRecommendations(userId: int, data: List<Map<String, Object>>, maxPrice: int): List<Map<String, Object>>
+class CollectServiceImpl {
+  - collectRepository: CollectRepository
+  + collectCar(carId: Integer, userId: Integer, name: String, score: Float): RecommendationHistory
 }
 
-class CarDetailsDto {
-    -carId: Integer
-    -name: String
-    -fullName: String
-    -minPrice: Integer
-    -maxPrice: Integer
-    -recommendationScore: double
-    +CarDetailsDto(carId: Integer, name: String, fullName: String, minPrice: Integer, maxPrice: Integer, recommendationScore: double)
+class RecommendationHistory {
+  - id: Integer
+  - userId: Integer
+  - carId: Integer
+  - score: Float
+  - name: String
+  - timestamp: Date
+  + getId(): Integer
+  + setId(id: Integer): void
+  + getUserId(): Integer
+  + setUserId(user_Id: Integer): void
+  + getCarId(): Integer
+  + setCarId(carId: Integer): void
+  + getCarName(): String
+  + setCarName(name: String): void
+  + getScore(): Float
+  + setScore(score: Float): void
+  + getTimestamp(): Date
+  + setTimestamp(timestamp: Date): void
 }
 
-class ImCarDetailsDto {
-    -carId: Integer
-    -brandName: String
-    -fullName: String
-    -minPrice: Integer
-    -maxPrice: Integer
-    -predictedRating: double
-    +ImCarDetailsDto(carId: Integer, brandName: String, fullName: String, minPrice: Integer, maxPrice: Integer, predictedRating: double)
-    +getPredictedRating(): double
+interface CollectRepository {
+  <<extends JpaRepository<RecommendationHistory, Integer>>>
 }
 
-class CarUpdateDto {
-    -carInfo: CarInfo
-    -carBrand: CarBrand
-}
-
-class CarInfo {
-    -id: Integer
-    -brandId: Integer
-    -fullName: String
-    -minPrice: Integer
-    -maxPrice: Integer
-    +getId(): Integer
-    +getBrandId(): Integer
-    +getFullName(): String
-    +getMinPrice(): Integer
-    +getMaxPrice(): Integer
-}
-
-class CarBrand {
-    -brandId: Integer
-    -name: String
-    +getBrandId(): Integer
-    +getName(): String
-}
-
-class JwtUtil {
-    -secret: String
-    -logger: Logger
-    -getSigningKey(): Key
-}
-
-' 前端依赖类（从 package-lock.json 推测部分关系）
-class anyPromise {
-    -version: String
-    -resolved: String
-    -integrity: String
-    -dev: boolean
-    -license: String
-}
-
-class minimist {
-    -version: String
-    -resolved: String
-    -integrity: String
-    -dev: boolean
-    -license: String
-}
-
-class yallist {
-    -version: String
-    -resolved: String
-    -integrity: String
-    -dev: boolean
-    -license: String
-}
-
+CollectController --> CollectService
+CollectService <|.. CollectServiceImpl
+CollectServiceImpl --> CollectRepository
+CollectServiceImpl --> RecommendationHistory
+CollectRepository --> RecommendationHistory
 
 @enduml

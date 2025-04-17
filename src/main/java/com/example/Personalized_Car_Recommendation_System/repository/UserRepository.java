@@ -14,7 +14,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     User findByUserId(Integer userId);
 
-    List<User> userId(Integer userId);
+
     // 查找符合地区且年龄范围的用户ID列表
     @Query("SELECT u.userId FROM User u WHERE u.region = :region AND u.age BETWEEN :minAge AND :maxAge")
     List<Long> findUserIdsByRegionAndAgeBetween(
