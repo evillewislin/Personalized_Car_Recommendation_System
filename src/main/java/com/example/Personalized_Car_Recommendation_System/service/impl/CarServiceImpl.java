@@ -18,13 +18,13 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-@Service // 标记为Spring的Service组件
+@Service
 public class CarServiceImpl implements CarService {
 
-    @Autowired // 自动注入CarBrandRepository
+    @Autowired
     private CarBrandRepository carBrandRepository;
 
-    @Autowired // 自动注入CarInfoRepository
+    @Autowired
     private CarInfoRepository carInfoRepository;
 
 
