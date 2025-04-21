@@ -11,8 +11,11 @@
       </select>
     </div>
 
+    <!-- 新增数据为空时的提示信息 -->
+    <div v-if="!hasData" class="no-data-tip">没有历史数据</div>
+
     <!-- 图表容器 - 并排显示 -->
-    <div class="chart-row">
+    <div v-if="hasData" class="chart-row">
       <div class="chart-item">
         <canvas ref="userHistoryBarChart"></canvas>
       </div>
@@ -61,7 +64,7 @@ const formatDateByUnit = (timestamp, unit) => {
   switch (unit) {
     case 'year':
       return date.getFullYear();
-    case 'month':
+    case'month':
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     case 'week': {
       const year = date.getFullYear();
@@ -183,15 +186,31 @@ export default {
               datasets: [{
                 label: '汽车品牌平均得分分布',
                 data: scoreDataForBar,
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(235, 148, 102, 0.6)',
+                borderColor: 'rgb(235, 148, 102)',
                 borderWidth: 1
               }]
             },
             options: {
               responsive: true,
               maintainAspectRatio: false,
-              scales: { y: { beginAtZero: true } }
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  grid: {
+                    color: 'rgba(0, 0, 0, 0.1)',
+                    drawBorder: false
+                  }
+                }
+              },
+              plugins: {
+                legend: {
+                  position: 'top',
+                  labels: {
+                    color: '#333'
+                  }
+                }
+              }
             }
           });
 
@@ -205,8 +224,12 @@ export default {
                 label: '推荐分数变化',
                 data: scoreDataForLine,
                 fill: false,
-                borderColor: 'rgba(255, 99, 132, 1)',
-                tension: 0.1
+                borderColor: 'rgba(54, 162, 235, 1)',
+                tension: 0.1,
+                pointRadius: 4,
+                pointBackgroundColor: 'white',
+                pointBorderColor: 'rgba(54, 162, 235, 1)',
+                pointBorderWidth: 2
               }]
             },
             options: {
@@ -225,11 +248,35 @@ export default {
                       day: 'yyyy-MM-dd'
                     }
                   },
-                  title: { display: true, text: '时间' }
+                  title: {
+                    display: true,
+                    text: '时间',
+                    color: '#333'
+                  },
+                  grid: {
+                    color: 'rgba(0, 0, 0, 0.1)',
+                    drawBorder: false
+                  }
                 },
                 y: {
                   beginAtZero: true,
-                  title: { display: true, text: '平均评分' }
+                  title: {
+                    display: true,
+                    text: '平均评分',
+                    color: '#333'
+                  },
+                  grid: {
+                    color: 'rgba(0, 0, 0, 0.1)',
+                    drawBorder: false
+                  }
+                }
+              },
+              plugins: {
+                legend: {
+                  position: 'top',
+                  labels: {
+                    color: '#333'
+                  }
                 }
               }
             }
@@ -253,62 +300,69 @@ export default {
 
 <style scoped>
 .chart-container {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: #f9f9f9;
+  padding: 2rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   width: 100%;
-  max-width: 1200px; /* 增加最大宽度以适应并排图表 */
+  max-width: 1200px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
 .time-unit-selector {
   display: flex;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .time-unit-selector label {
-  margin-right: 0.5rem;
+  margin-right: 1rem;
+  font-size: 1.1rem;
+  color: #333;
 }
 
 .time-unit-selector select {
-  padding: 0.5rem;
+  padding: 0.6rem 1rem;
   border: 1px solid #ccc;
-  border-radius: 4px;
+  border-radius: 6px;
+  font-size: 1rem;
+  color: #666;
 }
 
-/* 新增图表行样式 */
 .chart-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 2rem;
   width: 100%;
 }
 
-/* 修改图表项样式为并排 */
 .chart-item {
   flex: 1;
-  min-width: 300px; /* 确保在小屏幕上也能保持一定宽度 */
-  height: 40vh; /* 使用视口高度 */
-  min-height: 250px; /* 最小高度 */
+  min-width: 350px;
+  height: 45vh;
+  min-height: 300px;
   position: relative;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: white;
 }
 
 canvas {
-  width: 100% !important;
-  height: 100% !important;
+  width: 100%!important;
+  height: 100%!important;
 }
 
 .no-data-tip {
   text-align: center;
   color: #999;
-  padding: 20px;
+  padding: 30px;
+  font-size: 1.1rem;
 }
 
-/* 响应式调整 */
 @media (max-width: 768px) {
   .chart-row {
     flex-direction: column;

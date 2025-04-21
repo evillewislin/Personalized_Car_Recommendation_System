@@ -3,7 +3,7 @@
     <h2>车型列表</h2>
     <!-- 添加搜索框 -->
     <el-input v-model="searchInput" placeholder="请输入搜索关键词" style="width: 300px; margin-right: 10px;"></el-input>
-    <el-button @click="handleSearch">搜索</el-button>
+    <el-button class="el-button" @click="handleSearch">搜索</el-button>
 
     <el-table :data="cars" style="width: 100%" :empty-text="getEmptyText()">
       <el-table-column prop="name" label="品牌"></el-table-column>
@@ -25,15 +25,17 @@
       </el-table-column>
     </el-table>
     <!-- 分页组件 -->
-    <el-pagination
-        background
-        layout="prev, pager, next, jumper"
-        :total="total"
-        :page-size="pageSize"
-        :current-page="currentPage"
-        :pager-count="5"
-        @current-change="handlePageChange"
-    />
+    <div class="pagination-container">
+      <el-pagination
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+          :current-page="currentPage"
+          :page-sizes="[10, 20, 30, 50]"
+          :page-size="pageSize"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="total">
+      </el-pagination>
+  </div>
   </div>
 </template>
 
@@ -114,7 +116,17 @@ export default defineComponent({
       currentPage.value = 1; // 重置页码为第一页
       fetchCars(); // 重新获取数据
     };
+  // 分页相关方法
+    const handleSizeChange = (val) => {
+      pageSize.value = val;
+      currentPage.value = 1; // 改变每页条数时重置到第一页
+      fetchCars();
+    };
 
+    const handleCurrentChange = (val) => {
+      currentPage.value = val;
+      fetchCars();
+    };
     const handleCollect = async (carId, name, score) => {
       if (!token.value) {
         ElMessage.warning('请先登录');
@@ -179,14 +191,12 @@ export default defineComponent({
   width: 100%;
 }
 
-/* 分页组件样式 */
-.el-pagination {
+/* 分页样式 */
+.pagination-container {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
 }
-
 /* 表格按钮样式 */
 .el-button {
   background-color: #1a73e8;
@@ -198,14 +208,9 @@ export default defineComponent({
   background-color: #003c8f;
 }
 
-/* 分页控件样式 */
-.el-pagination .el-button {
-  padding: 5px 15px;
-  font-size: 14px;
+.el-button {
+  background-color: rgba(64, 158, 255, 1);
 }
 
-/* 搜索框和按钮样式 */
-.el-input {
-  margin-bottom: 10px;
-}
+
 </style>

@@ -1,31 +1,28 @@
 <template>
-  <div class="als-container" v-if="dataLoaded">
+  <div class="p-6 bg-white rounded-lg shadow-md space-y-6" v-if="dataLoaded">
+    <h2 class="text-2xl font-bold text-gray-800">以下是三种不同的推荐方法，选择您喜欢的进行推荐吧</h2>
     <el-tabs
         v-model="activeSubTab"
         class="sub-tabs"
         @tab-change="handleTabChange"
+        type="card"
+        v-if="dataLoaded"
+        style="--el-tabs-header-padding: 0; --el-tabs-card-header-border-bottom: none; --el-tabs-card-active-color: #1e40af; --el-tabs-card-border: none;"
     >
-      <!-- 显式反馈ALS -->
-      <el-tab-pane label="显式推荐" name="Explicit" key="Explicit">
-        <ExplicitFeedback v-if="activeSubTab === 'Explicit'" />
+      <el-tab-pane label="① 基于内容推荐" name="Explicit" key="Explicit">
+        <ExplicitFeedback />
       </el-tab-pane>
-
-      <!-- 隐式反馈ALS -->
-      <el-tab-pane label="隐式推荐" name="Implicit" key="Implicit">
-        <ImplicitFeedback v-if="activeSubTab === 'Implicit'" />
+      <el-tab-pane label="② 基于协同过滤推荐" name="Implicit" key="Implicit">
+        <ImplicitFeedback  :timeRange="timeRange"/>
       </el-tab-pane>
-
-      <!-- 混合反馈ALS -->
-      <el-tab-pane label="混合推荐" name="Fixed" key="Fixed">
-        <FixedFeedback
-            :timeRange="timeRange"
-            v-if="activeSubTab === 'Fixed'"
-        />
+      <el-tab-pane label="③ 基于混合推荐" name="Fixed" key="Fixed">
+        <FixedFeedback :timeRange="timeRange" />
       </el-tab-pane>
     </el-tabs>
   </div>
-  <div v-else class="loading-container">
-    数据加载中...
+  <div v-else class="flex justify-center items-center h-64 text-gray-600 text-lg">
+    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    <span class="ml-4">数据加载中...</span>
   </div>
 </template>
 
@@ -35,6 +32,16 @@ import ExplicitFeedback from './ALSSub/ExplicitFeedback.vue';
 import ImplicitFeedback from './ALSSub/ImplicitFeedback.vue';
 import FixedFeedback from './ALSSub/FixedFeedback.vue';
 
+const handleTabChange = (newTab) => {
+  if (changingTab.value) return;
+  changingTab.value = true;
+  requestAnimationFrame(() => {
+    activeSubTab.value = newTab;
+    setTimeout(() => {
+      changingTab.value = false;
+    }, 100);
+  });
+};
 export default defineComponent({
   name: 'ALSRecommendation',
   components: {
@@ -78,21 +85,16 @@ export default defineComponent({
 </script>
 
 <style scoped>
-.als-container {
-  padding: 20px;
-  min-height: 300px; /* 防止布局跳动 */
+.sub-tabs .el-tabs__item {
+  transition: all 0.3s ease;
 }
 
-.sub-tabs {
-  margin-top: 20px;
+.sub-tabs .el-tabs__item:hover {
+  background-color: #f3f4f6;
 }
 
-.loading-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 200px;
-  color: #666;
-  font-size: 16px;
+.sub-tabs .el-tabs__item.is-active {
+  color: #1e40af;
+  font-weight: bold;
 }
 </style>

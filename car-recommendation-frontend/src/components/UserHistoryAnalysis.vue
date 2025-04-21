@@ -58,35 +58,39 @@
 
     <!-- 图表展示 -->
     <div class="charts-row">
-      <div class="chart-container">
+      <div class="chart-container" style="height: 400px; width: 100%;">
         <v-chart
             :option="ageChartOption"
-            style="height: 400px;"
+            style="height: 100%; width: 100%;"
             @rendered="handleChartRendered('ageChart')"
+            autoresize
         />
       </div>
-      <div class="chart-container">
+      <div class="chart-container" style="height: 400px; width: 100%;">
         <v-chart
             :option="regionChartOption"
-            style="height: 400px;"
+            style="height: 100%; width: 100%;"
             @rendered="handleChartRendered('regionChart')"
+            autoresize
         />
       </div>
     </div>
 
     <div class="charts-row">
-      <div class="chart-container">
+      <div class="chart-container" style="height: 400px; width: 100%;">
         <v-chart
             :option="trendChartOption"
-            style="height: 400px;"
+            style="height: 100%; width: 100%;"
             @rendered="handleChartRendered('trendChart')"
+            autoresize
         />
       </div>
-      <div class="chart-container">
+      <div class="chart-container" style="height: 400px; width: 100%;">
         <v-chart
             :option="brandChartOption"
-            style="height: 400px;"
+            style="height: 100%; width: 100%;"
             @rendered="handleChartRendered('brandChart')"
+            autoresize
         />
       </div>
     </div>
@@ -111,6 +115,7 @@ import {
   GridComponent,
   LegendComponent
 } from 'echarts/components';
+import 'echarts-wordcloud';
 
 use([
   CanvasRenderer,
@@ -144,7 +149,7 @@ const chartInstances = ref({
 const setDefaultDateRange = () => {
   const end = new Date();
   const start = new Date();
-  start.setDate(end.getDate() - 7);
+  start.setDate(end.getDate() - 30);
 
   dateRange.value = [
     start.toISOString().split('T')[0],
@@ -204,24 +209,45 @@ const fetchData = async () => {
 
 // 图表渲染回调
 const handleChartRendered = (chartName) => (instance) => {
-  chartInstances.value[chartName] = instance;
-};
-
-// 防抖的resize处理
-const handleResize = debounce(() => {
-  // 延迟图表重绘
-  setTimeout(() => {
-    Object.values(chartInstances.value).forEach(instance => {
-      if (instance) {
-        try {
-          instance.resize();
-        } catch (e) {
-          console.warn('图表resize错误:', e);
-        }
+  if (instance && !instance.isDisposed()) {
+    chartInstances.value[chartName] = instance;
+    // 添加错误处理
+    instance.on('rendered', () => {
+      try {
+        instance.resize({ silent: true });
+      } catch (e) {
+        console.warn(`${chartName} 渲染后resize错误:`, e);
       }
     });
-  }, 200);
-}, 200);
+  }
+};
+
+// 改进的resize处理
+let resizeObserver;
+const handleResize = debounce(() => {
+  Object.values(chartInstances.value).forEach(instance => {
+    if (instance && !instance.isDisposed()) {
+      try {
+        instance.resize({
+          silent: true // 添加silent模式减少重绘
+        });
+      } catch (e) {
+        console.warn('图表resize错误:', e);
+      }
+    }
+  });
+}, 300, { leading: true, trailing: true });
+
+// 使用ResizeObserver替代window.resize
+const initResizeObserver = () => {
+  if (resizeObserver) return;
+
+  const container = document.querySelector('.dashboard-container');
+  if (!container) return;
+
+  resizeObserver = new ResizeObserver(handleResize);
+  resizeObserver.observe(container);
+};
 
 // 地区筛选后的用户数据
 const regionFilteredUsers = computed(() => {
@@ -255,20 +281,25 @@ const userStats = computed(() => {
 });
 
 // 图表数据 - 上面两个图表使用地区筛选
-const ageChartOption = computed(() => ({
-  title: { text: '用户年龄分布' },
-  tooltip: {},
-  xAxis: {
-    type: 'category',
-    data: getAgeGroups(regionFilteredUsers.value).map(g => `${g.name}岁`)
-  },
-  yAxis: { type: 'value' },
-  series: [{
-    data: getAgeGroups(regionFilteredUsers.value).map(g => g.value),
-    type: 'bar',
-    itemStyle: { color: '#5470C6' }
-  }]
-}));
+const ageChartOption = computed(() => {
+  if (regionFilteredUsers.value.length === 0) {
+    return {}; // 或返回一个空的 ECharts 选项
+  }
+  return {
+    title: { text: '用户年龄分布' },
+    tooltip: {},
+    xAxis: {
+      type: 'category',
+      data: getAgeGroups(regionFilteredUsers.value).map(g => `${g.name}岁`)
+    },
+    yAxis: { type: 'value' },
+    series: [{
+      data: getAgeGroups(regionFilteredUsers.value).map(g => g.value),
+      type: 'bar',
+      itemStyle: { color: '#5470C6' }
+    }]
+  };
+});
 
 const regionChartOption = computed(() => ({
   title: { text: '用户地区分布' },
@@ -306,65 +337,49 @@ const trendChartOption = computed(() => ({
   }]
 }));
 
-const brandChartOption = computed(() => ({
-  title: {
-    text: '品牌平均评分',
-    left: 'center'
-  },
-  tooltip: {
-    trigger: 'axis',
-    formatter: params => {
-      const data = getBrandData()[params[0].dataIndex];
-      return `${data.brand}<br/>平均分: ${data.score.toFixed(1)}`;
-    }
-  },
-  grid: {
-    left: '3%',
-    right: '4%',
-    bottom: '3%',
-    containLabel: true
-  },
-  xAxis: {
-    type: 'category',
-    data: getBrandData().map(d => d.brand),
-    axisLabel: {
-      rotate: 45  // 如果品牌名称较长可以旋转45度
-    }
-  },
-  yAxis: {
-    type: 'value',
-    min: 0,
-    max: 10,
-    axisLabel: {
-      formatter: '{value} 分'  // 添加单位
-    }
-  },
-  series: [{
-    name: '平均分',
-    data: getBrandData().map(d => d.score),
-    type: 'line',
-    symbol: 'circle',  // 数据点显示为圆形
-    symbolSize: 8,     // 数据点大小
-    smooth: true,      // 平滑曲线
-    lineStyle: {
-      width: 3,        // 线宽
-      color: '#5470C6' // 线条颜色
-    },
-    itemStyle: {
-      color: params => params.value > 5 ? '#91CC75' : '#EE6666'
-    },
-    label: {
-      show: true,      // 显示数值标签
-      position: 'top',
-      formatter: params => params.value.toFixed(2) // 显示原始值
-    },
-    emphasis: {        // 高亮样式
-      itemStyle: {
-        color: '#FF0000'  // 高亮时变为红色
-      }
-    }
-  }]
-}));
+const brandChartOption = computed(() => {
+  const brandData = getBrandData();
+  const brandFrequency = {};
+  brandData.forEach(item => {
+    brandFrequency[item] = (brandFrequency[item] || 0) + 1;
+  });
+  const maxFrequency = Math.max(...Object.values(brandFrequency));
+  const wordCloudData = Object.keys(brandFrequency).map(brand => ({
+    name: brand,
+    value: brandFrequency[brand]
+  }));
+  return {
+    title: { text: '品牌出现频率词云' },
+    tooltip: {},
+    series: [{
+      type: 'wordCloud',
+      shape: 'circle',
+      left: 'center',
+      top: 'center',
+      width: '90%',
+      height: '90%',
+      sizeRange: [20, 60],
+      rotationRange: [0, 45],
+      rotationStep: 45,
+      gridSize: 8,
+      drawOutOfBound: false,
+      textStyle: {
+        normal: {
+          color: (params) => {
+            const value = brandFrequency[params.name];
+            const hue = (value / maxFrequency) * 180;
+            return `hsl(${hue}, 70%, 50%)`;
+          }
+        },
+        emphasis: {
+          shadowBlur: 10,
+          shadowColor: '#333'
+        }
+      },
+      data: wordCloudData
+    }]
+  };
+});
 
 // 数据处理方法
 const getAgeGroups = (users) => {
@@ -417,23 +432,9 @@ const getTrendData = () => {
 };
 
 const getBrandData = () => {
-  const byBrand = dateFilteredRecommendations.value.reduce((acc, rec) => {
-    const brand = rec.carName?.split(' ')[0] || '其他';
-    if (!acc[brand]) {
-      acc[brand] = { total: 0, count: 0 };
-    }
-    acc[brand].total += rec.score;
-    acc[brand].count += 1;
-    return acc;
-  }, {});
-
-  return Object.entries(byBrand)
-      .map(([brand, { total, count }]) => ({
-        brand,
-        score: total / count,
-        count
-      }))
-      .sort((a, b) => b.score - a.score);
+  return dateFilteredRecommendations.value.map(rec => {
+    return rec.carName?.split(' ')[0] || '其他';
+  });
 };
 
 // 筛选操作
@@ -453,14 +454,22 @@ const disabledDate = (time) => {
 
 onMounted(() => {
   fetchData();
+  initResizeObserver();
+  // 仍然保留window resize作为后备
   window.addEventListener('resize', handleResize);
 });
 
 onBeforeUnmount(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
   window.removeEventListener('resize', handleResize);
+  handleResize.cancel();
+
   // 清理图表实例
   Object.values(chartInstances.value).forEach(instance => {
-    if (instance) {
+    if (instance && !instance.isDisposed()) {
       instance.dispose();
     }
   });
@@ -503,12 +512,6 @@ h1 {
   font-weight: 500;
   color: #606266;
   white-space: nowrap;
-}
-
-.filter-tip {
-  font-size: 12px;
-  color: #999;
-  margin-left: 5px;
 }
 
 /* 统计卡片样式 */
@@ -555,16 +558,14 @@ h1 {
   padding: 15px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   position: relative;
-  min-height: 400px;
 }
 
-.chart-note {
+.v-chart {
+  width: 100%;
+  height: 100%;
   position: absolute;
-  bottom: 10px;
-  right: 15px;
-  font-size: 12px;
-  color: #999;
-  font-style: italic;
+  top: 0;
+  left: 0;
 }
 
 /* 响应式布局 */

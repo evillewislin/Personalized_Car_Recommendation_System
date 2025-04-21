@@ -1,55 +1,53 @@
 <template>
+  <!-- 顶部导航栏 -->
+  <nav class="nav-container">
+    <div class="nav-left">
+      <div @click="handleGoToPage('/')">首页</div>
+      <div @click="handleGoToPage('/cars')">车型列表</div>
+      <div @click="handleGoToPage('/recommendations')">个性化推荐</div>
+    </div>
+    <div class="nav-right">
+      <template v-if="!isAuthenticated">
+        <router-link to="/login">
+          <button>登录</button>
+        </router-link>
+      </template>
+      <template v-if="!isAuthenticated">
+        <router-link to="/adminlogin">
+          <button>管理员登录</button>
+        </router-link>
+      </template>
+      <template v-else>
+        <span class="welcome-text">欢迎，{{ username }}</span>
+        <router-link v-if="userRole === 'admin'" to="/admin">
+          <button>管理员后台</button>
+        </router-link>
+        <router-link v-if="userRole === 'user'" to="/user">
+          <button>用户中心</button>
+        </router-link>
+        <button @click="handleLogout">退出</button>
+      </template>
+    </div>
+  </nav>
 
-    <!-- 顶部导航栏 -->
-    <nav class="nav-container">
-      <div class="nav-left">
-        <router-link to="/">首页</router-link>
-        <router-link to="/cars">车型列表</router-link>
-        <router-link to="/recommendations">个性化推荐</router-link>
-      </div>
-      <div class="nav-right">
-        <template v-if="!isAuthenticated">
-          <router-link to="/login">
-            <button>登录</button>
-          </router-link>
-        </template>
-        <template v-if="!isAuthenticated">
-          <router-link to="/adminlogin">
-            <button>管理员登录</button>
-          </router-link>
-        </template>
-        <template v-else>
-          <span class="welcome-text">欢迎，{{ username }}</span>
-          <router-link v-if="userRole === 'admin'" to="/admin">
-            <button>管理员后台</button>
-          </router-link>
-          <router-link v-if="userRole === 'user'" to="/user">
-            <button>用户中心</button>
-          </router-link>
-          <button @click="handleLogout">退出</button>
-        </template>
-      </div>
-    </nav>
-
-    <!-- 3D轮播容器 -->
-    <div class="carousel-container">
-      <div class="carousel-track">
-        <div 
+  <!-- 3D轮播容器 -->
+  <div class="carousel-container">
+    <div class="carousel-track">
+      <div
           v-for="(car, index) in carsData"
           :key="index"
           class="carousel-item"
           :style="getItemStyle(index)"
           @click="goToCarsPage(car)"
-        >
-          <img :src="getImageUrl(car.image)" :alt="car.name" @error="handleImageError">
-          <div class="car-info">
-            <div class="car-name">{{ car.name }}</div>
-            <div class="car-type">{{ car.type }}</div>
-          </div>
+      >
+        <img :src="getImageUrl(car.image)" :alt="car.name" @error="handleImageError">
+        <div class="car-info">
+          <div class="car-name">{{ car.name }}</div>
+          <div class="car-type">{{ car.type }}</div>
         </div>
       </div>
     </div>
-
+  </div>
 </template>
 
 <script>
@@ -100,7 +98,7 @@ export default defineComponent({
         // 获取所有图片名称
         const response = await axios.get('/api/images');
         const imageNames = response.data;
-        
+
         // 确保有足够的车辆信息
         const carInfos = [
           { name: '法拉利 LaFerrari', type: '超级跑车', price: '¥22,500,000' },
@@ -140,13 +138,24 @@ export default defineComponent({
       const angle = (360 / carsData.value.length) * index;
       return {
         transform: `
-          translateX(-50%) 
-          translateY(-50%) 
-          rotateY(${angle}deg) 
-          translateZ(400px)
-        `,
+                    translateX(-50%)
+                    translateY(-50%)
+                    rotateY(${angle}deg)
+                    translateZ(400px)
+                `,
         zIndex: carsData.value.length - index
       };
+    };
+
+    // 统一的页面跳转处理函数
+    const handleGoToPage = (path) => {
+      if (!isAuthenticated.value) {
+        // 未登录时跳转登录页，并记录目标页面
+        router.push({ path: '/login', query: { redirect: path } });
+        ElMessage.info('请先登录以访问该页面');
+      } else {
+        router.push(path);
+      }
     };
 
     // 组件挂载时初始化数据
@@ -163,7 +172,8 @@ export default defineComponent({
       goToCarsPage,
       getItemStyle,
       getImageUrl,
-      handleImageError
+      handleImageError,
+      handleGoToPage
     };
   }
 });
@@ -187,13 +197,14 @@ export default defineComponent({
   gap: 20px;
 }
 
-.nav-left a {
+.nav-left div {
   text-decoration: none;
   color: white;
   font-size: 16px;
+  cursor: pointer;
 }
 
-.nav-left a:hover {
+.nav-left div:hover {
   color: #ffeb3b;
 }
 
@@ -226,7 +237,7 @@ button:hover {
 
 /* 修改后的3D轮播样式 */
 .carousel-container {
-  margin-top:50px;
+  margin-top: 50px;
   perspective: 1000px;
   height: 400px;
   overflow: visible;
@@ -292,12 +303,16 @@ button:hover {
 
 .carousel-item:hover img {
   transform: scale(1.1);
-  box-shadow: 0 15px 30px rgba(0,0,0,0.4);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
 }
 
 @keyframes rotate {
-  from { transform: rotateY(0deg); }
-  to { transform: rotateY(360deg); }
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
 }
 
 .carousel-container:hover .carousel-track {
@@ -311,9 +326,9 @@ button:hover {
   left: 50%;
   width: 60%;
   height: 100px;
-  background: radial-gradient(ellipse at center, 
-    rgba(0,0,0,0.5) 0%,
-    rgba(0,0,0,0) 100%);
+  background: radial-gradient(ellipse at center,
+  rgba(0, 0, 0, 0.5) 0%,
+  rgba(0, 0, 0, 0) 100%);
   transform: translateX(-50%);
   filter: blur(10px);
   z-index: -1;

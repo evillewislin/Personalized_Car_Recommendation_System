@@ -10,3 +10,10 @@ app.use(router);
 app.use(createPinia());
 app.use(ElementPlus);
 app.mount('#app');
+
+const resizeObserverErrHandler = (err) => {
+    if (err.message.includes('ResizeObserver')) {
+        return false;
+    }
+};
+window.addEventListener('error', resizeObserverErrHandler);

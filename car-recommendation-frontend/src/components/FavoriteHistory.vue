@@ -7,7 +7,7 @@
         placeholder="请输入搜索关键词"
         style="width: 300px; margin-right: 10px;"
     ></el-input>
-    <el-button @click="handleSearch">搜索</el-button>
+    <el-button class="el-button" @click="handleSearch">搜索</el-button>
 
     <el-table :data="recommendedCars" style="width: 100%">
       <el-table-column prop="brandName" label="品牌名称"></el-table-column>
@@ -164,7 +164,7 @@ export default defineComponent({
 }
 
 /* 搜索框和按钮样式 */
-.el-input {
-  margin-bottom: 10px;
+.el-button {
+  background-color: rgba(64, 158, 255, 1);
 }
 </style>

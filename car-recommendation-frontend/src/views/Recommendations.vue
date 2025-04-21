@@ -1,11 +1,12 @@
 <template>
   <div class="recommendation-center">
-    <!-- 退出按钮 -->
-    <div class="back-button-container">
-      <el-button type="danger" @click="handleBack">返回</el-button>
-    </div>
+
     <!-- 侧边栏导航 -->
     <div class="sidebar">
+      <!-- 退出按钮 -->
+      <div class="back-button-container">
+        <el-button type="danger" @click="handleBack">返回</el-button>
+      </div>
       <ul>
         <li :class="{ active: currentTab === 'FavoriteHistory' }" @click="currentTab = 'FavoriteHistory'">
           收藏历史
@@ -67,7 +68,6 @@ export default defineComponent({
 }
 
 .back-button-container {
-  position: fixed;
   top: 24px;
   left: 24px;
   z-index: 100;

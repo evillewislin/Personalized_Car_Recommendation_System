@@ -2,9 +2,9 @@
   <div>
     <h2>汽车管理</h2>
     <!-- 操作按钮和搜索框 -->
-    <div class="action-buttons">
+    <div>
       <el-button type="primary" @click="showAddModal">添加汽车</el-button>
-      <el-input v-model="searchQuery" placeholder="请输入搜索关键词"></el-input>
+      <el-input  class="el-input__inner" v-model="searchQuery" placeholder="请输入搜索关键词"></el-input>
       <el-button @click="searchCars">搜索</el-button>
     </div>
     <!-- 汽车列表表格 -->
@@ -424,5 +424,9 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+}
+.el-input__inner{
+  width: 300px;
+  margin: 0 50px 0 20px;
 }
 </style>

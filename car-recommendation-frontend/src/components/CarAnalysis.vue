@@ -1,11 +1,11 @@
 <template>
   <div class="car-analysis-container">
-    <div class="filter-section">
+    <div>
       <label for="minPrice">最小价格:</label>
-      <input type="number" id="minPrice" v-model="minPrice" placeholder="请输入最小价格">
+      <el-input class="el-input__inner" v-model="minPrice" placeholder="请输入最小价格" id="minPrice" type="number"></el-input>
       <label for="maxPrice">最大价格:</label>
-      <input type="number" id="maxPrice" v-model="maxPrice" placeholder="请输入最大价格">
-      <button @click="filterData">筛选</button>
+      <el-input class="el-input__inner" v-model="maxPrice" placeholder="请输入最大价格" id="maxPrice" type="number"></el-input>
+      <el-button @click="filterData">筛选</el-button>
     </div>
     <div class="chart-container">
       <canvas ref="scatterChart"></canvas>
@@ -14,7 +14,7 @@
 </template>
 
 <script>
-import { Chart, registerables } from 'chart.js';
+import {Chart, registerables} from 'chart.js';
 import axios from 'axios';
 
 export default {
@@ -84,16 +84,16 @@ export default {
             brand
         ) {
           const finalAveragePrice = totalPrice / count;
-          scatterData.push({ x: brand, y: finalAveragePrice });
+          scatterData.push({x: brand, y: finalAveragePrice});
         }
       });
 
       return scatterData;
     },
     renderScatterChart(data) {
-      const plainData = data.map(item => ({ x: item.x, y: item.y }));
+      const plainData = data.map(item => ({x: item.x, y: item.y}));
       const ctx = this.$refs.scatterChart.getContext('2d');
-      const scatterChart = new Chart(ctx, {
+      return new Chart(ctx, {
         type: 'scatter',
         data: {
           datasets: [{
@@ -127,7 +127,6 @@ export default {
           }
         }
       });
-      return scatterChart;
     },
     async loadDataInBatches(data, chart, batchSize, delay) {
       let startIndex = batchSize;
@@ -137,7 +136,7 @@ export default {
       while (startIndex < data.length) {
         const endIndex = Math.min(startIndex + batchSize, data.length);
         const newData = data.slice(startIndex, endIndex);
-        const plainNewData = newData.map(item => ({ x: item.x, y: item.y }));
+        const plainNewData = newData.map(item => ({x: item.x, y: item.y}));
         chart.data.datasets[0].data.push(...plainNewData);
         batchCount++;
 
@@ -212,6 +211,7 @@ h2 {
 }
 
 .chart-container {
+  margin-top: 20px;
   background: white;
   padding: 1.5rem;
   border-radius: 8px;
@@ -227,5 +227,9 @@ canvas {
   width: 100% !important;
   height: auto !important;
   aspect-ratio: 16 / 9; /* 设置宽高比 */
+}
+.el-input__inner{
+  width: 300px;
+  margin: 0 50px 0 20px;
 }
 </style>

@@ -1,26 +1,38 @@
 <template>
-  <div>
+  <div class="ai-recommendation-container">
     <!-- 用户输入要求的文本输入框 -->
-    <input v-model="userRequest" class="message-text" type="text" placeholder="请输入你的要求" :disabled="loading" />
-    <!-- 错误提示信息 --><br>
-    <br>
+    <input
+        v-model="userRequest"
+        class="message-text"
+        type="text"
+        placeholder="请输入你的要求"
+        :disabled="loading"
+    />
+
+    <!-- 错误提示信息 -->
     <div v-if="errorMessage" class="error-message">{{ errorMessage }}</div>
+
     <!-- AI 推荐按钮 -->
-    <button   @click="fetchAIRecommendations" class="el-button el-button--primary" :disabled="loading">
+    <button
+        @click="fetchAIRecommendations"
+        class="recommend-btn"
+        :disabled="loading"
+    >
       <span v-if="!loading">AI智能推荐</span>
-      <span v-else>
-        <span class="loading-spinner"></span> 加载中...
+      <span v-else class="loading-wrapper">
+        <span class="loading-spinner"></span>加载中...
       </span>
     </button>
+
     <!-- AI 文本响应显示区域 -->
-    <div v-if="!loading && aiResponse.length" class="ai-text-response">
-      <p>{{ aiResponse }}</p>
+    <div v-if="!loading && aiResponse.length" class="ai-response-box">
+      <pre>{{ aiResponse }}</pre>
     </div>
   </div>
 </template>
 
 <script>
-import {ref} from 'vue';
+import { ref } from 'vue';
 import axios from 'axios';
 
 export default {
@@ -76,75 +88,64 @@ export default {
 </script>
 
 <style scoped>
-/* 提取颜色和尺寸变量 */
-:root {
-  --primary-color: #e564ff;
-  --secondary-color: #535bf2;
-  --input-padding: 16px;
-  --input-font-size: 18px;
-  --input-border-radius: 8px;
-  --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  --transition-time: 0.3s;
-  --button-depth: 8px;
+.ai-recommendation-container {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
 }
 
-
-  .message-text {
-    width: 70%;
-    height: 30px;
-    padding: var(--input-padding);
-    font-size: var(--input-font-size);
-    border: 1px solid #e5e7eb;
-    border-radius: var(--input-border-radius);
-    margin-top: 20px;
-    transition: all var(--transition-time) ease;
-  }
-
+.message-text {
+  width: 100%;
+  padding: 12px 15px;
+  font-size: 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  box-sizing: border-box;
+}
 
 .message-text:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(100, 108, 255, 0.2);
+  border-color: #1e40af;
+  box-shadow: 0 0 0 3px #1e40af;
 }
 
 .error-message {
-  margin-top: 10px;
   color: #ef4444;
   font-size: 14px;
+  margin-bottom: 15px;
 }
 
-.ai-recommend-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 20px;
-  padding: var(--input-padding) 32px;
-  background-color: var(--primary-color);
-  color: #0a0808;
-  font-size: var(--input-font-size);
-  border-radius: var(--input-border-radius);
+.recommend-btn {
+  width: 200px;
+  padding: 12px;
+  background-color: rgba(64, 158, 255, 1);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
   cursor: pointer;
-  border: 3px solid #e5e7eb;
-  transition: all var(--transition-time) ease;
-  box-shadow: 0 var(--button-depth) 0 var(--secondary-color);
-  transform: translateY(0);
+  transition: all 0.3s ease;
+  margin-bottom: 20px;
+  margin-left: 150px;
 }
 
-.ai-recommend-btn:hover {
-  background-color: var(--secondary-color);
-  box-shadow: 0 calc(var(--button-depth) - 2px) 0 var(--secondary-color);
-  transform: translateY(2px);
+.recommend-btn:hover {
+  background-color: #1e40af;
 }
 
-.ai-recommend-btn:active {
-  box-shadow: 0 0 0 var(--secondary-color);
-  transform: translateY(var(--button-depth));
-}
-
-.ai-recommend-btn:disabled {
+.recommend-btn:disabled {
   background-color: #d1d5db;
   cursor: not-allowed;
-  box-shadow: 0 var(--button-depth) 0 #a0a4ab;
+}
+
+.loading-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .loading-spinner {
@@ -155,21 +156,25 @@ export default {
   border-top-color: white;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-right: 8px;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
-.ai-text-response {
-  margin-top: 30px;
-  padding: 24px;
+.ai-response-box {
+  padding: 20px;
   background-color: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: var(--input-border-radius);
-  white-space: pre-line;
+  border: 2px solid #1e40af;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  width: 350px;
+}
+
+.ai-response-box pre {
+  margin: 0;
+  font-family: inherit;
+  white-space: pre-wrap;
 }
 </style>

@@ -2,9 +2,9 @@
   <div>
     <h2>用户管理</h2>
     <!-- 操作按钮和搜索框 -->
-    <div class="action-buttons">
+    <div>
       <el-button type="primary" @click="showAddModal">添加用户</el-button>
-      <el-input class="el-input__inner" v-model="searchQuery" placeholder="请输入用户名搜索" style="width: 200px"></el-input>
+      <el-input class="el-input__inner" v-model="searchQuery" placeholder="请输入用户名搜索"></el-input>
       <el-button @click="searchUsers">搜索</el-button>
     </div>
     <!-- 用户列表表格 -->
@@ -374,7 +374,9 @@ onMounted(() => {
   gap: 20px;
 }
 .el-input__inner{
-  width: 50px;
+  width: 300px;
+  margin: 0 50px 0 20px;
+
 }
 
 /* 表格样式 */

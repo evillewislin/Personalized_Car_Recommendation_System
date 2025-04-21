@@ -1,20 +1,17 @@
+
 <template>
+  <el-button
+      type="primary"
+      @click="handleRecommend"
+      :loading="isLoading"
+      class="generate-btn"
+  >
+    生成推荐
+  </el-button>
   <div class="car-recommendation-container">
-
-
-    <el-button
-        type="primary"
-        @click="handleRecommend"
-        :loading="isLoading"
-        class="recommendation-action-btn"
-    >
-      生成推荐
-    </el-button>
-
     <div v-if="error" class="recommendation-error-message">
       {{ error }}
     </div>
-
     <div class="recommendation-result-container" v-if="recommendations.length > 0 && !isLoading">
       <h4 class="recommendation-result-title">结合您的各种信息以及浏览收藏等偏好，推荐如下车型</h4>
       <el-table
@@ -22,6 +19,7 @@
           empty-text="暂无数据"
           class="recommendation-table"
           :key="tableKey"
+
       >
         <el-table-column prop="brandName" label="品牌" width="120" />
         <el-table-column prop="fullName" label="车型" />
@@ -109,64 +107,99 @@ export default {
 <style scoped>
 .car-recommendation-container {
   position: relative;
-  padding: 20px;
+  padding: 24px;
   max-width: 1200px;
   margin: 0 auto;
   min-height: 400px;
+  background-color: #f8fafc;
+  border-radius: 12px;
 }
 
-.recommendation-form {
-  margin-bottom: 20px;
+.generate-btn {
+  margin-top: 0;
+  padding: 20px 20px;
+  font-size: 14px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  margin-left: 1000px;
+  margin-bottom: 10px;
 }
 
-.recommendation-form-item {
-  margin-bottom: 15px;
+.generate-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
 }
 
-.recommendation-action-btn {
+.error-message {
+  color: #f56c6c;
+  margin: 16px 0;
+  padding: 12px 16px;
+  background: #fef0f0;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  border-left: 4px solid #f56c6c;
 }
 
-.recommendation-result-container {
+.result-container {
   margin-top: 30px;
   background: #fff;
-  padding: 20px;
-  border-radius: 4px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  padding: 0;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.recommendation-card {
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .recommendation-result-title {
-  margin-bottom: 20px;
-  color: #333;
-  font-weight: normal;
-  font-size: 16px;
-}
-
-.recommendation-error-message {
-  color: #f56c6c;
-  margin: 10px 0;
-  padding: 10px;
-  background: #fef0f0;
-  border-radius: 4px;
+  margin: 0;
+  padding: 20px 24px;
+  color: #303133;
+  font-weight: 600;
+  font-size: 18px;
+  background-color: #f5f7fa;
+  border-bottom: 1px solid #e4e7ed;
 }
 
 .recommendation-table {
-  margin-top: 20px;
   width: 100%;
-  border: 1px solid #ebeef5;
+  border: none;
 }
 
-.recommendation-table::before {
-  height: 0;
+.recommendation-table :deep(.el-table__header-wrapper) {
+  border-bottom: 1px solid #e4e7ed;
 }
 
-.recommendation-table th {
-  background-color: #f5f7fa;
-  color: #333;
+.recommendation-table :deep(.el-table__body-wrapper) {
+  border-bottom: 1px solid #e4e7ed;
 }
 
-.recommendation-table td,
-.recommendation-table th {
-  padding: 12px 0;
-  text-align: center;
+.recommendation-table :deep(th) {
+  background-color: #f5f7fa !important;
+  color: #606266;
+  font-weight: 600;
+}
+
+.recommendation-table :deep(.el-table__row--striped) {
+  background-color: #fafbfc !important;
+}
+
+.recommendation-table :deep(td) {
+  border-right: none;
+}
+
+.recommendation-table :deep(.el-table__cell) {
+  padding: 14px 0;
+}
+
+.recommendation-table :deep(.el-table__inner-wrapper::before) {
+  display: none;
 }
 </style>

@@ -12,24 +12,15 @@
         <el-input v-model="profileForm.region" placeholder="请输入地区"></el-input>
       </el-form-item>
       <el-form-item label="旧密码" prop="oldPassword" v-if="isChangingPassword">
-        <el-input v-model="profileForm.oldPassword" :type="oldPasswordVisible ? 'text' : 'password'" placeholder="请输入旧密码">
-          <template #suffix>
-            <el-button @click="toggleOldPasswordVisibility">👀</el-button>
-          </template>
+        <el-input v-model="profileForm.oldPassword" :type="oldPasswordVisible ? 'text' : 'password'" placeholder="请输入旧密码" show-password>
         </el-input>
       </el-form-item>
       <el-form-item label="新密码" prop="newPassword" v-if="isChangingPassword">
-        <el-input v-model="profileForm.newPassword" :type="newPasswordVisible ? 'text' : 'password'" placeholder="请输入新密码">
-          <template #suffix>
-            <el-button  @click="toggleNewPasswordVisibility">👀</el-button>
-          </template>
+        <el-input v-model="profileForm.newPassword" :type="newPasswordVisible ? 'text' : 'password'" placeholder="请输入新密码" show-password>
         </el-input>
       </el-form-item>
       <el-form-item label="确认密码" prop="confirmPassword" v-if="isChangingPassword">
-        <el-input v-model="profileForm.confirmPassword" :type="confirmPasswordVisible ? 'text' : 'password'" placeholder="请再次输入新密码">
-          <template #suffix>
-            <el-button  @click="toggleConfirmPasswordVisibility">👀</el-button>
-          </template>
+        <el-input v-model="profileForm.confirmPassword" :type="confirmPasswordVisible ? 'text' : 'password'" placeholder="请再次输入新密码" show-password>
         </el-input>
       </el-form-item>
       <el-form-item>
