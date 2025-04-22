@@ -17,7 +17,7 @@
           {{ scope.row.priceRange }}
         </template>
       </el-table-column>
-      <el-table-column prop="avgScore" label="平均评分"></el-table-column>
+      <el-table-column prop="avgScore" label="平均评分" :formatter="formatScore"></el-table-column>
     </el-table>
 
     <!-- 分页组件 -->
@@ -115,6 +115,11 @@ export default defineComponent({
       }
     });
 
+    // 格式化评分
+    const formatScore = (row, column, cellValue) => {
+      return parseFloat(cellValue).toFixed(2);
+    };
+
     onMounted(fetchRecommendedCars);
 
     return {
@@ -125,7 +130,8 @@ export default defineComponent({
       searchInput,
       handleSearch,
       handleSizeChange,
-      handleCurrentChange // 修正返回对象中的方法名
+      handleCurrentChange,
+      formatScore
     };
   },
 });

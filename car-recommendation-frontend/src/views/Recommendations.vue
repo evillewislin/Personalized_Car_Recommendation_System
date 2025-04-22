@@ -8,12 +8,13 @@
         <el-button type="danger" @click="handleBack">返回</el-button>
       </div>
       <ul>
-        <li :class="{ active: currentTab === 'AIRecommendation' }" @click="currentTab = 'AIRecommendation'">
-          AI 推荐
-        </li>
         <li :class="{ active: currentTab === 'ALSRecommendation' }" @click="currentTab = 'ALSRecommendation'">
           ALS 推荐
         </li>
+        <li :class="{ active: currentTab === 'AIRecommendation' }" @click="currentTab = 'AIRecommendation'">
+          AI 推荐
+        </li>
+
       </ul>
     </div>
     <!-- 主内容区域 -->
@@ -39,7 +40,7 @@ export default defineComponent({
   },
   setup() {
     const router = useRouter();
-    const currentTab = ref('AIRecommendation');
+    const currentTab = ref('ALSRecommendation');
 
     const handleBack = () => {
       // 显示返回提示信息
