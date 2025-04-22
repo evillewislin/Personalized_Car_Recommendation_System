@@ -2,7 +2,6 @@ const webpack = require('webpack');
 const path = require('path');
 
 module.exports = {
-    // 其他配置...
     plugins: [
         new webpack.DefinePlugin({
             __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false,

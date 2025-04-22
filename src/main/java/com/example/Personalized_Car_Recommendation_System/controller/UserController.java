@@ -1,6 +1,7 @@
 package com.example.Personalized_Car_Recommendation_System.controller;
 
 import com.example.Personalized_Car_Recommendation_System.entity.User;
+import com.example.Personalized_Car_Recommendation_System.repository.UserRepository;
 import com.example.Personalized_Car_Recommendation_System.service.UserService;
 import com.example.Personalized_Car_Recommendation_System.util.JwtUtil;
 import com.example.Personalized_Car_Recommendation_System.util.ValidationUtils;
@@ -20,6 +21,8 @@ import java.util.Map;
 @RequestMapping("/api/users")
 public class UserController {
 
+
+
     private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
     @Autowired
@@ -28,10 +31,14 @@ public class UserController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private UserRepository userRepository;
+    
     @GetMapping
     public List<User> getAllUsers() {
         return userService.getAllUsers();
     }
+
 
     @GetMapping("/{userId}")
     public User getUserById(@PathVariable Integer userId) {
@@ -89,4 +96,6 @@ public class UserController {
     public List<User> searchUsers(@RequestParam String keyword) {
         return userService.searchUsers(keyword);
     }
+
+
 }

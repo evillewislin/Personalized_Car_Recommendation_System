@@ -11,6 +11,9 @@
         <li :class="{ active: currentTab === 'personalInfo' }" @click="currentTab = 'personalInfo'">
           个人信息
         </li>
+        <li :class="{ active: currentTab === 'FavoriteHistory' }" @click="currentTab = 'FavoriteHistory'">
+          收藏历史
+        </li>
         <li :class="{ active: currentTab === 'singleUserHistoryAnalysis' }" @click="currentTab = 'singleUserHistoryAnalysis'">
           用户历史分析
         </li>
@@ -31,10 +34,12 @@ import SingleUserHistoryAnalysis from '../components/SingleUserHistoryAnalysis.v
 import { useUserStore } from '@/store'; // 假设使用 Pinia 存储用户信息
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
+import FavoriteHistory from "@/components/FavoriteHistory.vue";
 
 export default defineComponent({
   components: {
     PersonalInfo,
+    FavoriteHistory,
     SingleUserHistoryAnalysis
   },
   setup() {

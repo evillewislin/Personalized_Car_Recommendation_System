@@ -18,7 +18,7 @@
         />
       </div>
 
-      <div class="filter-group">
+      <div class="filter-group" style="flex: 1; display: flex; align-items: center; gap: 10px;">
         <label>地区筛选：</label>
         <el-select
             v-model="selectedRegions"
@@ -26,6 +26,7 @@
             collapse-tags
             collapse-tags-tooltip
             placeholder="请选择地区"
+            filterable
             @change="handleFilterChange"
         >
           <el-option
@@ -35,12 +36,25 @@
               :value="region"
           />
         </el-select>
+        <el-button
+            type="info"
+            size="small"
+            @click="toggleAllRegions"
+            class="el-button"
+            style="width: 115px; padding: 8px 15px;font-size: 14px"
+        >
+          {{ isAllSelected ? '全不选' : '全选' }}
+        </el-button>
       </div>
 
-      <el-button type="primary" @click="resetFilters">重置筛选</el-button>
+      <el-button
+          type="primary"
+          @click="resetFilters"
+          class="el-button"
+      >重置筛选</el-button>
     </div>
 
-    <!-- 统计卡片 -->
+    <!-- 统计卡片（基于筛选后的用户数据） -->
     <div class="stats-container">
       <div class="stat-card">
         <h3>总用户数</h3>
@@ -79,9 +93,9 @@
     <div class="charts-row">
       <div class="chart-container" style="height: 400px; width: 100%;">
         <v-chart
-            :option="trendChartOption"
+            :option="activityChartOption"
             style="height: 100%; width: 100%;"
-            @rendered="handleChartRendered('trendChart')"
+            @rendered="handleChartRendered('activityChart')"
             autoresize
         />
       </div>
@@ -103,7 +117,6 @@ import axios from 'axios';
 import VChart from 'vue-echarts';
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import { debounce } from 'lodash-es';
 import {
   BarChart,
   LineChart,
@@ -128,9 +141,9 @@ use([
   LegendComponent
 ]);
 
-// 数据状态
-const rawUsers = ref([]);
-const rawRecommendations = ref([]);
+// 数据状态（假设用户和推荐数据通过userId关联）
+const rawUsers = ref([]); // 用户数据（包含userId和region）
+const rawRecommendations = ref([]); // 推荐数据（包含userId和timestamp）
 
 // 筛选状态
 const dateRange = ref([]);
@@ -141,11 +154,11 @@ const availableRegions = ref([]);
 const chartInstances = ref({
   ageChart: null,
   regionChart: null,
-  trendChart: null,
+  activityChart: null,
   brandChart: null
 });
 
-// 设置默认最近一周
+// 设置默认最近30天
 const setDefaultDateRange = () => {
   const end = new Date();
   const start = new Date();
@@ -157,8 +170,9 @@ const setDefaultDateRange = () => {
   ];
 };
 
-// 获取TOP10地区
+// 获取TOP10地区（基于全部用户）
 const getTopRegions = () => {
+  if (rawUsers.value.length === 0) return [];
   const regionCounts = rawUsers.value.reduce((acc, user) => {
     acc[user.region] = (acc[user.region] || 0) + 1;
     return acc;
@@ -174,34 +188,33 @@ const getTopRegions = () => {
 const fetchData = async () => {
   try {
     const [usersRes, recRes] = await Promise.all([
-      axios.get('/api/history/users'),
-      axios.get('/api/history/recommendation-history')
+      axios.get('/api/history/users'), // 假设返回包含userId的用户数据
+      axios.get('/api/history/recommendation-history') // 假设返回包含userId的推荐数据
     ]);
 
-    // 处理用户数据
+    // 处理用户数据（确保包含userId和region）
     rawUsers.value = (usersRes.data || []).map(user => ({
       ...user,
+      userId: user.userId, // 关键关联字段
       age: Number(user.age) || 0,
       region: user.region || '未知地区',
       registerDate: user.registerDate?.split('T')[0] || '2023-01-01'
     }));
 
-    // 处理推荐数据
+    // 处理推荐数据（确保包含userId和timestamp）
     rawRecommendations.value = (recRes.data || []).map(rec => ({
       ...rec,
+      userId: rec.userId, // 关键关联字段
       score: Math.min(Math.max(Number(rec.score) || 0, 0), 10),
       timestamp: rec.timestamp?.split('T')[0] || '2023-01-01'
     }));
 
     // 初始化地区选项和默认选中TOP10
-    availableRegions.value = [
-      ...new Set(rawUsers.value.map(u => u.region))
-    ].sort();
+    availableRegions.value = [...new Set(rawUsers.value.map(u => u.region))].sort();
     selectedRegions.value = getTopRegions();
 
     // 设置默认日期范围
     setDefaultDateRange();
-
   } catch (error) {
     console.error('数据加载失败:', error);
   }
@@ -211,79 +224,68 @@ const fetchData = async () => {
 const handleChartRendered = (chartName) => (instance) => {
   if (instance && !instance.isDisposed()) {
     chartInstances.value[chartName] = instance;
-    // 添加错误处理
-    instance.on('rendered', () => {
-      try {
-        instance.resize({ silent: true });
-      } catch (e) {
-        console.warn(`${chartName} 渲染后resize错误:`, e);
-      }
-    });
   }
 };
 
-// 改进的resize处理
-let resizeObserver;
-const handleResize = debounce(() => {
-  Object.values(chartInstances.value).forEach(instance => {
-    if (instance && !instance.isDisposed()) {
-      try {
-        instance.resize({
-          silent: true // 添加silent模式减少重绘
-        });
-      } catch (e) {
-        console.warn('图表resize错误:', e);
-      }
-    }
-  });
-}, 300, { leading: true, trailing: true });
-
-// 使用ResizeObserver替代window.resize
-const initResizeObserver = () => {
-  if (resizeObserver) return;
-
-  const container = document.querySelector('.dashboard-container');
-  if (!container) return;
-
-  resizeObserver = new ResizeObserver(handleResize);
-  resizeObserver.observe(container);
-};
-
-// 地区筛选后的用户数据
+// 地区筛选后的用户数据（用于用户相关图表和统计）
 const regionFilteredUsers = computed(() => {
-  return rawUsers.value.filter(user =>
-      selectedRegions.value.includes(user.region)
-  );
+  return rawUsers.value.filter(user => selectedRegions.value.includes(user.region));
 });
 
-// 日期筛选后的推荐数据
-const dateFilteredRecommendations = computed(() => {
-  if (!dateRange.value?.length) return rawRecommendations.value;
+// 日期+地区筛选后的推荐数据（通过userId关联用户地区）
+const dateAndRegionFilteredRecommendations = computed(() => {
+  if (rawUsers.value.length === 0 || rawRecommendations.value.length === 0) return [];
 
-  return rawRecommendations.value.filter(rec =>
-      rec.timestamp >= dateRange.value[0] &&
-      rec.timestamp <= dateRange.value[1]
-  );
+  return rawRecommendations.value.filter(rec => {
+    // 找到推荐记录对应的用户
+    const user = rawUsers.value.find(u => u.userId === rec.userId);
+    if (!user) return false; // 确保用户存在
+
+    // 地区匹配 + 日期匹配
+    const regionMatch = selectedRegions.value.includes(user.region);
+    const dateMatch = dateRange.value.length
+        ? rec.timestamp >= dateRange.value[0] && rec.timestamp <= dateRange.value[1]
+        : true; // 无日期筛选时默认匹配
+
+    return regionMatch && dateMatch;
+  });
 });
 
-// 用户统计信息（基于全部用户数据）
+// 用户统计信息（基于筛选后的用户数据）
 const userStats = computed(() => {
-  const validAges = rawUsers.value.filter(u => !isNaN(u.age));
+  const validUsers = regionFilteredUsers.value;
+  const validAges = validUsers.filter(u => !isNaN(u.age));
   const totalAge = validAges.reduce((sum, u) => sum + u.age, 0);
 
   return {
-    total: rawUsers.value.length,
+    total: validUsers.length, // 筛选后的用户总数
     avgAge: validAges.length
         ? `${(totalAge / validAges.length).toFixed(1)}岁`
         : '0.0岁',
-    regions: new Set(rawUsers.value.map(u => u.region)).size
+    regions: new Set(validUsers.map(u => u.region)).size // 筛选后的地区数量
   };
 });
 
-// 图表数据 - 上面两个图表使用地区筛选
+// 全选状态计算
+const isAllSelected = computed(() => {
+  if (!availableRegions.value.length) return false;
+  return availableRegions.value.length === selectedRegions.value.length;
+});
+
+// 全选/全不选处理
+const toggleAllRegions = () => {
+  if (isAllSelected.value) {
+    selectedRegions.value = [];
+  } else {
+    selectedRegions.value = [...availableRegions.value];
+  }
+  handleFilterChange(); // 触发筛选更新
+};
+
+// 图表数据 - 年龄分布（地区筛选）
 const ageChartOption = computed(() => {
   if (regionFilteredUsers.value.length === 0) {
-    return {}; // 或返回一个空的 ECharts 选项
+    return {};
   }
   return {
     title: { text: '用户年龄分布' },
@@ -301,6 +303,7 @@ const ageChartOption = computed(() => {
   };
 });
 
+// 图表数据 - 地区分布（地区筛选）
 const regionChartOption = computed(() => ({
   title: { text: '用户地区分布' },
   tooltip: { formatter: '{b}: {c} ({d}%)' },
@@ -311,32 +314,57 @@ const regionChartOption = computed(() => ({
   }]
 }));
 
-// 图表数据 - 下面两个图表使用日期筛选
-const trendChartOption = computed(() => ({
-  title: { text: '推荐评分趋势' },
-  tooltip: {
-    formatter: params => {
-      const data = getTrendData()[params.dataIndex];
-      return `日期: ${data.date}<br/>评分: ${data.score.toFixed(1)}`;
-    }
-  },
-  xAxis: {
-    type: 'category',
-    data: getTrendData().map(d => d.date)
-  },
-  yAxis: {
-    type: 'value',
-    min: 0,
-    max: 10
-  },
-  series: [{
-    data: getTrendData().map(d => d.score),
-    type: 'line',
-    smooth: true,
-    itemStyle: { color: '#EE6666' }
-  }]
-}));
+// 图表数据 - 每日用户活跃度
+const activityChartOption = computed(() => {
+  const activityData = getActivityData();
+  return {
+    title: { text: '每日用户活跃度' },
+    tooltip: {
+      trigger: 'axis',
+      formatter: (params) => {
+        const data = params[0].data;
+        return `日期: ${data[0]}<br/>活跃用户数: ${data[1]}`;
+      }
+    },
+    xAxis: {
+      type: 'category',
+      data: activityData.map(d => d.date),
+      axisLabel: {
+        rotate: 45
+      }
+    },
+    yAxis: {
+      type: 'value',
+      name: '活跃用户数'
+    },
+    series: [{
+      data: activityData.map(d => [d.date, d.count]),
+      type: 'bar',
+      barWidth: '60%',
+      itemStyle: {
+        color: '#91CC75'
+      },
+      emphasis: {
+        itemStyle: {
+          color: '#5470C6'
+        }
+      }
+    }],
+    dataZoom: [
+      {
+        type: 'inside',
+        start: 0,
+        end: 100
+      },
+      {
+        start: 0,
+        end: 100
+      }
+    ]
+  };
+});
 
+// 图表数据 - 品牌词云
 const brandChartOption = computed(() => {
   const brandData = getBrandData();
   const brandFrequency = {};
@@ -412,39 +440,37 @@ const getRegionData = (users) => {
       .sort((a, b) => b.value - a.value);
 };
 
-const getTrendData = () => {
-  const byDate = dateFilteredRecommendations.value.reduce((acc, rec) => {
+const getActivityData = () => {
+  // 按日期分组统计活跃用户数
+  const activityByDate = dateAndRegionFilteredRecommendations.value.reduce((acc, rec) => {
     if (!acc[rec.timestamp]) {
-      acc[rec.timestamp] = { total: 0, count: 0 };
+      acc[rec.timestamp] = new Set();
     }
-    acc[rec.timestamp].total += rec.score;
-    acc[rec.timestamp].count += 1;
+    acc[rec.timestamp].add(rec.userId); // 使用Set去重
     return acc;
   }, {});
 
-  return Object.entries(byDate)
-      .map(([date, { total, count }]) => ({
+  return Object.entries(activityByDate)
+      .map(([date, userIds]) => ({
         date,
-        score: total / count,
-        count
+        count: userIds.size
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 };
 
 const getBrandData = () => {
-  return dateFilteredRecommendations.value.map(rec => {
+  return rawRecommendations.value.map(rec => {
     return rec.carName?.split(' ')[0] || '其他';
   });
 };
 
-// 筛选操作
-const handleFilterChange = () => {
-  // 自动触发计算属性更新
-};
+// 筛选操作（触发计算属性更新）
+const handleFilterChange = () => {};
 
 const resetFilters = () => {
   setDefaultDateRange();
   selectedRegions.value = getTopRegions();
+  handleFilterChange(); // 触发筛选更新
 };
 
 // 禁用未来日期
@@ -454,20 +480,9 @@ const disabledDate = (time) => {
 
 onMounted(() => {
   fetchData();
-  initResizeObserver();
-  // 仍然保留window resize作为后备
-  window.addEventListener('resize', handleResize);
 });
 
 onBeforeUnmount(() => {
-  if (resizeObserver) {
-    resizeObserver.disconnect();
-    resizeObserver = null;
-  }
-  window.removeEventListener('resize', handleResize);
-  handleResize.cancel();
-
-  // 清理图表实例
   Object.values(chartInstances.value).forEach(instance => {
     if (instance && !instance.isDisposed()) {
       instance.dispose();
@@ -477,6 +492,11 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.el-button {
+  background-color: #1a73e8;
+  color: white;
+  border-radius: 4px;
+}
 .dashboard-container {
   padding: 20px;
   max-width: 1400px;
@@ -505,13 +525,22 @@ h1 {
 .filter-group {
   display: flex;
   align-items: center;
-  gap: 10px;
 }
 
 .filter-group label {
+  width: 100px;
   font-weight: 500;
   color: #606266;
   white-space: nowrap;
+}
+
+.el-button {
+  background-color: #1a73e8;
+  color: white;
+  border-radius: 4px;
+  min-width: 60px; /* 确保按钮文字显示空间 */
+  height: 36px;
+
 }
 
 /* 统计卡片样式 */
@@ -583,10 +612,6 @@ h1 {
   .filters {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .filter-group {
-    width: 100%;
   }
 
   .stats-container {

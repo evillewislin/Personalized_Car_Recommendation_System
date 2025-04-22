@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface RecommendationHistoryRepository extends JpaRepository<RecommendationHistory, Integer> {
 
-
+    boolean existsByUserIdAndCarId(Integer userId, Integer carId);
 
 
 }

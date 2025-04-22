@@ -217,8 +217,8 @@ h2 {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   width: 100%;
-  max-width: 800px;
-  max-height: 450px;
+  max-width: 1500px;
+  max-height: 820px;
   flex-grow: 1; /* 让图表容器占满剩余空间 */
 }
 

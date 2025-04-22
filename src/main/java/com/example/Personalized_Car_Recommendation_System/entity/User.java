@@ -24,6 +24,8 @@ public class User {
     @Column(name = "region")
     private String region;
 
+
+
     public Integer getUserId() {
         return userId;
     }

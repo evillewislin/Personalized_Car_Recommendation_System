@@ -8,9 +8,6 @@
         <el-button type="danger" @click="handleBack">返回</el-button>
       </div>
       <ul>
-        <li :class="{ active: currentTab === 'FavoriteHistory' }" @click="currentTab = 'FavoriteHistory'">
-          收藏历史
-        </li>
         <li :class="{ active: currentTab === 'AIRecommendation' }" @click="currentTab = 'AIRecommendation'">
           AI 推荐
         </li>
@@ -38,12 +35,11 @@ import { ElMessage } from 'element-plus';
 export default defineComponent({
   components: {
     AIRecommendation,
-    ALSRecommendation,
-    FavoriteHistory
+    ALSRecommendation
   },
   setup() {
     const router = useRouter();
-    const currentTab = ref('FavoriteHistory');
+    const currentTab = ref('AIRecommendation');
 
     const handleBack = () => {
       // 显示返回提示信息
@@ -68,6 +64,7 @@ export default defineComponent({
 }
 
 .back-button-container {
+  margin: 0 20px;
   top: 24px;
   left: 24px;
   z-index: 100;

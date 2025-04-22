@@ -15,7 +15,12 @@
       </el-table-column>
       <el-table-column label="收藏">
         <template #default="scope">
-          <el-button @click="handleCollect(scope.row.carId, scope.row.name, scope.row.score)">收藏</el-button>
+          <el-button
+              @click="handleCollect(scope.row.carId, scope.row.name, scope.row.score)"
+              :disabled="isCollecting"
+          >
+            {{ isCollecting? '正在收藏...' : '收藏' }}
+          </el-button>
         </template>
       </el-table-column>
       <el-table-column label="评分">
@@ -33,9 +38,10 @@
           :page-sizes="[10, 20, 30, 50]"
           :page-size="pageSize"
           layout="total, sizes, prev, pager, next, jumper"
-          :total="total">
+          :total="total"
+      >
       </el-pagination>
-  </div>
+    </div>
   </div>
 </template>
 
@@ -53,6 +59,7 @@ export default defineComponent({
     const currentPage = ref(1); // 当前页码
     const searchInput = ref(''); // 搜索框输入值
     const token = ref(localStorage.getItem('token'));
+    const isCollecting = ref(false); // 用于控制收藏按钮的禁用状态
 
     const fetchCars = async () => {
       token.value = localStorage.getItem('token');
@@ -77,11 +84,11 @@ export default defineComponent({
         console.log("Response:", response); // 打印响应，确保返回正常
         if (response.status === 200 && Array.isArray(response.data.data)) {
           // 计算当前页的平均最低价格和平均最高价格
-          const minPrices = response.data.data.map(car => car.minPrice).filter(price => price !== null && price !== undefined);
-          const maxPrices = response.data.data.map(car => car.maxPrice).filter(price => price !== null && price !== undefined);
+          const minPrices = response.data.data.map(car => car.minPrice).filter(price => price!== null && price!== undefined);
+          const maxPrices = response.data.data.map(car => car.maxPrice).filter(price => price!== null && price!== undefined);
 
-          const avgMinPrice = minPrices.length > 0 ? minPrices.reduce((sum, price) => sum + price, 0) / minPrices.length : 0;
-          const avgMaxPrice = maxPrices.length > 0 ? maxPrices.reduce((sum, price) => sum + price, 0) / maxPrices.length : 0;
+          const avgMinPrice = minPrices.length > 0? minPrices.reduce((sum, price) => sum + price, 0) / minPrices.length : 0;
+          const avgMaxPrice = maxPrices.length > 0? maxPrices.reduce((sum, price) => sum + price, 0) / maxPrices.length : 0;
 
           cars.value = response.data.data.map((car) => ({
             ...car,
@@ -91,7 +98,7 @@ export default defineComponent({
           }));
           total.value = response.data.total; // 确保使用正确的总条数字段
         } else {
-          ElMessage.error('获取车型列表失败: ' + response.statusText);
+          ElMessage.error('获取车型列表失败:'+ response.statusText);
         }
       } catch (error) {
         console.error('请求失败:', error);
@@ -100,15 +107,9 @@ export default defineComponent({
         } else if (error.request) {
           ElMessage.error('请求失败: 无响应');
         } else {
-          ElMessage.error('请求失败: ' + error.message);
+          ElMessage.error('请求失败: '+ error.message);
         }
       }
-    };
-
-    // 处理页码变化
-    const handlePageChange = (page) => {
-      currentPage.value = page;
-      fetchCars(); // 重新获取数据
     };
 
     // 处理搜索按钮点击事件
@@ -116,7 +117,8 @@ export default defineComponent({
       currentPage.value = 1; // 重置页码为第一页
       fetchCars(); // 重新获取数据
     };
-  // 分页相关方法
+
+    // 分页相关方法
     const handleSizeChange = (val) => {
       pageSize.value = val;
       currentPage.value = 1; // 改变每页条数时重置到第一页
@@ -127,6 +129,7 @@ export default defineComponent({
       currentPage.value = val;
       fetchCars();
     };
+
     const handleCollect = async (carId, name, score) => {
       if (!token.value) {
         ElMessage.warning('请先登录');
@@ -137,9 +140,9 @@ export default defineComponent({
         ElMessage.warning('请输入 1 - 10 分的评分');
         return;
       }
-      console.log('Car ID:', carId); // 打印 carId 确认是否正确
-      console.log('Name:', name);
-      console.log('Score:', score);
+
+      // 点击后禁用按钮
+      isCollecting.value = true;
 
       try {
         const response = await axios.post('/api/collect', {
@@ -161,6 +164,9 @@ export default defineComponent({
       } catch (error) {
         console.error('收藏出错:', error);
         ElMessage.error('收藏出错，请稍后重试');
+      } finally {
+        // 操作完成后启用按钮
+        isCollecting.value = false;
       }
     };
 
@@ -174,11 +180,13 @@ export default defineComponent({
       total,
       pageSize,
       currentPage,
-      handlePageChange,
       handleCollect,
       searchInput,
       handleSearch,
-      getEmptyText
+      handleSizeChange,
+      handleCurrentChange,
+      getEmptyText,
+      isCollecting
     };
   },
 });
@@ -211,6 +219,4 @@ export default defineComponent({
 .el-button {
   background-color: rgba(64, 158, 255, 1);
 }
-
-
 </style>

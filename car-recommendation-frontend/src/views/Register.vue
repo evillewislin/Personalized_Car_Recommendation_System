@@ -1,24 +1,24 @@
 <template>
   <div class="login-container">
-    <!-- 注册标题 -->
     <h1 class="login-title">欢迎注册汽车推荐系统</h1>
 
-    <!-- 注册表单 -->
     <div class="form-wrapper">
       <el-form
+          ref="registerFormRef"
           :model="registerForm"
+          :rules="rules"
           label-position="top"
           class="login-form"
       >
-        <el-form-item label="用户名">
+        <el-form-item label="用户名" prop="username">
           <el-input
               v-model="registerForm.username"
-              placeholder="请输入用户名"
+              placeholder="字母/数字组合，不能全为数字"
               class="custom-input"
           ></el-input>
         </el-form-item>
 
-        <el-form-item label="密码">
+        <el-form-item label="密码" prop="password">
           <el-input
               v-model="registerForm.password"
               type="password"
@@ -28,7 +28,7 @@
           ></el-input>
         </el-form-item>
 
-        <el-form-item label="确认密码">
+        <el-form-item label="确认密码" prop="confirmPassword">
           <el-input
               v-model="registerForm.confirmPassword"
               type="password"
@@ -38,19 +38,19 @@
           ></el-input>
         </el-form-item>
 
-        <el-form-item label="年龄">
+        <el-form-item label="年龄" prop="age">
           <el-input
-              v-model="registerForm.age"
+              v-model.number="registerForm.age"
               type="number"
-              placeholder="请输入年龄"
+              placeholder="选填，范围18-80"
               class="custom-input"
           ></el-input>
         </el-form-item>
 
-        <el-form-item label="地区">
+        <el-form-item label="地区" prop="region">
           <el-input
               v-model="registerForm.region"
-              placeholder="请输入所在市"
+              placeholder="选填，请输入所在市（如：北京市）"
               class="custom-input"
               clearable
               :maxlength="10"
@@ -67,7 +67,6 @@
           </el-button>
         </el-form-item>
 
-        <!-- 登录提示 -->
         <div class="register-tip">
           已有账号？请点击
           <router-link to="/login" class="register-link">
@@ -80,49 +79,109 @@
 </template>
 
 <script>
-import { defineComponent, reactive } from 'vue';
+import { defineComponent, reactive, ref } from 'vue';
 import axios from 'axios';
 import router from "@/router";
-import { ElMessage } from "element-plus";
+import {ElMessage, ElMessageBox} from "element-plus";
 
 export default defineComponent({
   name: 'Register',
   setup() {
+    const registerFormRef = ref(null);
     const registerForm = reactive({
       username: '',
       password: '',
       confirmPassword: '',
       age: '',
-      region: '' // 改为字符串类型
+      region: ''
     });
 
-    const handleRegister = async () => {
-
-
-      if (registerForm.password !== registerForm.confirmPassword) {
-        ElMessage.error('密码和确认密码不匹配');
-        return;
+    const validateUsername = (rule, value, callback) => {
+      if (!value) {
+        return callback(new Error('用户名不能为空'));
       }
-
-      try {
-        const response = await axios.post('/api/auth/register', {
-          username: registerForm.username,
-          password: registerForm.password,
-          confirmPassword: registerForm.confirmPassword,
-          age: registerForm.age,
-          region: registerForm.region // 直接传递字符串
-        });
-
-        if (response.data) {
-          ElMessage.success('注册成功，请登录');
-          await router.push('/login');
-        }
-      } catch (error) {
-        ElMessage.error('用户已存在');
+      if (/^\d+$/.test(value)) {
+        callback(new Error('不能全为数字'));
+      } else if (!/^[a-zA-Z0-9]+$/.test(value)) {
+        callback(new Error('只能包含字母和数字'));
+      } else {
+        callback();
       }
     };
 
-    return { registerForm, handleRegister };
+    const validateConfirmPass = (rule, value, callback) => {
+      if (value !== registerForm.password) {
+        callback(new Error('两次输入密码不一致'));
+      } else {
+        callback();
+      }
+    };
+
+    const validateAge = (rule, value, callback) => {
+      if (value) {
+        const age = Number(value);
+        if (isNaN(age)) {
+          callback(new Error('必须为数字'));
+        } else if (age < 18 || age > 80) {
+          callback(new Error('年龄需在18-80之间'));
+        } else {
+          callback();
+        }
+      } else {
+        callback();
+      }
+    };
+
+    const validateRegion = (rule, value, callback) => {
+      if (value && !value.includes('市')) {
+        callback(new Error('必须包含"市"字'));
+      } else {
+        callback();
+      }
+    };
+
+    const rules = reactive({
+      username: [
+        { required: true, validator: validateUsername, trigger: 'blur' }
+      ],
+      password: [
+        { required: true, message: '密码不能为空', trigger: 'blur' }
+      ],
+      confirmPassword: [
+        { required: true, message: '请确认密码', trigger: 'blur' },
+        { validator: validateConfirmPass, trigger: 'blur' }
+      ],
+      age: [
+        { validator: validateAge, trigger: 'blur' }
+      ],
+      region: [
+        { validator: validateRegion, trigger: 'blur' }
+      ]
+    });
+
+    const handleRegister = async () => {
+      await registerFormRef.value.validate(async (valid) => {
+        if (valid) {
+          try {
+            const response = await axios.post('/api/auth/register', registerForm);
+            if (response.data) {
+              ElMessage.success('注册成功，请登录');
+              await ElMessageBox.alert('新用户如果没有设置个人信息，可能会导致推荐结果不精准，请新用户进入个人中心填写！！！', '提示', {
+                confirmButtonText: '确定'
+              });
+              await router.push('/login');
+            }
+          } catch (error) {
+            ElMessage.error(error.response?.data?.message || '用户已存在');
+          }
+        } else {
+          ElMessage.warning('请完善表单信息');
+          return false;
+        }
+      });
+    };
+
+    return { registerForm, registerFormRef, rules, handleRegister };
   }
 });
 </script>

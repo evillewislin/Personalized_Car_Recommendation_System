@@ -2,6 +2,7 @@ package com.example.Personalized_Car_Recommendation_System.service.impl;
 
 import com.example.Personalized_Car_Recommendation_System.entity.RecommendationHistory;
 import com.example.Personalized_Car_Recommendation_System.repository.CollectRepository;
+import com.example.Personalized_Car_Recommendation_System.repository.RecommendationHistoryRepository;
 import com.example.Personalized_Car_Recommendation_System.service.CollectService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -13,7 +14,12 @@ public class CollectServiceImpl implements CollectService {
 
     @Autowired
     private CollectRepository collectRepository;
-
+    @Autowired
+    private RecommendationHistoryRepository recommendationHistoryRepository;
+    @Override
+    public boolean isDuplicateCollect(Integer userId, Integer carId) {
+        return recommendationHistoryRepository.existsByUserIdAndCarId(userId, carId);
+    }
     @Override
     public RecommendationHistory collectCar(Integer carId, Integer userId, String name, Float score) {
         System.out.println("Car ID to save: " + carId);

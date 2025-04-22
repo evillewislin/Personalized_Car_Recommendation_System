@@ -11,10 +11,6 @@
       <el-form-item label="地区" prop="region">
         <el-input v-model="profileForm.region" placeholder="请输入地区"></el-input>
       </el-form-item>
-      <el-form-item label="旧密码" prop="oldPassword" v-if="isChangingPassword">
-        <el-input v-model="profileForm.oldPassword" :type="oldPasswordVisible ? 'text' : 'password'" placeholder="请输入旧密码" show-password>
-        </el-input>
-      </el-form-item>
       <el-form-item label="新密码" prop="newPassword" v-if="isChangingPassword">
         <el-input v-model="profileForm.newPassword" :type="newPasswordVisible ? 'text' : 'password'" placeholder="请输入新密码" show-password>
         </el-input>
@@ -78,7 +74,6 @@ export default defineComponent({
       username: '',
       age: null,
       region: '',
-      oldPassword: '',
       newPassword: '',
       confirmPassword: ''
     });
@@ -88,7 +83,6 @@ export default defineComponent({
     const isChangingPassword = ref(false);
     const isLoading = ref(false);
 
-    const oldPasswordVisible = ref(false);
     const newPasswordVisible = ref(false);
     const confirmPasswordVisible = ref(false);
 
@@ -101,9 +95,6 @@ export default defineComponent({
       ],
       region: [
         { required: false, message: '请输入地区', trigger: 'blur' }
-      ],
-      oldPassword: [
-        { required: false, message: '请输入旧密码', trigger: 'blur' }
       ],
       newPassword: [
         { required: false, message: '请输入新密码', trigger: 'blur' },
@@ -176,9 +167,6 @@ export default defineComponent({
               dataToSend.region = profileForm.value.region;
             }
             if (isChangingPassword.value) {
-              if (profileForm.value.oldPassword) {
-                dataToSend.oldPassword = profileForm.value.oldPassword;
-              }
               if (profileForm.value.newPassword) {
                 dataToSend.newPassword = profileForm.value.newPassword;
               }
@@ -189,7 +177,6 @@ export default defineComponent({
               location.reload();
               if (isChangingPassword.value) {
                 isChangingPassword.value = false;
-                profileForm.value.oldPassword = '';
                 profileForm.value.newPassword = '';
                 profileForm.value.confirmPassword = '';
                 profileFormRef.value.resetFields();
@@ -202,8 +189,6 @@ export default defineComponent({
                 ElMessage.error('未授权，请重新登录');
               } else if (status === 404) {
                 ElMessage.error('未找到用户信息');
-              } else if (status === 400) {
-                ElMessage.error('旧密码不正确，请重新输入');
               } else {
                 ElMessage.error('更新用户信息失败');
               }
@@ -220,18 +205,14 @@ export default defineComponent({
       });
     };
 
-    const togglePasswordChange = () => {
+    const togglePasswordChange = async () => {
       if (isChangingPassword.value) {
-        profileForm.value.oldPassword = '';
         profileForm.value.newPassword = '';
         profileForm.value.confirmPassword = '';
         profileFormRef.value.resetFields();
+        await fetchUserProfile();
       }
       isChangingPassword.value = !isChangingPassword.value;
-    };
-
-    const toggleOldPasswordVisibility = () => {
-      oldPasswordVisible.value = !oldPasswordVisible.value;
     };
 
     const toggleNewPasswordVisibility = () => {
@@ -254,10 +235,8 @@ export default defineComponent({
       saveProfile,
       togglePasswordChange,
       isLoading,
-      oldPasswordVisible,
       newPasswordVisible,
       confirmPasswordVisible,
-      toggleOldPasswordVisibility,
       toggleNewPasswordVisibility,
       toggleConfirmPasswordVisibility
     };

@@ -37,6 +37,11 @@ public class CollectController {
             String name = (String) request.get("name");
             Integer score = (Integer) request.get("score");
 
+            // 检查是否重复收藏
+            if (collectService.isDuplicateCollect(userId, carId)) {
+                return new ResponseEntity<>("不能重复收藏", HttpStatus.BAD_REQUEST);
+            }
+
             RecommendationHistory result = collectService.collectCar(carId, userId, name, Float.valueOf(score));
             if (result != null) {
                 return new ResponseEntity<>("收藏成功", HttpStatus.OK);

@@ -3,10 +3,9 @@
     <!-- 时间单位选择器 -->
     <div class="time-unit-selector">
       <label for="time-unit">时间单位：</label>
-      <select v-model="selectedTimeUnit" id="time-unit">
+      <select v-model="selectedTimeUnit" id="time-unit" @change="handleTimeUnitChange">
         <option value="year">年</option>
         <option value="month">月</option>
-        <option value="week">周</option>
         <option value="day">日</option>
       </select>
     </div>
@@ -17,10 +16,10 @@
     <!-- 图表容器 - 并排显示 -->
     <div v-if="hasData" class="chart-row">
       <div class="chart-item">
-        <canvas ref="userHistoryBarChart"></canvas>
+        <canvas ref="userHistoryBarChart" v-show="!isLoading"></canvas>
       </div>
       <div class="chart-item">
-        <canvas ref="userHistoryLineChart"></canvas>
+        <canvas ref="userHistoryLineChart" v-show="!isLoading"></canvas>
       </div>
     </div>
   </div>
@@ -30,91 +29,64 @@
 import { Chart, registerables } from 'chart.js';
 import axios from 'axios';
 import { useUserStore } from '@/store';
-import 'chartjs-adapter-date-fns'; // 引入时间轴适配器
+import { nextTick } from 'vue';
+import 'chartjs-adapter-date-fns';
 
-// 请求拦截器，添加 Token 到请求头
-axios.interceptors.request.use(config => {
-  const userStore = useUserStore();
-  const token = userStore.token;
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// 从 Token 中解析用户 ID
-const getUserIdFromToken = (token) => {
-  if (!token) return null;
-  try {
-    token = token.replace("Bearer ", "");
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => `%${('00' + c.charCodeAt(0).toString(16)).slice(-2)}`).join(''));
-    const payload = JSON.parse(jsonPayload);
-    return parseInt(payload.sub); // 从 sub 字段获取 userId
-  } catch (error) {
-    console.error('解析 Token 出错:', error);
-    return null;
-  }
-};
-
-// 根据时间单位格式化日期
-const formatDateByUnit = (timestamp, unit) => {
-  const date = new Date(timestamp);
-  switch (unit) {
-    case 'year':
-      return date.getFullYear();
-    case'month':
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-    case 'week': {
-      const year = date.getFullYear();
-      const weekNumber = Math.ceil((date - new Date(year, 0, 1 - (new Date(year, 0, 1).getDay() || 7))) / (7 * 24 * 60 * 60 * 1000));
-      return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
-    }
-    case 'day':
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    default:
-      return timestamp;
-  }
-};
-
-// 检查数据是否包含 undefined 或 null 值
-const isValidData = (data) => {
-  return data.every(item => item!== undefined && item!== null);
-};
+Chart.register(...registerables);
 
 export default {
   data() {
     return {
-      selectedTimeUnit: 'day', // 默认时间单位
+      selectedTimeUnit: 'day',
       barChart: null,
       lineChart: null,
-      hasData: false // 新增数据状态标识
+      hasData: false,
+      isLoading: true
     };
   },
-  watch: {
-    selectedTimeUnit: {
-      handler(newUnit) {
-        this.destroyCharts();
-        this.fetchDataAndRenderChart();
-      },
-      immediate: true // 初始化时触发
-    }
-  },
   mounted() {
-    Chart.register(...registerables);
-    this.fetchDataAndRenderChart();
+    this.initializeCharts();
+  },
+  beforeUnmount() {
+    this.destroyCharts();
   },
   methods: {
+    async initializeCharts() {
+      try {
+        this.isLoading = true;
+        await this.fetchDataAndRenderChart();
+      } catch (error) {
+        console.error('初始化图表失败:', error);
+      } finally {
+        this.isLoading = false;
+      }
+    },
+
+    handleTimeUnitChange() {
+      this.destroyCharts();
+      this.initializeCharts();
+    },
+
+    destroyCharts() {
+      if (this.barChart) {
+        this.barChart.destroy();
+        this.barChart = null;
+      }
+      if (this.lineChart) {
+        this.lineChart.destroy();
+        this.lineChart = null;
+      }
+    },
+
     async fetchDataAndRenderChart() {
       try {
         const userStore = useUserStore();
         const role = userStore.role;
         const token = userStore.token;
-        const userId = getUserIdFromToken(token);
+        const userId = this.getUserIdFromToken(token);
 
         let url = '/api/history/user-history-analysis';
-        if (role === 'user' && userId!== null) {
+        if (role === 'user' && userId !== null) {
           url += `?userId=${userId}`;
         }
 
@@ -123,176 +95,249 @@ export default {
 
         if (!data || data.length === 0) {
           this.hasData = false;
-          console.error('数据为空，无法绘制图表');
           return;
         }
 
         this.hasData = true;
 
-        const carBrandScoreMap = new Map();
-        const timeScoreMap = new Map();
+        // Process data
+        const {carBrandLabels, scoreDataForBar, timeLabels, scoreDataForLine} = this.processChartData(data);
 
-        data.forEach(item => {
-          const carBrand = item[1];
-          const score = item[2];
-          const timestampStr = item[0];
-          if (!carBrand || score === undefined ||!timestampStr) {
-            console.warn('数据项缺少必要字段:', item);
+        // 检查数据有效性
+        if (
+            carBrandLabels.length === 0 ||
+            scoreDataForBar.length === 0 ||
+            carBrandLabels.length !== scoreDataForBar.length ||
+            timeLabels.length === 0 ||
+            scoreDataForLine.length === 0 ||
+            timeLabels.length !== scoreDataForLine.length
+        ) {
+          this.hasData = false;
+          console.error('图表数据无效');
+          return;
+        }
+
+        if (this.isValidData(scoreDataForBar) && this.isValidData(scoreDataForLine)) {
+          await nextTick();
+
+          // Ensure canvas elements are available
+          if (!this.$refs.userHistoryBarChart || !this.$refs.userHistoryLineChart) {
+            console.error('Canvas elements not found');
             return;
           }
-          const timestamp = new Date(timestampStr).getTime();
-          const formattedTime = formatDateByUnit(timestamp, this.selectedTimeUnit);
 
-          // 处理直方图数据：合并相同品牌并计算平均分数
-          if (carBrandScoreMap.has(carBrand)) {
-            const [totalScore, count] = carBrandScoreMap.get(carBrand);
-            carBrandScoreMap.set(carBrand, [totalScore + score, count + 1]);
-          } else {
-            carBrandScoreMap.set(carBrand, [score, 1]);
-          }
-
-          // 处理折线图数据：按时间单位聚合分数
-          if (timeScoreMap.has(formattedTime)) {
-            const [totalScore, count] = timeScoreMap.get(formattedTime);
-            timeScoreMap.set(formattedTime, [totalScore + score, count + 1]);
-          } else {
-            timeScoreMap.set(formattedTime, [score, 1]);
-          }
-        });
-
-        const carBrandLabels = [];
-        const scoreDataForBar = [];
-        carBrandScoreMap.forEach(([totalScore, count], carBrand) => {
-          carBrandLabels.push(carBrand);
-          scoreDataForBar.push(totalScore / count);
-        });
-
-        const timeLabels = [];
-        const scoreDataForLine = [];
-        const sortedTimes = Array.from(timeScoreMap.keys()).sort();
-        sortedTimes.forEach(time => {
-          const [totalScore, count] = timeScoreMap.get(time);
-          timeLabels.push(time);
-          scoreDataForLine.push(totalScore / count);
-        });
-
-        if (isValidData(scoreDataForBar) && isValidData(scoreDataForLine)) {
-          // 绘制直方图
-          const barCtx = this.$refs.userHistoryBarChart.getContext('2d');
-          this.barChart = new Chart(barCtx, {
-            type: 'bar',
-            data: {
-              labels: carBrandLabels,
-              datasets: [{
-                label: '汽车品牌平均得分分布',
-                data: scoreDataForBar,
-                backgroundColor: 'rgba(235, 148, 102, 0.6)',
-                borderColor: 'rgb(235, 148, 102)',
-                borderWidth: 1
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  grid: {
-                    color: 'rgba(0, 0, 0, 0.1)',
-                    drawBorder: false
-                  }
-                }
-              },
-              plugins: {
-                legend: {
-                  position: 'top',
-                  labels: {
-                    color: '#333'
-                  }
-                }
-              }
-            }
-          });
-
-          // 绘制折线图
-          const lineCtx = this.$refs.userHistoryLineChart.getContext('2d');
-          this.lineChart = new Chart(lineCtx, {
-            type: 'line',
-            data: {
-              labels: timeLabels,
-              datasets: [{
-                label: '推荐分数变化',
-                data: scoreDataForLine,
-                fill: false,
-                borderColor: 'rgba(54, 162, 235, 1)',
-                tension: 0.1,
-                pointRadius: 4,
-                pointBackgroundColor: 'white',
-                pointBorderColor: 'rgba(54, 162, 235, 1)',
-                pointBorderWidth: 2
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                x: {
-                  type: 'time',
-                  time: {
-                    unit: this.selectedTimeUnit,
-                    tooltipFormat: 'yyyy-MM-dd',
-                    displayFormats: {
-                      year: 'yyyy',
-                      month: 'yyyy-MM',
-                      week: 'yyyy-WW',
-                      day: 'yyyy-MM-dd'
-                    }
-                  },
-                  title: {
-                    display: true,
-                    text: '时间',
-                    color: '#333'
-                  },
-                  grid: {
-                    color: 'rgba(0, 0, 0, 0.1)',
-                    drawBorder: false
-                  }
-                },
-                y: {
-                  beginAtZero: true,
-                  title: {
-                    display: true,
-                    text: '平均评分',
-                    color: '#333'
-                  },
-                  grid: {
-                    color: 'rgba(0, 0, 0, 0.1)',
-                    drawBorder: false
-                  }
-                }
-              },
-              plugins: {
-                legend: {
-                  position: 'top',
-                  labels: {
-                    color: '#333'
-                  }
-                }
-              }
-            }
-          });
+          // Render charts
+          this.renderBarChart(carBrandLabels, scoreDataForBar);
+          this.renderLineChart(timeLabels, scoreDataForLine);
         } else {
           this.hasData = false;
-          console.error('数据包含无效值，无法绘制图表');
         }
       } catch (error) {
         this.hasData = false;
         console.error('获取数据失败:', error);
       }
     },
-    destroyCharts() {
-      if (this.barChart) this.barChart.destroy();
-      if (this.lineChart) this.lineChart.destroy();
+
+    processChartData(data) {
+      const carBrandScoreMap = new Map();
+      const timeScoreMap = new Map();
+
+      data.forEach(item => {
+        const carBrand = item[1];
+        const score = item[2];
+        const timestampStr = item[0];
+
+        if (!carBrand || score === undefined || !timestampStr) return;
+
+        const timestamp = new Date(timestampStr).getTime();
+        const formattedTime = this.formatDateByUnit(timestamp, this.selectedTimeUnit);
+
+        // Process bar chart data
+        if (carBrandScoreMap.has(carBrand)) {
+          const [totalScore, count] = carBrandScoreMap.get(carBrand);
+          carBrandScoreMap.set(carBrand, [totalScore + score, count + 1]);
+        } else {
+          carBrandScoreMap.set(carBrand, [score, 1]);
+        }
+
+        // Process line chart data
+        if (timeScoreMap.has(formattedTime)) {
+          const [totalScore, count] = timeScoreMap.get(formattedTime);
+          timeScoreMap.set(formattedTime, [totalScore + score, count + 1]);
+        } else {
+          timeScoreMap.set(formattedTime, [score, 1]);
+        }
+      });
+
+      const carBrandLabels = [];
+      const scoreDataForBar = [];
+      carBrandScoreMap.forEach(([totalScore, count], carBrand) => {
+        carBrandLabels.push(carBrand);
+        scoreDataForBar.push(totalScore / count);
+      });
+
+      const timeLabels = [];
+      const scoreDataForLine = [];
+      const sortedTimes = Array.from(timeScoreMap.keys()).sort();
+      sortedTimes.forEach(time => {
+        const [totalScore, count] = timeScoreMap.get(time);
+        timeLabels.push(time);
+        scoreDataForLine.push(totalScore / count);
+      });
+
+      return {carBrandLabels, scoreDataForBar, timeLabels, scoreDataForLine};
+    },
+
+    renderBarChart(labels, data) {
+      const barCtx = this.$refs.userHistoryBarChart?.getContext('2d');
+      if (!barCtx || this.barChart) return;
+      this.barChart = new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '汽车品牌平均得分分布',
+            data: data,
+            backgroundColor: 'rgba(235, 148, 102, 0.6)',
+            borderColor: 'rgb(235, 148, 102)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: 'rgba(0, 0, 0, 0.1)',
+                drawBorder: false
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                color: '#333'
+              }
+            }
+          }
+        }
+      });
+    },
+
+    renderLineChart(labels, data) {
+      const lineCtx = this.$refs.userHistoryLineChart?.getContext('2d');
+      if (!lineCtx || this.lineChart) return;
+      this.lineChart = new Chart(lineCtx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '推荐分数变化',
+            data: data,
+            fill: false,
+            borderColor: 'rgba(54, 162, 235, 1)',
+            tension: 0.1,
+            pointRadius: 4,
+            pointBackgroundColor: 'white',
+            pointBorderColor: 'rgba(54, 162, 235, 1)',
+            pointBorderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              type: 'time',
+              time: {
+                unit: this.selectedTimeUnit,
+                tooltipFormat: 'yyyy-MM-dd',
+                displayFormats: {
+                  year: 'yyyy',
+                  month: 'yyyy-MM',
+                  week: 'yyyy-WW',
+                  day: 'yyyy-MM-dd'
+                }
+              },
+              title: {
+                display: true,
+                text: '时间',
+                color: '#333'
+              },
+              grid: {
+                color: 'rgba(0, 0, 0, 0.1)',
+                drawBorder: false
+              }
+            },
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: '平均评分',
+                color: '#333'
+              },
+              grid: {
+                color: 'rgba(0, 0, 0, 0.1)',
+                drawBorder: false
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                color: '#333'
+              }
+            }
+          }
+        }
+      });
+    },
+
+    getUserIdFromToken(token) {
+      if (!token) return null;
+      try {
+        token = token.replace("Bearer ", "");
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => `%${('00' + c.charCodeAt(0).toString(16)).slice(-2)}`).join(''));
+        const payload = JSON.parse(jsonPayload);
+        return parseInt(payload.sub);
+      } catch (error) {
+        console.error('解析 Token 出错:', error);
+        return null;
+      }
+    },
+
+    formatDateByUnit(timestamp, unit) {
+      const date = new Date(timestamp);
+      switch (unit) {
+        case 'year':
+          return date.getFullYear();
+        case 'month':
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        case 'week': {
+          const year = date.getFullYear();
+          const weekNumber = Math.ceil((date - new Date(year, 0, 1 - (new Date(year, 0, 1).getDay() || 7))) / (7 * 24 * 60 * 60 * 1000));
+          return `${year}-W${weekNumber.toString().padStart(2, '0')}`;
+        }
+        case 'day':
+          return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        default:
+          return timestamp;
+      }
+    },
+
+    isValidData(data) {
+      return data.every((item, index) => {
+        if (index === 2) {
+          return typeof item === 'number' && item >= 0 && item <= 10;
+        }
+        return item !== undefined && item !== null;
+      });
     }
   }
 };
@@ -352,8 +397,8 @@ export default {
 }
 
 canvas {
-  width: 100%!important;
-  height: 100%!important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .no-data-tip {

@@ -1,6 +1,6 @@
 <template>
   <div class="p-6 bg-white rounded-lg shadow-md space-y-6" v-if="dataLoaded">
-    <h2 class="text-2xl font-bold text-gray-800">以下是三种不同的推荐方法，选择您喜欢的进行推荐吧</h2>
+    <h2 class="text-2xl font-bold text-gray-800">以下是三种不同的推荐方法，选择您喜欢的进行推荐吧！！！</h2>
     <el-tabs
         v-model="activeSubTab"
         class="sub-tabs"

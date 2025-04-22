@@ -1,4 +1,5 @@
 <template>
+  <h1>该AI基于Deepseek的R1推理模型，输入您的要求进行推荐吧！！！</h1>
   <div class="ai-recommendation-container">
     <!-- 用户输入要求的文本输入框 -->
     <input
