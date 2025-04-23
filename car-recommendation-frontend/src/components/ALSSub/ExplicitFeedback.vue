@@ -1,43 +1,106 @@
 <template>
-  <el-button
-      type="primary"
-      @click="handleGenerate"
-      :loading="isLoading"
-      class="generate-btn"
-  >
-    生成推荐
-  </el-button>
-  <div class="car-recommendation-container">
-    <el-loading
-        v-show="isLoading"
-        :text="loadingText"
-        :spinner="loadingSpinner"
-        :background="loadingBackground"
-    ></el-loading>
-    <div v-if="errorMessage" class="error-message">
-      <el-icon><ErrorFilled /></el-icon>
-      {{ errorMessage }}
-    </div>
-    <div class="result-container" v-if="recommendations.length > 0">
-      <h3 class="recommendation-result-title">结合您的收藏和偏好，推荐如下车型</h3>
-      <div class="recommendation-card">
-        <el-table
-            :data="recommendations"
-            stripe
-            border
-            class="recommendation-table"
-            :key="tableKey"
-            empty-text="暂无符合条件的推荐车型"
+  <div class="car-recommendation-wrapper">
+    <div class="control-panel">
+      <div class="budget-control">
+        <span class="input-label">购车预算：</span>
+        <el-input
+            v-model.number="form.maxPrice"
+            type="number"
+            :min="0"
+            step="0.01"
+            placeholder="请输入预算"
+            class="budget-input"
+            :disabled="isLoading"
+            @keyup.enter="handleGenerate"
         >
-          <el-table-column prop="name" label="品牌" width="120" />
-          <el-table-column prop="fullName" label="车型" min-width="200" />
-          <el-table-column label="价格区间" width="180">
-            <template #default="{ row }">
-              {{ row.price }}
-            </template>
-          </el-table-column>
-        </el-table>
+          <template #append>万元</template>
+        </el-input>
+        <el-tooltip
+            content="根据预算智能推荐匹配车型"
+            placement="top"
+        >
+          <el-button
+              type="primary"
+              @click="handleGenerate"
+              :loading="isLoading"
+              class="generate-btn"
+              icon="MagicStick"
+          >
+            {{ isLoading ? '推荐中...' : '智能推荐' }}
+          </el-button>
+        </el-tooltip>
       </div>
+    </div>
+
+    <div class="result-panel">
+      <el-card shadow="never" class="result-card">
+        <template #header>
+          <div class="card-header">
+            <el-icon><StarFilled /></el-icon>
+            <span>个性化推荐结果</span>
+          </div>
+        </template>
+
+        <el-skeleton :rows="5" animated v-if="isLoading"/>
+
+        <el-empty
+            v-else-if="!isLoading && recommendations.length === 0 && !errorMessage"
+            description="输入预算后点击推荐按钮获取结果"
+            :image-size="100"
+        />
+
+        <div v-else>
+          <div class="error-message" v-if="errorMessage">
+            <el-icon color="#F56C6C"><WarningFilled /></el-icon>
+            <span>{{ errorMessage }}</span>
+          </div>
+
+          <div v-if="recommendations.length > 0">
+            <el-table
+                :data="recommendations"
+                stripe
+                style="width: 100%"
+                empty-text="暂无符合条件的推荐车型"
+                class="recommend-table"
+            >
+              <el-table-column
+                  prop="name"
+                  label="品牌"
+                  width="120"
+                  align="center"
+              >
+                <template #default="{ row }">
+                  <el-tag effect="light">{{ row.name }}</el-tag>
+                </template>
+              </el-table-column>
+
+              <el-table-column
+                  prop="fullName"
+                  label="车型"
+                  min-width="180"
+              />
+
+              <el-table-column
+                  label="价格"
+                  width="200"
+                  align="right"
+              >
+                <template #default="{ row }">
+                  <span class="price-tag">
+                    {{ row.price }}
+                  </span>
+                </template>
+              </el-table-column>
+
+            </el-table>
+
+            <div class="recommend-tips">
+              <el-icon><InfoFilled /></el-icon>
+              <span>共推荐 {{ recommendations.length }} 款车型，数据更新于 {{ new Date().toLocaleDateString() }}</span>
+            </div>
+          </div>
+        </div>
+      </el-card>
     </div>
   </div>
 </template>
@@ -46,7 +109,7 @@
 import { ref, reactive } from 'vue';
 import axios from 'axios';
 import { ElMessage } from 'element-plus';
-import { ErrorFilled } from '@element-plus/icons-vue';
+import {ErrorFilled, StarFilled} from '@element-plus/icons-vue';
 
 const form = reactive({
   maxPrice: 50,
@@ -111,101 +174,115 @@ const handleGenerate = async () => {
 </script>
 
 <style scoped>
-.car-recommendation-container {
-  position: relative;
-  padding: 24px;
+.car-recommendation-wrapper {
   max-width: 1200px;
   margin: 0 auto;
-  min-height: 400px;
-  background-color: #f8fafc;
-  border-radius: 12px;
+  padding: 20px;
+}
+
+.control-panel {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.budget-control {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.input-label {
+  font-size: 14px;
+  color: #606266;
+  white-space: nowrap;
+}
+
+.budget-input {
+  width: 200px;
+}
+
+.budget-input :deep(.el-input-group__append) {
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
 }
 
 .generate-btn {
-  margin-top: 0;
-  padding: 20px 20px;
+  margin-left:auto;
+  padding: 15px 10px ;
   font-size: 14px;
-  border-radius: 6px;
-  transition: all 0.3s ease;
-  margin-left: 1000px;
-  margin-bottom: 10px;
+
 }
 
-.generate-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
-}
-
-.error-message {
-  color: #f56c6c;
-  margin: 16px 0;
-  padding: 12px 16px;
-  background: #fef0f0;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  border-left: 4px solid #f56c6c;
-}
-
-.result-container {
-  margin-top: 30px;
+.result-panel {
   background: #fff;
-  padding: 0;
-  border-radius: 12px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
-  overflow: hidden;
-}
-
-.recommendation-card {
-  border: 1px solid #e4e7ed;
   border-radius: 8px;
   overflow: hidden;
 }
 
-.recommendation-result-title {
-  margin: 0;
-  padding: 20px 24px;
-  color: #303133;
-  font-weight: 600;
-  font-size: 18px;
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: var(--el-text-color-primary);
+}
+
+.card-header .el-icon {
+  color: var(--el-color-primary);
+}
+
+.recommend-table {
+  margin-top: 10px;
+  border-radius: 4px;
+}
+
+.recommend-table :deep(.el-table__header) th {
   background-color: #f5f7fa;
-  border-bottom: 1px solid #e4e7ed;
-}
-
-.recommendation-table {
-  width: 100%;
-  border: none;
-}
-
-.recommendation-table :deep(.el-table__header-wrapper) {
-  border-bottom: 1px solid #e4e7ed;
-}
-
-.recommendation-table :deep(.el-table__body-wrapper) {
-  border-bottom: 1px solid #e4e7ed;
-}
-
-.recommendation-table :deep(th) {
-  background-color: #f5f7fa !important;
-  color: #606266;
   font-weight: 600;
 }
 
-.recommendation-table :deep(.el-table__row--striped) {
-  background-color: #fafbfc !important;
+.price-tag {
+  color: var(--el-color-primary);
+  font-weight: 500;
 }
 
-.recommendation-table :deep(td) {
-  border-right: none;
+.detail-btn {
+  color: var(--el-color-primary);
 }
 
-.recommendation-table :deep(.el-table__cell) {
-  padding: 14px 0;
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #f56c6c;
+  padding: 10px 0;
 }
 
-.recommendation-table :deep(.el-table__inner-wrapper::before) {
-  display: none;
+.recommend-tips {
+  margin-top: 15px;
+  font-size: 12px;
+  color: #909399;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* 响应式适配 */
+@media (max-width: 768px) {
+  .budget-control {
+    flex-wrap: wrap;
+  }
+
+  .budget-input {
+    width: 100%;
+  }
+
+  .generate-btn {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 </style>

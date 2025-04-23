@@ -14,7 +14,6 @@ public interface RecommendationService {
 
     CompletableFuture<String> callAI(String message);
 
-    // 添加 maxPrice 参数
     List<Map<String, Object>> getAlsRecommendations(int userId, List<Map<String, Object>> data, int maxPrice);
 
     Map<String, Object> getRecommendations(int userId, int page, int size, String keyword);

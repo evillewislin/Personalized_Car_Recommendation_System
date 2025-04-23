@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -114,6 +115,9 @@ public class RecommendationController {
             @RequestParam("maxPrice") int maxPrice) {
         log.info("ALS request received with data size: {}, maxPrice: {}", data.size(), maxPrice);
         token = token.replace("Bearer ", "").trim();
+        if (maxPrice <= 0 || maxPrice > 100000000) { // 假设1亿是合理上限
+            return ResponseEntity.badRequest().body(Collections.emptyList());
+        }
         try {
             int userId = recommendationService.getUserIdFromToken(token);
             List<Map<String, Object>> alsRecommendations = recommendationService.getAlsRecommendations(userId, data, maxPrice);

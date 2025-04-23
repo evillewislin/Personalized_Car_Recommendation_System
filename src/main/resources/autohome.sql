@@ -272,6 +272,42 @@ CREATE TABLE `car_info` (
   PRIMARY KEY (`car_id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=1009621 DEFAULT CHARSET=utf8;
 
+-- 为 car_info 表添加 energy_index 列
+ALTER TABLE car_info ADD COLUMN energy_index INT;
+-- 为 energy_index 列插入 1 - 10 的随机整数
+UPDATE car_info
+SET energy_index = FLOOR(RAND() * 10) + 1;
+
+-- 为 car_info 表添加 safety_index 列
+ALTER TABLE car_info ADD COLUMN safety_index INT;
+-- 为 safety_index 列插入 1 - 10 的随机整数
+UPDATE car_info
+SET safety_index = FLOOR(RAND() * 10) + 1;
+
+-- 为 car_info 表添加 Intelligence_index 列
+ALTER TABLE car_info ADD COLUMN Intelligence_index INT;
+-- 为 Intelligence_index 列插入 1 - 10 的随机整数
+UPDATE car_info
+SET Intelligence_index = FLOOR(RAND() * 10) + 1;
+
+-- 为 car_info 表添加 comfort_index 列
+ALTER TABLE car_info ADD COLUMN comfort_index INT;
+-- 为 comfort_index 列插入 1 - 10 的随机整数
+UPDATE car_info
+SET comfort_index = FLOOR(RAND() * 10) + 1;
+
+-- 为 car_info 表添加 appearance_index 列
+ALTER TABLE car_info ADD COLUMN appearance_index INT;
+-- 为 appearance_index 列插入 1 - 10 的随机整数
+UPDATE car_info
+SET appearance_index = FLOOR(RAND() * 10) + 1;
+
+-- 为 car_info 表添加 space_index 列
+ALTER TABLE car_info ADD COLUMN space_index INT;
+-- 为 space_index 列插入 1 - 10 的随机整数
+UPDATE car_info
+SET space_index = FLOOR(RAND() * 10) + 1;
+
 INSERT INTO `car_info` (`car_id`, `brand_id`, `group_id`, `series_id`, `full_name`, `name`, `brand_name`, `group_name`, `series_name`, `state`, `minprice`, `maxprice`, `year`) VALUES
 (2247,	77,	4,	6,	'长城赛弗2006款 2.2L 两驱豪华型',	'2006款 2.2L 两驱豪华型',	'长城',	'长城汽车',	'赛弗',	40,	77800,	77800,	'2006'),
 (2248,	77,	4,	6,	'长城赛弗2006款 2.2L 两驱超豪华型',	'2006款 2.2L 两驱超豪华型',	'长城',	'长城汽车',	'赛弗',	40,	81800,	81800,	'2006'),

@@ -74,7 +74,7 @@ public class CarServiceImpl implements CarService {
             CarInfo existingCarInfo = optionalCarInfo.get();
             existingCarInfo.setFullName(carInfo.getFullName());
             existingCarInfo.setMinPrice(carInfo.getMinPrice());
-            existingCarInfo.setMaxPrice(carInfo.getMaxPrice());
+            existingCarInfo.setMinPrice(carInfo.getMaxPrice());
             carInfoRepository.save(existingCarInfo);
         }
 

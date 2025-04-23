@@ -138,12 +138,23 @@ public class RecommendationServiceImpl implements RecommendationService {
     @Async
     @Override
     public CompletableFuture<String> callAI(String message) {
+        long startTime = System.currentTimeMillis();
         try {
+            long callStartTime = System.currentTimeMillis();
             Prompt prompt = new Prompt(new UserMessage(message));
+            long callEndTime = System.currentTimeMillis();
+            logger.info("调用 AI 接口耗时: {} 毫秒", callEndTime - callStartTime);
+            long getResultStartTime = System.currentTimeMillis();
             String response = chatClient.call(prompt).getResult().getOutput().getContent();
+            long getResultEndTime = System.currentTimeMillis();
+            logger.info("获取 AI 结果耗时: {} 毫秒", getResultEndTime - getResultStartTime);
             logger.info("AI响应内容: {}", response);
+            long endTime = System.currentTimeMillis();
+            logger.info("AI 调用总耗时: {} 毫秒", endTime - startTime);
             return CompletableFuture.completedFuture(response);
         } catch (Exception e) {
+            long endTime = System.currentTimeMillis();
+            logger.error("AI 调用异常，总耗时: {} 毫秒，异常信息: {}", endTime - startTime, e.getMessage(), e);
             logger.error("AI 调用异常: {}", e.getMessage(), e);
             return CompletableFuture.completedFuture("AI服务异常，请稍后重试");
         }
@@ -225,70 +236,100 @@ public class RecommendationServiceImpl implements RecommendationService {
      */
     @Override
     public List<Map<String, Object>> getAlsRecommendations(int userId, List<Map<String, Object>> data, int maxPrice) {
+        long startTime = System.currentTimeMillis();
         JavaSparkContext sc = null;
         try {
+            long subStartTime = System.currentTimeMillis();
             sc = createSparkContext();
-
+            long subEndTime = System.currentTimeMillis();
+            logger.info("创建 SparkContext 耗时: {} 毫秒", subEndTime - subStartTime);
+            subStartTime = System.currentTimeMillis();
             List<RecommendationHistory> allHistory = recommendationHistoryRepository.findAll();
-            logger.info("推荐历史记录{}",allHistory);
+            subEndTime = System.currentTimeMillis();
+            logger.info("查询推荐历史记录耗时: {} 毫秒", subEndTime - subStartTime);
+
             if (allHistory.isEmpty()) {
                 logger.info("没有推荐历史记录，返回默认推荐{}",getDefaultRecommendations());
                 return getDefaultRecommendations();
             }
-            logger.info("所有用户的推荐历史记录: {}", allHistory);
 
+            subStartTime = System.currentTimeMillis();
             JavaRDD<Rating> ratingsRDD = convertToRatingsRDD(sc, allHistory);
+            subEndTime = System.currentTimeMillis();
+            logger.info("转换为 Ratings RDD 耗时: {} 毫秒", subEndTime - subStartTime);
+
+            subStartTime = System.currentTimeMillis();
             Map<Integer, Long> carIdCounts = ratingsRDD.mapToPair(r -> new Tuple2<>(r.product(), 1L))
                     .reduceByKey(Long::sum)
                     .collectAsMap();
-            logger.info("CarID 分布: {}", carIdCounts);
+            subEndTime = System.currentTimeMillis();
+            logger.info("计算 CarID 分布耗时: {} 毫秒", subEndTime - subStartTime);
 
+            subStartTime = System.currentTimeMillis();
             JavaRDD<Rating>[] splits = ratingsRDD.randomSplit(new double[]{0.8, 0.2}, 12345L);
             JavaRDD<Rating> training = splits[0];
             JavaRDD<Rating> test = splits[1];
+            subEndTime = System.currentTimeMillis();
+            logger.info("划分训练集和测试集耗时: {} 毫秒", subEndTime - subStartTime);
 
+            subStartTime = System.currentTimeMillis();
             MatrixFactorizationModel model = trainALSModel(training);
+            subEndTime = System.currentTimeMillis();
+            logger.info("训练 ALS 模型耗时: {} 毫秒", subEndTime - subStartTime);
+
             if (model == null) {
                 logger.info("无法训练 ALS 模型，返回默认推荐");
                 return getDefaultRecommendations();
             }
-
+            subStartTime = System.currentTimeMillis();
             double mse = calculateMSE(model, test);
+            subEndTime = System.currentTimeMillis();
+            logger.info("计算均方误差 (MSE) 耗时: {} 毫秒", subEndTime - subStartTime);
             logger.info("模型的均方误差 (MSE): {}", mse);
 
-            double mseThreshold = 1.0;
-            if (mse > mseThreshold) {
-                logger.info("模型性能不佳，MSE 超过阈值，返回默认推荐");
-                return getDefaultRecommendations();
-            }
 
+            subStartTime = System.currentTimeMillis();
             List<Integer> carIds = extractCarIds(data);
+            subEndTime = System.currentTimeMillis();
+            logger.info("提取汽车 ID 耗时: {} 毫秒", subEndTime - subStartTime);
             if (carIds.isEmpty()) {
                 logger.info("没有有效的汽车 ID，返回默认推荐");
                 return getDefaultRecommendations();
             }
-            logger.info("所有汽车的 ID: {}", carIds);
 
+            subStartTime = System.currentTimeMillis();
             JavaRDD<Tuple2<Object, Object>> inputRDD = createInputRDD(sc, userId, carIds);
-            logger.info("预测的 (用户 ID, 物品 ID) 元组列表: {}", inputRDD);
+            subEndTime = System.currentTimeMillis();
+            logger.info("创建输入 RDD 耗时: {} 毫秒", subEndTime - subStartTime);
 
+            subStartTime = System.currentTimeMillis();
             JavaRDD<Rating> userCarRatingsRDD = predictRatings(model, inputRDD);
+            subEndTime = System.currentTimeMillis();
+            logger.info("预测评分耗时: {} 毫秒", subEndTime - subStartTime);
             logger.info("模型预测结果: {}", userCarRatingsRDD);
 
+
+            subStartTime = System.currentTimeMillis();
             List<Rating> userCarRatings = userCarRatingsRDD.collect();
+            subEndTime = System.currentTimeMillis();
+            logger.info("收集预测结果耗时: {} 毫秒", subEndTime - subStartTime);
             logger.info("预测结果列表: {}", userCarRatings);
 
+            subStartTime = System.currentTimeMillis();
             userCarRatings = new ArrayList<>(userCarRatings);
             userCarRatings.sort((r1, r2) -> Double.compare(r2.rating(), r1.rating()));
-            logger.info("排序预测结果: {}", userCarRatings);
+            subEndTime = System.currentTimeMillis();
+            logger.info("排序预测结果耗时: {} 毫秒", subEndTime - subStartTime);
 
+            subStartTime = System.currentTimeMillis();
             List<Map<String, Object>> recommendedCars = filterRecommendedCars(data, userCarRatings, maxPrice);
+            subEndTime = System.currentTimeMillis();
+            logger.info("筛选推荐汽车耗时: {} 毫秒", subEndTime - subStartTime);
             if (recommendedCars.isEmpty()) {
                 logger.info("没有推荐的汽车，返回默认推荐");
                 return getDefaultRecommendations();
             }
-            logger.info("筛选预测结果: {}", recommendedCars);
-            logger.info("最终推荐结果: {}", recommendedCars);
+
 
             return recommendedCars;
         } catch (Exception e) {
@@ -298,8 +339,12 @@ public class RecommendationServiceImpl implements RecommendationService {
             if (sc != null) {
                 sc.stop();
             }
+            long endTime = System.currentTimeMillis();
+            logger.info("整个 ALS 推荐过程耗时: {} 毫秒", endTime - startTime);
         }
+
     }
+
 
     // 计算均方误差（MSE）的方法
     private double calculateMSE(MatrixFactorizationModel model, JavaRDD<Rating> testData) {
@@ -329,6 +374,7 @@ public class RecommendationServiceImpl implements RecommendationService {
                 "--add-opens=java.base/java.net=ALL-UNNAMED",
                 "--add-opens=java.base/java.nio=ALL-UNNAMED",
                 "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+                "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
                 "-Xss4m"
         );
 
@@ -395,41 +441,44 @@ public class RecommendationServiceImpl implements RecommendationService {
                         Function.identity()
                 ));
 
+        // 获取所有候选车辆的ID
         List<Integer> carIds = userRatings.stream()
                 .map(Rating::product)
-                .toList();
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (carIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 批量查询车辆价格信息，优化数据库查询
         String carInfoSql = "SELECT car_id, minprice, maxprice FROM car_info WHERE car_id IN (" +
                 carIds.stream().map(String::valueOf).collect(Collectors.joining(",")) + ")";
         List<Map<String, Object>> carInfoList = jdbcTemplate.queryForList(carInfoSql);
 
+        // 创建价格映射
+        Map<Integer, Integer> maxPriceMap = carInfoList.stream()
+                .filter(info -> info.get("car_id") != null && info.get("maxprice") != null)
+                .collect(Collectors.toMap(
+                        info -> (Integer) info.get("car_id"),
+                        info -> (Integer) info.get("maxprice")
+                ));
+
+        // 过滤并排序结果
         return userRatings.stream()
                 .sorted((r1, r2) -> Double.compare(r2.rating(), r1.rating()))
                 .map(Rating::product)
                 .distinct()
                 .filter(carId -> {
-                    Map<String, Object> carInfo = carInfoList.stream()
-                            .filter(info -> carId.equals(info.get("car_id")))
-                            .findFirst()
-                            .orElse(null);
-                    return carInfo != null &&
-                            carInfo.get("maxprice") != null &&
-                            (Integer) carInfo.get("maxprice") <= userMaxPrice;
+                    Integer maxPrice = maxPriceMap.get(carId);
+                    return maxPrice != null && maxPrice <= userMaxPrice;
                 })
                 .map(carMap::get)
                 .filter(Objects::nonNull)
+                .limit(10) // 限制返回结果数量
                 .collect(Collectors.toList());
     }
 
-    // 按热度排序，处理空指针
-    private List<Map<String, Object>> sortByPopularity(List<Map<String, Object>> cars) {
-        return cars.stream()
-                .sorted((a, b) -> {
-                    Integer popularityA = a.get("popularity") != null ? (Integer) a.get("popularity") : 0;
-                    Integer popularityB = b.get("popularity") != null ? (Integer) b.get("popularity") : 0;
-                    return popularityB.compareTo(popularityA);
-                })
-                .collect(Collectors.toList());
-    }
 
     /**
      * 生成显式推荐
@@ -447,38 +496,45 @@ public class RecommendationServiceImpl implements RecommendationService {
             double lambda,
             int maxPrice,
             Integer userId) {
-
+        long startTime = System.currentTimeMillis();
         // 获取当前用户信息
+        long start = System.currentTimeMillis();
         User currentUser = userRepository.findByUserId(userId);
+        long end = System.currentTimeMillis();
+        logger.info("获取当前用户信息耗时: {} 毫秒", end - start);
         if (currentUser == null) {
             logger.error("未找到用户 ID 为 " + userId + " 的用户信息");
             return Collections.emptyList();
         }
-        logger.info("当前用户信息：年龄={}, 地区={}", currentUser.getAge(), currentUser.getRegion());
 
         // 先尝试按地区和年龄匹配相似用户
+        start = System.currentTimeMillis();
         List<Long> similarUserIds = userRepository.findUserIdsByRegionAndAgeBetween(
                 currentUser.getRegion(),
                 currentUser.getAge() - 5,
                 currentUser.getAge() + 5
         );
         similarUserIds.remove((long) userId);
-
+        end = System.currentTimeMillis();
+        logger.info("按地区和年龄匹配相似用户耗时: {} 毫秒", end - start);
         if (similarUserIds.isEmpty()) {
             // 如果没有相似地区的用户，按年龄匹配
             logger.info("未找到相似地区的用户，尝试按年龄匹配");
+            start = System.currentTimeMillis();
             similarUserIds = userRepository.findUserIdsByAgeBetween(
                     currentUser.getAge() - 5,
                     currentUser.getAge() + 5
             );
             similarUserIds.remove((long) userId);
+            end = System.currentTimeMillis();
+            logger.info("按年龄匹配相似用户耗时: {} 毫秒", end - start);
         }
 
-        logger.info("相似用户 ID 列表：{}", similarUserIds);
 
         // 根据相似用户的历史记录查找汽车信息
         List<CarDetailsDto> recommendedCars = new ArrayList<>();
         if (!similarUserIds.isEmpty()) {
+            start = System.currentTimeMillis();
             List<CarDetailsDto> carsFromHistory = carRepository.findCarsHistoryByUsers(similarUserIds, maxPrice).stream()
                     .map(carInfo -> {
                         String brandName = carRepository.getBrandNameByBrandId(carInfo.getBrandId());
@@ -497,14 +553,19 @@ public class RecommendationServiceImpl implements RecommendationService {
                     })
                     .collect(Collectors.toList());
             recommendedCars.addAll(carsFromHistory);
+            end = System.currentTimeMillis();
+            logger.info("根据相似用户历史记录查找汽车信息耗时: {} 毫秒", end - start);
         } else {
             logger.info("未找到相似用户，无法生成推荐");
         }
 
         // 按推荐分数排序
+        start = System.currentTimeMillis();
         recommendedCars.sort((dto1, dto2) -> Double.compare(dto2.getRecommendationScore(), dto1.getRecommendationScore()));
-
+        end = System.currentTimeMillis();
+        logger.info("按推荐分数排序耗时: {} 毫秒", end - start);
         // 去除重复品牌
+        start = System.currentTimeMillis();
         Set<String> uniqueBrands = new HashSet<>();
         List<CarDetailsDto> Recommendations = new ArrayList<>();
         for (CarDetailsDto dto : recommendedCars) {
@@ -515,8 +576,12 @@ public class RecommendationServiceImpl implements RecommendationService {
                 }
             }
         }
+        end = System.currentTimeMillis();
+        logger.info("去除重复品牌耗时: {} 毫秒", end - start);
         logger.info("最终推荐结果数量：{}", Recommendations.size());
         logger.info("最终推荐结果：{}", Recommendations);
+        long endTime = System.currentTimeMillis();
+        logger.info("整个推荐过程耗时: {} 毫秒", endTime - startTime);
         return Recommendations;
     }
     private double normalizeScore(double rawScore) {
@@ -540,13 +605,17 @@ public class RecommendationServiceImpl implements RecommendationService {
             int maxPrice,
             int userId
     ) {
-
+        long startTime = System.currentTimeMillis();
         logger.info("开始生成隐式推荐，用户ID: {}, 最大价格: {}", userId, maxPrice);
 
+        List<ImCarDetailsDto> recommendations;
         try {
             // 1. 加载数据
+            long stepStartTime = System.currentTimeMillis();
             List<RecommendationHistory> allHistory = recommendationHistoryRepository.findAll();
             List<CarInfo> carInfos = carInfoRepository.findAll();
+            long stepEndTime = System.currentTimeMillis();
+            logger.info("加载数据耗时: {} 毫秒", stepEndTime - stepStartTime);
 
             if (allHistory.isEmpty() || carInfos.isEmpty()) {
                 logger.warn("数据不足，返回默认推荐");
@@ -554,41 +623,59 @@ public class RecommendationServiceImpl implements RecommendationService {
             }
 
             // 2. 构建正确的评分矩阵
+            stepStartTime = System.currentTimeMillis();
             RatingMatrixBuilder.RatingMatrix matrix = new RatingMatrixBuilder()
                     .setHistories(allHistory)
                     .setCarInfos(carInfos)
                     .build();
+            stepEndTime = System.currentTimeMillis();
+            logger.info("构建评分矩阵耗时: {} 毫秒", stepEndTime - stepStartTime);
 
             // 3. 检查目标用户是否存在
+            stepStartTime = System.currentTimeMillis();
             if (!matrix.userIndexMap.containsKey(userId)) {
                 logger.warn("用户ID {} 不存在于历史数据中", userId);
                 return ImgetDefaultRecommendations();
             }
+            stepEndTime = System.currentTimeMillis();
+            logger.info("检查目标用户是否存在耗时: {} 毫秒", stepEndTime - stepStartTime);
 
             // 4. 执行矩阵分解
+            stepStartTime = System.currentTimeMillis();
             MatrixFactorizationResult result = performALS(
                     matrix.matrix,
                     rank,
                     iterations,
                     lambda
             );
+            stepEndTime = System.currentTimeMillis();
+            logger.info("执行矩阵分解耗时: {} 毫秒", stepEndTime - stepStartTime);
 
             // 5. 获取目标用户的预测评分
+            stepStartTime = System.currentTimeMillis();
             int userIndex = matrix.userIndexMap.get(userId);
             double[] userPredictions = result.getUserFeatures().getRow(userIndex);
-
+            stepEndTime = System.currentTimeMillis();
+            logger.info("获取目标用户的预测评分耗时: {} 毫秒", stepEndTime - stepStartTime);
             // 6. 生成推荐结果
-            return generateRecommendations(
+            stepStartTime = System.currentTimeMillis();
+            recommendations = generateRecommendations(
                     userPredictions,
                     carInfos,
                     matrix.carIndexMap,
                     maxPrice
             );
+            stepEndTime = System.currentTimeMillis();
+            logger.info("生成推荐结果耗时: {} 毫秒", stepEndTime - stepStartTime);
+            long endTime = System.currentTimeMillis();
+            logger.info("整个推荐过程总耗时: {} 毫秒", endTime - startTime);
 
         } catch (Exception e) {
             logger.error("生成隐式推荐时发生错误", e);
             return ImgetDefaultRecommendations();
         }
+
+        return recommendations;
     }
 
     // 评分矩阵构建器

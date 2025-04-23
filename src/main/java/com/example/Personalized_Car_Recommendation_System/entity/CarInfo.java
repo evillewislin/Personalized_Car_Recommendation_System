@@ -2,7 +2,11 @@ package com.example.Personalized_Car_Recommendation_System.entity;
 
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
+@Setter
+@Getter
 @Entity
 @Table(name = "car_info")
 public class CarInfo {
@@ -23,44 +27,22 @@ public class CarInfo {
     @Column(name = "maxprice")
     private Integer maxPrice;
 
-    // getter 和 setter
-    public Integer getId() {
-        return id;
-    }
+    @Column(name = "energy_index")
+    private Integer energy_index;
 
-    public void setId(Integer id) {
-        this.id = id;
-    }
+    @Column(name = "safety_index")
+    private Integer safety_index;
 
-    public Integer getBrandId() {
-        return brandId;
-    }
+    @Column(name = "Intelligence_index")
+    private Integer Intelligence_index;
 
-    public void setBrandId(Integer brandId) {
-        this.brandId = brandId;
-    }
+    @Column(name = "comfort_index")
+    private Integer comfort_index;
 
-    public String getFullName() {
-        return fullName;
-    }
+    @Column(name = "appearance_index")
+    private Integer appearance_index;
 
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
+    @Column(name = "space_index")
+    private Integer space_index;
 
-    public Integer getMinPrice() {
-        return minPrice;
-    }
-
-    public void setMinPrice(Integer minPrice) {
-        this.minPrice = minPrice;
-    }
-
-    public Integer getMaxPrice() {
-        return maxPrice;
-    }
-
-    public void setMaxPrice(Integer maxPrice) {
-        this.maxPrice = maxPrice;
-    }
 }
