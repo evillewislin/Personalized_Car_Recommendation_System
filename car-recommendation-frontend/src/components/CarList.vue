@@ -1,9 +1,50 @@
 <template>
   <div>
     <h2>车型列表</h2>
-    <!-- 添加搜索框 -->
-    <el-input v-model="searchInput" placeholder="请输入搜索关键词" style="width: 300px; margin-right: 10px;"></el-input>
-    <el-button class="el-button" @click="handleSearch">搜索</el-button>
+    <!-- 搜索及筛选区域 -->
+    <div class="filter-container">
+      <el-input v-model="searchInput" placeholder="请输入搜索关键词" style="width: 200px; margin-right: 10px;"></el-input>
+
+      <!-- 价格范围筛选 -->
+      <div style="display: inline-flex; align-items: center; margin-right: 20px;">
+        <span>价格范围：</span>
+        <el-input
+            v-model.number="priceRange[0]"
+            type="number"
+            :min="0"
+            :max="priceRange[1]"
+            style="width: 80px; margin: 0 5px;"
+            placeholder="最低"
+        ></el-input>
+        <el-slider
+            v-model="priceRange"
+            :min="0"
+            :max="maxPrice || 100000"
+            :step="1000"
+            show-input
+            range
+            style="width: 200px; margin: 0 5px;"
+        ></el-slider>
+        <el-input
+            v-model.number="priceRange[1]"
+            type="number"
+            :min="priceRange[0]"
+            :max="maxPrice || 100000"
+            style="width: 80px;"
+            placeholder="最高"
+        ></el-input>
+      </div>
+
+      <!-- 排序方式 -->
+      <el-select v-model="sortBy" placeholder="选择排序方式" style="width: 180px; margin-right: 10px;">
+        <el-option label="价格升序" value="price_asc"></el-option>
+        <el-option label="价格降序" value="price_desc"></el-option>
+        <el-option label="评分升序" value="score_asc"></el-option>
+        <el-option label="评分降序" value="score_desc"></el-option>
+      </el-select>
+
+      <el-button class="el-button" @click="handleSearch">搜索</el-button>
+    </div>
 
     <el-table :data="cars" style="width: 100%" :empty-text="getEmptyText()">
       <el-table-column prop="name" label="品牌"></el-table-column>
@@ -61,6 +102,11 @@ export default defineComponent({
     const token = ref(localStorage.getItem('token'));
     const isCollecting = ref(false); // 用于控制收藏按钮的禁用状态
 
+    // 新增筛选排序参数
+    const priceRange = ref([0, 100000]); // 初始价格范围
+    const sortBy = ref(''); // 排序方式
+    const maxPrice = ref(0); // 用于记录最高价格（可根据后端返回动态调整）
+
     const fetchCars = async () => {
       token.value = localStorage.getItem('token');
       if (!token.value) {
@@ -77,7 +123,10 @@ export default defineComponent({
           params: {
             page: currentPage.value,
             pageSize: pageSize.value,
-            keyword: searchInput.value // 使用搜索框输入值作为关键词
+            keyword: searchInput.value, // 使用搜索框输入值作为关键词
+            minPrice: priceRange.value[0],
+            maxPrice: priceRange.value[1],
+            sort: sortBy.value
           },
         });
 
@@ -97,8 +146,9 @@ export default defineComponent({
             score: null // 初始化评分字段
           }));
           total.value = response.data.total; // 确保使用正确的总条数字段
+          maxPrice.value = response.data.maxPrice || 100000;
         } else {
-          ElMessage.error('获取车型列表失败:'+ response.statusText);
+          ElMessage.error('获取车型列表失败:' + response.statusText);
         }
       } catch (error) {
         console.error('请求失败:', error);
@@ -186,7 +236,10 @@ export default defineComponent({
       handleSizeChange,
       handleCurrentChange,
       getEmptyText,
-      isCollecting
+      isCollecting,
+      priceRange,
+      sortBy,
+      maxPrice
     };
   },
 });
@@ -205,6 +258,7 @@ export default defineComponent({
   display: flex;
   justify-content: flex-end;
 }
+
 /* 表格按钮样式 */
 .el-button {
   background-color: #1a73e8;
@@ -218,5 +272,22 @@ export default defineComponent({
 
 .el-button {
   background-color: rgba(64, 158, 255, 1);
+}
+
+.filter-container {
+  display: flex;
+  align-items: center;
+  margin: 10px 0 20px;
+}
+
+/* 滑动条输入框样式优化 */
+.el-input__inner {
+  width: 80px;
+  text-align: right;
+}
+
+/* 排序下拉菜单样式 */
+.el-select {
+  margin-right: 10px;
 }
 </style>
